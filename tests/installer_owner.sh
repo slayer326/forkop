@@ -105,6 +105,10 @@ grep -Fq 'ensure_bootstrap_package "ucode-mod-fs"' "$INSTALLER" ||
   fail "install.sh must bootstrap ucode-mod-fs before embedded ucode helper use"
 grep -Fq 'ensure_bootstrap_package "ucode-mod-uci"' "$INSTALLER" ||
   fail "install.sh must bootstrap ucode-mod-uci before embedded UCI helper use"
+grep -Fq '/usr/bin/forkop package_postinst' "$INSTALLER" ||
+  fail "installer must recover and validate the backend configuration after package installation"
+grep -Fq 'Forkop configuration recovery or validation failed' "$INSTALLER" ||
+  fail "installer must fail clearly when backend configuration recovery fails"
 
 grep -Fq '/usr/bin/forkop component_action sing_box "$action"' "$INSTALLER" ||
   fail "selected sing-box install must delegate to forkop component_action"

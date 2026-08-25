@@ -55,6 +55,10 @@ grep -Fq '/usr/bin/forkop package_prerm upgrade' "$BUILD_SCRIPT" ||
   fail "manual APK pre-upgrade must record and stop the running service"
 grep -Fq '/usr/bin/forkop package_postinst' "$BUILD_SCRIPT" ||
   fail "manual packages must restore a service that was running before upgrade"
+grep -Fq '/usr/share/forkop/defaults/forkop' "$FORKOP_MAKEFILE" ||
+  fail "forkop package must include a recovery copy of the default configuration"
+grep -Fq 'usr/share/forkop/defaults/forkop' "$BUILD_SCRIPT" ||
+  fail "manual packages must include a recovery copy of the default configuration"
 if grep -Fq '/usr/bin/forkop luci_postinst' "$BUILD_SCRIPT"; then
   fail "manual package hooks must let default_postinst run luci_postinst exactly once through uci-defaults"
 fi
@@ -103,6 +107,45 @@ grep -Fxq 'stop-with-route-table' "$WORK_DIR/stop-order.log" ||
   fail "package prerm must stop Forkop before removing its routing table name"
 [ ! -s "$WORK_DIR/rt_tables_stop_order" ] ||
   fail "package prerm must remove the routing table name after Forkop stops"
+
+printf '%s\n' "config settings 'settings'" >"$WORK_DIR/default-forkop"
+printf '%s\n' 'forkop.settings=settings' >"$WORK_DIR/config.state"
+FORKOP_PACKAGE_TEST_MODE=1 \
+FORKOP_CONFIG_PATH="$WORK_DIR/config-forkop" \
+FORKOP_DEFAULT_CONFIG_PATH="$WORK_DIR/default-forkop" \
+FORKOP_UCI_STATE_FILE="$WORK_DIR/config.state" \
+  ucode -L "$FORKOP_LIB" "$PACKAGE_UC" postinst
+cmp -s "$WORK_DIR/default-forkop" "$WORK_DIR/config-forkop" ||
+  fail "package postinst must restore a missing Forkop configuration from packaged defaults"
+
+printf '%s\n' "config settings 'custom'" >"$WORK_DIR/config-forkop"
+cp "$WORK_DIR/config-forkop" "$WORK_DIR/config-forkop.expected"
+FORKOP_PACKAGE_TEST_MODE=1 \
+FORKOP_CONFIG_PATH="$WORK_DIR/config-forkop" \
+FORKOP_DEFAULT_CONFIG_PATH="$WORK_DIR/default-forkop" \
+FORKOP_UCI_STATE_FILE="$WORK_DIR/config.state" \
+  ucode -L "$FORKOP_LIB" "$PACKAGE_UC" postinst
+cmp -s "$WORK_DIR/config-forkop.expected" "$WORK_DIR/config-forkop" ||
+  fail "package postinst must preserve an existing user configuration"
+
+if FORKOP_PACKAGE_TEST_MODE=1 \
+  FORKOP_CONFIG_PATH="$WORK_DIR/unrecoverable-config" \
+  FORKOP_DEFAULT_CONFIG_PATH="$WORK_DIR/missing-default-config" \
+  FORKOP_UCI_STATE_FILE="$WORK_DIR/config.state" \
+    ucode -L "$FORKOP_LIB" "$PACKAGE_UC" postinst 2>/dev/null; then
+  fail "package postinst must fail when a missing configuration cannot be restored"
+fi
+
+printf '%s\n' 'not-a-forkop-section=value' >"$WORK_DIR/invalid-config.state"
+if FORKOP_PACKAGE_TEST_MODE=1 \
+  FORKOP_CONFIG_PATH="$WORK_DIR/config-forkop" \
+  FORKOP_DEFAULT_CONFIG_PATH="$WORK_DIR/default-forkop" \
+  FORKOP_UCI_STATE_FILE="$WORK_DIR/invalid-config.state" \
+    ucode -L "$FORKOP_LIB" "$PACKAGE_UC" postinst 2>/dev/null; then
+  fail "package postinst must reject a configuration without the required settings section"
+fi
+cmp -s "$WORK_DIR/config-forkop.expected" "$WORK_DIR/config-forkop" ||
+  fail "package postinst must preserve an invalid non-empty user configuration"
 
 touch "$WORK_DIR/luci-indexcache.one" "$WORK_DIR/luci-indexcache.two"
 FORKOP_PACKAGE_TEST_MODE=1 FORKOP_LUCI_CACHE_GLOBS="$WORK_DIR/luci-indexcache*" \
@@ -173,6 +216,9 @@ FORKOP_RT_TABLES="$WORK_DIR/rt_tables_upgrade" \
 FORKOP_PACKAGE_TEST_MODE=1 \
 FORKOP_INIT="$WORK_DIR/upgrade-init" \
 FORKOP_START_LOG="$WORK_DIR/upgrade-start.log" \
+FORKOP_CONFIG_PATH="$WORK_DIR/config-forkop" \
+FORKOP_DEFAULT_CONFIG_PATH="$WORK_DIR/default-forkop" \
+FORKOP_UCI_STATE_FILE="$WORK_DIR/config.state" \
   ucode -L "$FORKOP_LIB" "$PACKAGE_UC" postinst
 grep -Fxq start "$WORK_DIR/upgrade-start.log" ||
   fail "package postinst must restart a service that was running before upgrade"
