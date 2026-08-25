@@ -34,7 +34,7 @@ let state = {
         descriptions: { "🇳🇱 Amsterdam": "Upstream Tube" }
     },
     urltestGroups: {
-        Automatic: { outbounds: [ "proxy" ] }
+        Automatic: { outbounds: [ "proxy", "🇳🇱 Amsterdam" ] }
     }
 };
 subscription.resolve_urltest_profile_aliases(state);

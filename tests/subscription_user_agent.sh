@@ -26,8 +26,9 @@ assert_file() {
 }
 
 default_ua="sing-box/1.12.0"
+forkop_ua="Happ/1.1.0"
 default_candidates="$(printf '%s\n%s\n%s\n%s\n%s\n%s\n%s' \
-  Happ/2.8.0 \
+  "$forkop_ua" \
   "$default_ua" \
   Happ \
   v2rayN \
@@ -35,7 +36,7 @@ default_candidates="$(printf '%s\n%s\n%s\n%s\n%s\n%s\n%s' \
   Mihomo \
   Clash.Meta)"
 preferred_candidates="$(printf '%s\n%s\n%s\n%s\n%s\n%s\n%s' \
-  Happ/2.8.0 \
+  "$forkop_ua" \
   Mihomo \
   "$default_ua" \
   Happ \
@@ -44,7 +45,7 @@ preferred_candidates="$(printf '%s\n%s\n%s\n%s\n%s\n%s\n%s' \
   Clash.Meta)"
 
 cache_ucode() {
-  ucode -L "$FORKOP_LIB" "$CACHE_UC" "$@"
+  FORKOP_VERSION=1.1.0 ucode -L "$FORKOP_LIB" "$CACHE_UC" "$@"
 }
 
 cache_ucode write-user-agent-candidates "$WORK_DIR/default.txt" "" "" "$default_ua"
@@ -63,6 +64,8 @@ cache_ucode user-agent-matches-config "" "$default_ua" "$default_ua" >/dev/null 
   fail "default UA should match automatic config"
 cache_ucode user-agent-matches-config "" Mihomo "$default_ua" >/dev/null ||
   fail "known fallback UA should match automatic config"
+cache_ucode user-agent-matches-config "" Happ/2.8.0 "$default_ua" >/dev/null ||
+  fail "legacy Happ compatibility UA should keep existing caches usable"
 if cache_ucode user-agent-matches-config "" "Unknown" "$default_ua" >/dev/null 2>&1; then
   fail "unknown cached UA should not match automatic config"
 fi
