@@ -21,6 +21,22 @@ for (const option of ["russia_inside", "russia_outside", "ukraine_inside"]) {
   }
 }
 
+for (const option of ["blizzard", "valve", "hetzner", "anthropic", "google"]) {
+  if (!main.includes(`${option}:`)) {
+    fail(`${option} must be available in built-in rule sets #2`);
+  }
+}
+
+for (const required of [
+  '`${_("Built-in rule sets")} #2`',
+  "Greeg0ry/b4geoip-forkop/main/srs/",
+  "SECONDARY_RULESET_OPTIONS",
+]) {
+  if (!section.includes(required)) {
+    fail(`secondary built-in rule set integration is missing: ${required}`);
+  }
+}
+
 for (const removed of [
   "REGIONAL_OPTIONS",
   "builtInRulesetOption.onchange",

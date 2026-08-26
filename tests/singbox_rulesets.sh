@@ -32,6 +32,9 @@ assert_eq domains \
 assert_eq subnets \
   "$(ucode -L "$FORKOP_LIB" "$RULESETS_UC" kind-from-reference-hint '/tmp/geoip-cidr.json')" \
   "subnet ruleset hint"
+assert_eq subnets \
+  "$(ucode -L "$FORKOP_LIB" "$RULESETS_UC" kind-from-reference-hint 'https://raw.githubusercontent.com/Greeg0ry/b4geoip-forkop/main/srs/valve.srs')" \
+  "b4geoip ruleset hint"
 assert_eq unknown \
   "$(ucode -L "$FORKOP_LIB" "$RULESETS_UC" kind-from-reference-hint '/tmp/custom.srs')" \
   "unknown ruleset hint"

@@ -145,6 +145,10 @@ if grep -Fq 'installer_config_migration_path()' "$INSTALLER"; then
 fi
 grep -Fq 'ucode -L /usr/lib/forkop /usr/lib/forkop/config/migration.uc migrate-podkop' "$INSTALLER" ||
   fail "install.sh must delegate the legacy transition to the installed migration module"
+grep -Fq 'ucode -L /usr/lib/forkop /usr/lib/forkop/config/validator.uc validate-runtime' "$INSTALLER" ||
+  fail "installer must validate the installed configuration after legacy migration"
+grep -Fq 'ucode -L /usr/lib/forkop /usr/lib/forkop/config/validator.uc check-requirements' "$INSTALLER" ||
+  fail "installer must verify that migrated connection rules have a usable source"
 
 if grep -n -E 'restore_forkop_dnsmasq_failsafe|remember_service_state|stop_conflicting_services|deactivate_original_forkop_if_present|remove_conflicting_dns_proxy|pkg_remove_if_installed|pkg_remove_matching_prefix|pkg_list_installed_names' "$INSTALLER" >/dev/null 2>&1; then
   fail "install.sh must not keep shell cleanup/remove service owners"
@@ -163,13 +167,15 @@ awk '
   in_main && /cleanup_legacy_installation/ { cleanup = NR }
   in_main && /install_backend_package/ { backend = NR }
   in_main && /migrate_legacy_configuration/ { migration = NR }
+  in_main && /validate_installed_configuration/ { validation = NR }
   in_main && /install_ui_packages/ { ui = NR }
   in_main && /install_selected_sing_box/ { sing_box = NR }
   in_main && /^[[:space:]]*\}/ { in_main = 0 }
   END {
     if (detect > 0 && i18n > detect && select_sing_box > i18n &&
         update > select_sing_box && ensure > update && cleanup > ensure &&
-        backend > cleanup && migration > backend && ui > migration && sing_box > ui)
+        backend > cleanup && migration > backend && ui > migration &&
+        sing_box > ui && validation > sing_box)
       exit 0
     exit 1
   }
@@ -601,5 +607,24 @@ grep -Fxq 'enable' "$WORK_DIR/init.log" ||
   fail "installer post-install must restore enabled state through ucode owner"
 grep -Fxq 'start' "$WORK_DIR/init.log" ||
   fail "installer post-install must restore running state through ucode owner"
+
+: >"$WORK_DIR/init.log"
+FORKOP_INSTALLER_INIT="$WORK_DIR/forkop-init" \
+FORKOP_INSTALLER_RPCD_INIT="$WORK_DIR/missing-rpcd" \
+FORKOP_INSTALLER_LUCI_CACHE_GLOBS="$WORK_DIR/missing-luci-indexcache*" \
+FORKOP_INSTALLER_LATEST_VERSION_CACHE="$WORK_DIR/missing-latest.cache" \
+FORKOP_INSTALLER_SYSTEM_INFO_CACHE="$WORK_DIR/missing-system-info.json" \
+FORKOP_INSTALLER_SERVER_COUNTRY_CACHE="$WORK_DIR/missing-server-country.json" \
+FORKOP_INSTALLER_SING_BOX_VERSION_CACHE="$WORK_DIR/missing-sing-box-version" \
+FORKOP_INSTALLER_TMP_SYSTEM_INFO_CACHE="$WORK_DIR/missing-tmp-system-info.json" \
+FORKOP_WAS_ENABLED=1 \
+FORKOP_WAS_RUNNING=1 \
+FORKOP_CONFIG_READY=0 \
+FORKOP_INSTALLER_INIT_LOG="$WORK_DIR/init.log" \
+  ucode "$helper" installer-post-install
+
+if grep -Eq '^(enable|start|restart)$' "$WORK_DIR/init.log"; then
+  fail "installer must not enable or start Forkop when configuration validation failed"
+fi
 
 printf 'installer ownership checks passed\n'

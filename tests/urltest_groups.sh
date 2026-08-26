@@ -722,6 +722,87 @@ if (names["Native A"] == null || names["Detour Only"] == null)
     die("UI outbound metadata should include all native leaf outbound names\n");
 ' "$singbox_metadata" || fail "native UI outbound metadata filtering"
 
+cat >"$WORK_DIR/aliased-urltest.json" <<'JSON'
+{
+  "outbounds": [
+    {
+      "type": "urltest",
+      "tag": "Automatic",
+      "outbounds": [ "proxy-2" ]
+    },
+    {
+      "type": "vless",
+      "tag": "proxy-2",
+      "server": "tallinn.example",
+      "server_port": 443,
+      "uuid": "00000000-0000-4000-8000-000000000006"
+    },
+    {
+      "type": "vless",
+      "tag": "Tallinn",
+      "server": "tallinn.example",
+      "server_port": 443,
+      "uuid": "00000000-0000-4000-8000-000000000006"
+    },
+    {
+      "type": "vless",
+      "tag": "Amsterdam",
+      "server": "amsterdam.example",
+      "server_port": 443,
+      "uuid": "00000000-0000-4000-8000-000000000007"
+    }
+  ]
+}
+JSON
+
+aliased_urltest_normalized="$WORK_DIR/aliased-urltest-normalized.json"
+normalize_subscription "$WORK_DIR/aliased-urltest.json" "$aliased_urltest_normalized"
+rm -rf "$WORK_DIR/subscriptions"
+prepare_subscription_cache proxy 1 "https://aliased.example/sub" "$aliased_urltest_normalized"
+
+cat >"$WORK_DIR/aliased-urltest-fixture.json" <<'JSON'
+{
+  "settings": { ".name": "settings", ".type": "settings" },
+  "section": [
+    {
+      ".name": "proxy",
+      ".type": "section",
+      "enabled": "1",
+      "action": "proxy",
+      "subscription_urls": [ "https://aliased.example/sub" ]
+    }
+  ],
+  "urltest": [
+    {
+      ".name": "ut_exclude_tallinn",
+      ".type": "urltest",
+      "section": "proxy",
+      "name": "Fastest",
+      "filter_mode": "exclude",
+      "exclude_outbounds": [ "Tallinn" ]
+    }
+  ]
+}
+JSON
+
+aliased_urltest_config="$WORK_DIR/aliased-urltest-config.json"
+generate_config "$WORK_DIR/aliased-urltest-fixture.json" "$aliased_urltest_config"
+ucode -e '
+let fs = require("fs");
+let config = json(fs.readfile(ARGV[0]));
+let group = null;
+for (let outbound in config.outbounds || [])
+    if (outbound && outbound.tag == "proxy-urltest-ut_exclude_tallinn-out")
+        group = outbound;
+if (!group)
+    die("manual URLTest group is missing\n");
+for (let tag in group.outbounds || [])
+    if (tag == "proxy-2" || tag == "Tallinn")
+        die("subscription URLTest alias bypassed the explicit Tallinn exclusion\n");
+if (length(group.outbounds || []) != 1 || group.outbounds[0] != "Amsterdam")
+    die("manual URLTest exclusion produced unexpected membership\n");
+' "$aliased_urltest_config" || fail "manual URLTest excludes subscription profile aliases"
+
 cat >"$WORK_DIR/country-is-fixture.json" <<'JSON'
 {
   "settings": { ".name": "settings", ".type": "settings" },
