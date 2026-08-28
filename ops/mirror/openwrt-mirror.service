@@ -1,5 +1,5 @@
 [Unit]
-Description=Synchronize selected OpenWrt 25+ repositories
+Description=Synchronize all available OpenWrt 25+ repositories
 Wants=network-online.target
 After=network-online.target
 

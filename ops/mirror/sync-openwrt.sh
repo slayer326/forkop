@@ -5,7 +5,9 @@ UPSTREAM="${OPENWRT_UPSTREAM:-https://downloads.openwrt.org}"
 MIRROR_ROOT="${MIRROR_ROOT:-/srv/mirror/public/openwrt}"
 ARCH="${OPENWRT_ARCH:-aarch64_cortex-a53}"
 TARGET="${OPENWRT_TARGET:-mediatek/filogic}"
-RELEASES_TO_KEEP="${OPENWRT_RELEASES_TO_KEEP:-2}"
+# "all" keeps every available patch release. This is required because routers
+# remain pinned to the exact OpenWrt release and kernel ABI they were built for.
+RELEASES_TO_KEEP="${OPENWRT_RELEASES_TO_KEEP:-all}"
 LOCK_FILE="${OPENWRT_LOCK_FILE:-/run/lock/openwrt-mirror.lock}"
 
 exec 9>"$LOCK_FILE"
@@ -44,6 +46,16 @@ discover_releases() {
 
 select_releases() {
     local releases="$1"
+
+    if [[ "$RELEASES_TO_KEEP" == "all" ]]; then
+        printf '%s\n' "$releases"
+        return 0
+    fi
+
+    [[ "$RELEASES_TO_KEEP" =~ ^[1-9][0-9]*$ ]] || {
+        echo "OPENWRT_RELEASES_TO_KEEP must be 'all' or a positive integer" >&2
+        return 1
+    }
 
     printf '%s\n' "$releases" |
         awk -F. -v keep="$RELEASES_TO_KEEP" '
