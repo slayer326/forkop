@@ -47,6 +47,12 @@ assert_eq binary \
 assert_eq binary \
   "$(ucode -L "$FORKOP_LIB" "$RULESETS_UC" remote-format 'https://example.com/rules.unknown')" \
   "unknown remote ruleset format"
+assert_eq 'http://mirror.example/forkop/lists/rulesets/community/youtube.srs' \
+  "$(SRS_MAIN_URL='http://mirror.example/forkop/lists/rulesets/community' ucode -L "$FORKOP_LIB" "$RULESETS_UC" community-url youtube)" \
+  "mirrored community ruleset URL"
+assert_eq 'http://mirror.example/forkop/lists/rulesets/github.srs' \
+  "$(SRS_GITHUB_URL='http://mirror.example/forkop/lists/rulesets/github.srs' ucode -L "$FORKOP_LIB" "$RULESETS_UC" community-url github)" \
+  "mirrored GitHub ruleset URL"
 
 ucode -L "$FORKOP_LIB" -e 'let rulesets = require("singbox.rulesets"); if (rulesets.kind_from_reference_hint("geoip") != "subnets") exit(1);'
 

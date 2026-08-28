@@ -1,0 +1,11 @@
+[Unit]
+Description=Synchronize selected OpenWrt 25+ repositories
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sync-openwrt-mirror
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

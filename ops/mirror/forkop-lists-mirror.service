@@ -1,0 +1,11 @@
+[Unit]
+Description=Synchronize Forkop built-in lists
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sync-forkop-lists
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

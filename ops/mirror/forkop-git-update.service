@@ -1,0 +1,11 @@
+[Unit]
+Description=Build and publish the latest mirror-aware Forkop GitHub release
+Wants=network-online.target
+After=network-online.target openwrt-mirror.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/update-forkop-from-git
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
