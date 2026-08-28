@@ -86,10 +86,10 @@ assert_eq "0 0 * * *" \
 assert_eq "*/30 * * * * /usr/bin/forkop list_update_if_due # list" \
   "$(updates_ucode list-update-cron-job 30m /usr/bin/forkop '# list')" \
   "list update cron job"
-assert_eq $'https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Subnets/IPv4/telegram.lst\nhttps://raw.githubusercontent.com/itdoginfo/allow-domains/main/Subnets/IPv6/telegram.lst' \
+assert_eq $'https://mirror.51343.ru/forkop/lists/allow-domains/Subnets/IPv4/telegram.lst\nhttps://mirror.51343.ru/forkop/lists/allow-domains/Subnets/IPv6/telegram.lst' \
   "$(updates_ucode builtin-subnet-urls telegram)" \
   "Telegram built-in subnet families"
-assert_eq 'https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Subnets/IPv4/roblox.lst' \
+assert_eq 'https://mirror.51343.ru/forkop/lists/allow-domains/Subnets/IPv4/roblox.lst' \
   "$(updates_ucode builtin-subnet-urls roblox)" \
   "Roblox available subnet family"
 assert_eq 'https://cdn.jsdelivr.net/gh/itdoginfo/allow-domains@main/Subnets/IPv4/telegram.lst' \

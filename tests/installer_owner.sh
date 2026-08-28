@@ -122,9 +122,10 @@ grep -Fq 'singbox extended (если нужен xhttp)' "$INSTALLER" ||
   fail "extended sing-box choice must explain that it is needed for xhttp"
 grep -Fq 'Русский пакет интерфейса будет установлен автоматически.' "$INSTALLER" ||
   fail "Russian LuCI language must enable the Russian interface package without a prompt"
-if grep -n -E 'installer_text (sing_box_tiny|sing_box_extended_compressed)' "$INSTALLER" >/dev/null; then
-  fail "fresh sing-box build choice must contain only stable and extended"
-fi
+grep -Fq 'SING_BOX_INSTALL_VARIANT="tiny"' "$INSTALLER" ||
+  fail "fresh non-interactive installation must default to sing-box-tiny"
+grep -Fq 'printf '\''  1) %s\\n'\'' "$(installer_text sing_box_tiny)"' "$INSTALLER" ||
+  fail "fresh interactive installation must offer sing-box-tiny first"
 
 grep -Fq 'run_args([ bin_path, "restore_dnsmasq" ])' "$INSTALLER" ||
   fail "installer dnsmasq restore must prefer the active backend entrypoint"

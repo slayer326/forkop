@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MIGRATION="$ROOT_DIR/forkop/files/usr/lib/service/mirror-migration.sh"
+MIGRATION="$ROOT_DIR/forkop/files/usr/share/forkop/mirror-migration.sh"
 WORK_DIR="$(mktemp -d)"
 
 cleanup() {

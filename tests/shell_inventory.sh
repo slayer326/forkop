@@ -44,7 +44,8 @@ shell_scripts="$(
 expected_shell_scripts="$(
   printf '%s\n' \
     'luci-app-forkop/root/etc/uci-defaults/50_luci-forkop' \
-    'forkop/files/etc/init.d/forkop' |
+    'forkop/files/etc/init.d/forkop' \
+    'forkop/files/usr/share/forkop/mirror-migration.sh' |
     LC_ALL=C sort
 )"
 
