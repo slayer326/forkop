@@ -1,0 +1,20 @@
+[Unit]
+Description=Forkop Zapret-Manager allowlisted caching proxy
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/zapret-manager-cache
+Restart=on-failure
+RestartSec=5
+User=www-data
+Group=www-data
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/mirror/cache/zapret-manager
+
+[Install]
+WantedBy=multi-user.target
