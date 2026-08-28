@@ -52,7 +52,7 @@ FORKOP_MIGRATION_APK_BIN="$WORK_DIR/bin/apk" \
 FORKOP_MIGRATION_CURL_BIN="$WORK_DIR/bin/curl" \
 FORKOP_MIGRATION_UCI_BIN="$WORK_DIR/bin/uci" \
 MIGRATION_UCI_LOG="$WORK_DIR/uci.log" \
-  "$MIGRATION"
+  sh "$MIGRATION"
 
 if grep -Eq 'archive\.openwrt\.org|ftp\.snt\.utwente\.nl|downloads\.openwrt\.org' \
   "$WORK_DIR/root/etc/apk/repositories" \
