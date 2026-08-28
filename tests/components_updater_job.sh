@@ -395,7 +395,7 @@ JSON_VALUE="$status_json" node - <<'NODE'
 const value = JSON.parse(process.env.JSON_VALUE);
 if (value.running !== false || value.success !== true || value.component !== "sing_box" ||
     value.action !== "check_update" || value.message !== "done" || value.exit_code !== 0) {
-  console.error("component action async/status state mismatch");
+  console.error("component action async/status state mismatch: " + JSON.stringify(value));
   process.exit(1);
 }
 NODE
@@ -427,7 +427,7 @@ JSON_VALUE="$status_json" node - <<'NODE'
 const value = JSON.parse(process.env.JSON_VALUE);
 if (value.running !== false || value.success !== true || value.component !== "sing_box" ||
     value.action !== "check_update" || value.message !== "done" || value.exit_code !== 0) {
-  console.error("component action public sing-box alias state mismatch");
+  console.error("component action public sing-box alias state mismatch: " + JSON.stringify(value));
   process.exit(1);
 }
 NODE
