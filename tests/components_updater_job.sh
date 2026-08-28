@@ -386,7 +386,7 @@ for _ in 1 2 3 4 5; do
     ucode -L "$FORKOP_LIB" "$UPDATES_UC" component-action-status "$job_id")"
   JSON_VALUE="$status_json" node - <<'NODE' && break || true
 const value = JSON.parse(process.env.JSON_VALUE);
-process.exit(value.running === false ? 0 : 1);
+process.exit(value.running === false && value.success === true ? 0 : 1);
 NODE
   sleep 1
 done
@@ -418,7 +418,7 @@ for _ in 1 2 3 4 5; do
     ucode -L "$FORKOP_LIB" "$UPDATES_UC" component-action-status "$job_id")"
   JSON_VALUE="$status_json" node - <<'NODE' && break || true
 const value = JSON.parse(process.env.JSON_VALUE);
-process.exit(value.running === false ? 0 : 1);
+process.exit(value.running === false && value.success === true ? 0 : 1);
 NODE
   sleep 1
 done
