@@ -15,6 +15,10 @@ grep -Fq 'configure_apk_mirror' "$INSTALLER" || {
     echo "installer does not configure mirrored OpenWrt feeds" >&2
     exit 1
 }
+grep -Fq 'for repository_file in /etc/apk/repositories "$distfeeds"' "$INSTALLER" || {
+    echo "installer does not redirect both APK repository locations" >&2
+    exit 1
+}
 grep -Fq 'SING_BOX_INSTALL_VARIANT="tiny"' "$INSTALLER" || {
     echo "installer does not default to sing-box-tiny" >&2
     exit 1
