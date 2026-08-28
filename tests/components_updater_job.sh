@@ -359,6 +359,7 @@ cp "$UPDATES_UC" "$fake_lib/components/updates.uc"
 printf 'return {};\n' >"$fake_lib/config/connections.uc"
 cp "$FORKOP_LIB/core/uci.uc" "$fake_lib/core/uci.uc"
 cp "$FORKOP_LIB/core/common.uc" "$fake_lib/core/common.uc"
+cp "$FORKOP_LIB/core/constants.uc" "$fake_lib/core/constants.uc"
 cat >"$fake_lib/components/action.uc" <<'UCODE'
 #!/usr/bin/env ucode
 if ((ARGV[0] || "") == "component-action") {
