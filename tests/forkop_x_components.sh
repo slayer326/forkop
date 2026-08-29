@@ -35,6 +35,11 @@ grep -Fq "key: 'zapretManagerRemove'" "$UPDATES_TS" ||
   fail "Zapret-Manager remove button is missing"
 grep -Fq 'function remove_zapret_manager(action)' "$ACTION_UC" ||
   fail "Zapret-Manager safe removal action is missing"
+grep -Fq 'clear_version_caches();' "$ACTION_UC" ||
+  fail "component installation must invalidate system-info caches"
+if grep -Fq 'github_probe(proxy_address)' "$ROOT_DIR/forkop/files/usr/lib/components/updates.uc"; then
+  fail "list updates must not wait for an unrelated GitHub availability probe"
+fi
 grep -Fq 'grid-template-columns: repeat(2, minmax(0, 1fr))' \
   "$ROOT_DIR/fe-app-forkop/src/forkop/tabs/updates/styles.ts" ||
   fail "component columns must have equal fixed widths"
