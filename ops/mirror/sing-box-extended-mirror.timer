@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically synchronize sing-box-extended OpenWrt packages
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=6h
+RandomizedDelaySec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

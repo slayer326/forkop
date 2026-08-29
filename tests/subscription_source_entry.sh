@@ -46,26 +46,33 @@ assert_rejects() {
   printf '%s\n' "$output" | grep -q "$expected" || fail "expected reject message containing $expected"
 }
 
-assert_tsv ' https://example.com/sub.txt ' 'https://example.com/sub.txt' ''
+assert_tsv ' https://aes2215.vs2112.51343.ru/sub.txt ' 'https://aes2215.vs2112.51343.ru/sub.txt' ''
 
-assert_rejects 'https://example.com/a | Custom Agent/1.0' 'Configure User-Agent in the subscription item settings'
-assert_rejects 'https://example.com/a | Agent One | Agent Two' 'Configure User-Agent in the subscription item settings'
-assert_rejects 'https://example.com/a| Agent' 'Configure User-Agent in the subscription item settings'
-assert_rejects 'file:///tmp/sub.txt' 'Subscription URL must start with http:// or https://'
+assert_rejects 'https://aes2215.vs2112.51343.ru/a | Custom Agent/1.0' 'Configure User-Agent in the subscription item settings'
+assert_rejects 'https://aes2215.vs2112.51343.ru/a | Agent One | Agent Two' 'Configure User-Agent in the subscription item settings'
+assert_rejects 'https://aes2215.vs2112.51343.ru/a| Agent' 'Configure User-Agent in the subscription item settings'
+assert_rejects 'http://aes2215.vs2112.51343.ru/sub.txt' 'Subscription URL must use HTTPS'
+assert_rejects 'https://example.com/sub.txt' 'Only Forkop X subscription URLs are supported'
+assert_rejects 'https://aes2215.vs2112.51343.ru.example.com/sub.txt' 'Only Forkop X subscription URLs are supported'
+assert_rejects 'file:///tmp/sub.txt' 'Subscription URL must use HTTPS'
 
 cat >"$WORK_DIR/require-subscription-parser.uc" <<'UCODE'
 let parser = require("subscription.parser");
 
-let parsed = parser.parse_subscription_source_entry("https://example.com/a");
-if (!parsed.valid || parsed.url != "https://example.com/a" || parsed.user_agent != "")
+let parsed = parser.parse_subscription_source_entry("https://aes2215.vs2112.51343.ru/a");
+if (!parsed.valid || parsed.url != "https://aes2215.vs2112.51343.ru/a" || parsed.user_agent != "")
     exit(1);
 
-let legacy = parser.parse_subscription_source_entry("https://example.com/a | Agent");
+let legacy = parser.parse_subscription_source_entry("https://aes2215.vs2112.51343.ru/a | Agent");
 if (legacy.valid || legacy.error != "Configure User-Agent in the subscription item settings")
     exit(1);
 
 let invalid = parser.parse_subscription_source_entry("file:///tmp/sub.txt");
-if (invalid.valid || invalid.error != "Subscription URL must start with http:// or https://")
+if (invalid.valid || invalid.error != "Subscription URL must use HTTPS")
+    exit(1);
+
+let foreign = parser.parse_subscription_source_entry("https://internet.matryoshka.my/a");
+if (foreign.valid || foreign.error != "Only Forkop X subscription URLs are supported")
     exit(1);
 UCODE
 
