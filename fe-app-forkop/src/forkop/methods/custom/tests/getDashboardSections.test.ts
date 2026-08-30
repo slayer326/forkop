@@ -77,7 +77,7 @@ function priorityGroup(
     '.name': id,
     '.type': 'priority_group',
     section: 'main',
-    name: 'Codex Priority',
+    name: 'Priority group',
     health_url: 'https://priority.example/204',
     active_check_interval: '5s',
     check_timeout: '2s',
@@ -495,7 +495,7 @@ describe('getDashboardSections', () => {
         },
         priorityGroups: {
           'main-priority-pg_main-out': {
-            displayName: 'Codex Priority',
+            displayName: 'Priority group',
             health_url: 'https://priority.example/204',
             active_check_interval: '5s',
             check_timeout: '2s',
@@ -531,7 +531,7 @@ describe('getDashboardSections', () => {
 
     expect(result.success).toBe(true);
     expect(priority).toMatchObject({
-      displayName: 'Codex Priority',
+      displayName: 'Priority group',
       type: 'Priority',
       selected: true,
     });
