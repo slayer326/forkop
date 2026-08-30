@@ -105,6 +105,9 @@ reload_stable_min_age_line="$(awk -v start="$sing_box_reload_line" 'NR > start &
   fail "service/lifecycle.uc must reload sing-box through service/state.uc"
 [ -n "$reload_stable_min_age_line" ] ||
   fail "service/lifecycle.uc must use the dedicated sing-box start stability window after sing-box reload"
+automatic_latency_start_line="$(grep -nF 'module_background(DIAGNOSTICS_UC, [ "automatic-latency-test" ])' "$LIFECYCLE_UC" | tail -n1 | cut -d: -f1)"
+[ -n "$automatic_latency_start_line" ] && [ "$automatic_latency_start_line" -gt "$reload_stable_min_age_line" ] ||
+  fail "service/lifecycle.uc must start automatic latency tests after a stable sing-box reload"
 grep -Fq 'Reload verification failed after sing-box was reloaded; stopping Forkop runtime' "$LIFECYCLE_UC" ||
   fail "service/lifecycle.uc must fail reload when sing-box does not stay stable"
 grep -Fq 'Reload runtime restart verification failed after Forkop was started; rolling back DNS changes' "$LIFECYCLE_UC" ||

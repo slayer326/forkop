@@ -50,6 +50,8 @@ assert_tsv ' https://aes2215.vs2112.51343.ru/sub.txt ' 'https://aes2215.vs2112.5
 assert_tsv ' https://sub.flintnet.pro/b5_Ymcw6Rxo8vptW ' 'https://sub.flintnet.pro/b5_Ymcw6Rxo8vptW' ''
 grep -Fq '"sub.flintnet.pro"' "$ROOT_DIR/luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js" ||
   fail "LuCI subscription validation must allow Flintnet"
+grep -Fq 'flintnetSubscriptionUrl(value) ? "0" : "1"' "$ROOT_DIR/luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js" ||
+  fail "LuCI must disable URLTest group imports by default for Flintnet"
 
 assert_rejects 'https://aes2215.vs2112.51343.ru/a | Custom Agent/1.0' 'Configure User-Agent in the subscription item settings'
 assert_rejects 'https://aes2215.vs2112.51343.ru/a | Agent One | Agent Two' 'Configure User-Agent in the subscription item settings'

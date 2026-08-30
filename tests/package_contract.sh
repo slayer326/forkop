@@ -104,6 +104,8 @@ grep -Fq "list applied_migrations 'enable_component_checks'" "$FORKOP_CONFIG" ||
   fail "new installations must mark the component check migration as applied"
 grep -Fq "list applied_migrations 'http_connection_urls'" "$FORKOP_CONFIG" ||
   fail "new installations must mark the HTTP connection URL migration as applied"
+grep -Fq "list applied_migrations 'flintnet_urltest_default'" "$FORKOP_CONFIG" ||
+  fail "new installations must mark the Flintnet URLTest migration as applied"
 grep -Fq '/usr/lib/forkop/config/migration.uc migrate' "$FORKOP_MAKEFILE" ||
   fail "OpenWrt package postinst must run configuration migrations"
 [ "$(grep -Fc '/usr/lib/forkop/config/migration.uc migrate' "$BUILD_SCRIPT")" -ge 3 ] ||

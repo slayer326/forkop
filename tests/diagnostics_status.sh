@@ -179,6 +179,22 @@ for index in "${!expected_latency_paths[@]}"; do
     fail "bulk latency must test ordinary proxies before URLTest groups"
 done
 
+FAKE_CURL_LOG="$WORK_DIR/fake-curl-automatic-latencies.log" \
+FORKOP_UCI_STATE_FILE="$uci_state" \
+FORKOP_LIB="$FORKOP_LIB" \
+FORKOP_AUTOMATIC_LATENCY_TEST_LOCK_DIR="$WORK_DIR/automatic-latency-test.lock" \
+PATH="$fake_bin:$PATH" \
+  ucode -L "$FORKOP_LIB" "$DIAGNOSTICS_RUNTIME" automatic-latency-test >/dev/null ||
+  fail "automatic latency test should test available proxy outbounds"
+grep -Fq '/proxies/proxy-a/delay' "$WORK_DIR/fake-curl-automatic-latencies.log" ||
+  fail "automatic latency test must include ordinary proxy outbounds"
+grep -Fq '/proxies/proxy-b/delay' "$WORK_DIR/fake-curl-automatic-latencies.log" ||
+  fail "automatic latency test must include every ordinary proxy outbound"
+if grep -Fq '/group/urltest/delay' "$WORK_DIR/fake-curl-automatic-latencies.log" ||
+  grep -Fq '/group/provider-urltest/delay' "$WORK_DIR/fake-curl-automatic-latencies.log"; then
+  fail "automatic latency test must leave URLTest groups to their own scheduler"
+fi
+
 firewall_rules="$(cat <<'EOF'
 firewall.@rule[0]=rule
 firewall.@rule[0].enabled='1'
