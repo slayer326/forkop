@@ -47,13 +47,16 @@ assert_rejects() {
 }
 
 assert_tsv ' https://aes2215.vs2112.51343.ru/sub.txt ' 'https://aes2215.vs2112.51343.ru/sub.txt' ''
+assert_tsv ' https://sub.flintnet.pro/b5_Ymcw6Rxo8vptW ' 'https://sub.flintnet.pro/b5_Ymcw6Rxo8vptW' ''
+grep -Fq '"sub.flintnet.pro"' "$ROOT_DIR/luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js" ||
+  fail "LuCI subscription validation must allow Flintnet"
 
 assert_rejects 'https://aes2215.vs2112.51343.ru/a | Custom Agent/1.0' 'Configure User-Agent in the subscription item settings'
 assert_rejects 'https://aes2215.vs2112.51343.ru/a | Agent One | Agent Two' 'Configure User-Agent in the subscription item settings'
 assert_rejects 'https://aes2215.vs2112.51343.ru/a| Agent' 'Configure User-Agent in the subscription item settings'
 assert_rejects 'http://aes2215.vs2112.51343.ru/sub.txt' 'Subscription URL must use HTTPS'
-assert_rejects 'https://example.com/sub.txt' 'Only Forkop X subscription URLs are supported'
-assert_rejects 'https://aes2215.vs2112.51343.ru.example.com/sub.txt' 'Only Forkop X subscription URLs are supported'
+assert_rejects 'https://example.com/sub.txt' 'This subscription provider is not supported'
+assert_rejects 'https://aes2215.vs2112.51343.ru.example.com/sub.txt' 'This subscription provider is not supported'
 assert_rejects 'file:///tmp/sub.txt' 'Subscription URL must use HTTPS'
 
 cat >"$WORK_DIR/require-subscription-parser.uc" <<'UCODE'
@@ -71,8 +74,12 @@ let invalid = parser.parse_subscription_source_entry("file:///tmp/sub.txt");
 if (invalid.valid || invalid.error != "Subscription URL must use HTTPS")
     exit(1);
 
+let flintnet = parser.parse_subscription_source_entry("https://sub.flintnet.pro/b5_Ymcw6Rxo8vptW");
+if (!flintnet.valid || flintnet.url != "https://sub.flintnet.pro/b5_Ymcw6Rxo8vptW")
+    exit(1);
+
 let foreign = parser.parse_subscription_source_entry("https://internet.matryoshka.my/a");
-if (foreign.valid || foreign.error != "Only Forkop X subscription URLs are supported")
+if (foreign.valid || foreign.error != "This subscription provider is not supported")
     exit(1);
 UCODE
 
