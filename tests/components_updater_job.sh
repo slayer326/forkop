@@ -103,6 +103,11 @@ grep -Fq 'restore_sing_box_after_failed_package_install' "$ACTION_UC" ||
   fail "stable and tiny sing-box package installs must restore the previous variant after validation failures"
 grep -Fq 'let package_spec = package_name + "=" + package_version;' "$ACTION_UC" ||
   fail "APK sing-box installs must pin the concrete package version instead of selecting a provider"
+grep -Fq 'command_from_args([ "apk", "add", "--force-reinstall", "--upgrade", package_spec ])' "$ACTION_UC" ||
+  fail "APK sing-box reinstalls must use apk add --force-reinstall with the concrete package version"
+if grep -Fq '"apk", "fix", "--reinstall", "--upgrade", package_spec' "$ACTION_UC"; then
+  fail "APK sing-box reinstalls must not pass an exact version to apk fix"
+fi
 grep -Fq 'Package rollback failed; restored the previous sing-box binary backup' "$ACTION_UC" ||
   fail "package rollback must accept a successfully restored binary backup"
 grep -Fq '!file_exists("/etc/init.d/sing-box") && file_nonempty("/usr/bin/sing-box")' "$ACTION_UC" ||
