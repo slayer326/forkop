@@ -1235,9 +1235,6 @@ msgstr "Не отвечает"
 msgid "Not running"
 msgstr "Не запущено"
 
-msgid "Only Forkop X subscription URLs are supported"
-msgstr "Поддерживаются только подписки Forkop X"
-
 msgid "Only from the specified countries."
 msgstr "Только из указанных стран."
 

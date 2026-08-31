@@ -1235,9 +1235,6 @@ msgstr "Не отвечает"
 msgid "Not running"
 msgstr "Не запущено"
 
-msgid "This subscription provider is not supported"
-msgstr "Этот провайдер подписок не поддерживается"
-
 msgid "Only from the specified countries."
 msgstr "Только из указанных стран."
 

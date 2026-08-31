@@ -4445,22 +4445,9 @@ function validateSubscriptionUrlEntry(_section_id, value) {
     return parsed.message;
   }
 
-  const validation = main.validateUrl(parsed.url);
+  const validation = main.validateUrl(parsed.url, ["https:"]);
   if (!validation.valid) {
     return validation.message;
-  }
-
-  try {
-    const url = new URL(parsed.url);
-    const supportedHosts = new Set([
-      "aes2215.vs2112.51343.ru",
-      "sub.flintnet.pro",
-    ]);
-    if (url.protocol !== "https:" || !supportedHosts.has(url.hostname.toLowerCase())) {
-      return _("This subscription provider is not supported");
-    }
-  } catch (_error) {
-    return _("Invalid URL format");
   }
 
   return true;

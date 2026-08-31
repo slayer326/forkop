@@ -2998,13 +2998,6 @@
     ]
   },
   {
-    "call": "This subscription provider is not supported",
-    "key": "This subscription provider is not supported",
-    "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:4544"
-    ]
-  },
-  {
     "call": "Only from the specified countries.",
     "key": "Only from the specified countries.",
     "places": [
