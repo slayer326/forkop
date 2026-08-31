@@ -23,8 +23,10 @@ grep -Fq 'package_index="Packages.gz"' "$SYNC" ||
   fail "mirror does not recognize IPK target indexes"
 grep -Fq 'sync_package_root "$release/packages" "Packages.gz"' "$SYNC" ||
   fail "mirror does not synchronize exact-release OpenWrt 24 package feeds"
-grep -Fq 'cut_dirs=5' "$SYNC" ||
-  fail "OpenWrt 24 package feeds would be mirrored one directory too deep"
+grep -Fq 'OPENWRT_DOWNLOAD_JOBS:-12' "$SYNC" ||
+  fail "OpenWrt package downloads are not parallelized"
+grep -Fq 'xargs -r -P "$DOWNLOAD_JOBS"' "$SYNC" ||
+  fail "OpenWrt package download workers are not used"
 grep -Fq 'sync_package_root "packages-$series" "packages.adb"' "$SYNC" ||
   fail "OpenWrt 25 APK synchronization was not preserved"
 

@@ -14,6 +14,7 @@ FORMATS="${OPENWRT_FORMATS:-ipk apk}"
 # remain pinned to the exact OpenWrt release and kernel ABI they were built for.
 RELEASES_TO_KEEP="${OPENWRT_RELEASES_TO_KEEP:-all}"
 LOCK_FILE="${OPENWRT_LOCK_FILE:-/run/lock/openwrt-mirror.lock}"
+DOWNLOAD_JOBS="${OPENWRT_DOWNLOAD_JOBS:-12}"
 
 exec 9>"$LOCK_FILE"
 flock -n 9 || {
@@ -42,23 +43,45 @@ validate_formats() {
     }
 }
 
-mirror_directory() {
-    local source_url="$1"
+validate_download_jobs() {
+    [[ "$DOWNLOAD_JOBS" =~ ^[1-9][0-9]*$ ]] || {
+        echo "OPENWRT_DOWNLOAD_JOBS must be a positive integer" >&2
+        return 1
+    }
+}
+
+mirror_flat_directory() {
+    local source_url="${1%/}/"
     local destination="$2"
-    local cut_dirs="$3"
+    local listing
 
     mkdir -p "$destination"
-    wget \
-        --mirror \
-        --quiet \
-        --no-parent \
-        --no-host-directories \
-        --cut-dirs="$cut_dirs" \
-        --reject='index.html*' \
-        --directory-prefix="$destination" \
-        --timeout=30 \
-        --tries=3 \
-        "$source_url"
+    listing="$(curl -fsSL "$source_url")"
+    printf '%s\n' "$listing" |
+        sed -n 's/.*href="\([^"?#]*\)".*/\1/p' |
+        sed '/^$/d; /^\//d; /^[a-zA-Z][a-zA-Z0-9+.-]*:/d; /\/$/d; /^\.\.$/d; /^index\.html/d' |
+        sort -u |
+        xargs -r -P "$DOWNLOAD_JOBS" -I '{}' \
+            wget --quiet --timestamping --no-directories \
+                --directory-prefix="$destination" \
+                --timeout=30 --tries=3 "${source_url}{}"
+}
+
+mirror_directory_tree() {
+    local source_url="${1%/}/"
+    local destination="$2"
+    local directory
+
+    mirror_flat_directory "$source_url" "$destination"
+    while IFS= read -r directory; do
+        [[ -n "$directory" ]] || continue
+        mirror_flat_directory "${source_url}${directory}" "${destination}/${directory%/}"
+    done < <(
+        curl -fsSL "$source_url" |
+            sed -n 's/.*href="\([^"?#]*\/\)".*/\1/p' |
+            sed '/^\.\.\/$/d; /^\//d; /^[a-zA-Z][a-zA-Z0-9+.-]*:/d' |
+            sort -u
+    )
 }
 
 discover_releases() {
@@ -137,10 +160,10 @@ sync_release() {
     fi
 
     echo "Syncing OpenWrt $release target packages"
-    mirror_directory "$target_base/packages/" "$destination/packages" 6
+    mirror_flat_directory "$target_base/packages/" "$destination/packages"
 
     echo "Syncing OpenWrt $release kernel modules"
-    mirror_directory "$target_base/kmods/" "$destination/kmods" 6
+    mirror_directory_tree "$target_base/kmods/" "$destination/kmods"
 
     for metadata in profiles.json sha256sums sha256sums.asc sha256sums.sig version.buildinfo; do
         curl -fsSL "$target_base/$metadata" -o "$destination/$metadata" || true
@@ -150,18 +173,13 @@ sync_release() {
 sync_package_root() {
     local package_root="$1"
     local package_index="$2"
-    local cut_dirs=4
     local source_base="$UPSTREAM/releases/$package_root/$ARCH"
     local destination="$MIRROR_ROOT/releases/$package_root/$ARCH"
-
-    if [[ "$package_root" == */* ]]; then
-        cut_dirs=5
-    fi
 
     for feed in base luci packages routing telephony video; do
         if curl -fsI "$source_base/$feed/$package_index" >/dev/null; then
             echo "Syncing OpenWrt $package_root $ARCH/$feed"
-            mirror_directory "$source_base/$feed/" "$destination/$feed" "$cut_dirs"
+            mirror_flat_directory "$source_base/$feed/" "$destination/$feed"
         fi
     done
 }
@@ -174,6 +192,7 @@ sync_ipk_release() {
 }
 
 validate_formats
+validate_download_jobs
 all_releases=""
 selected_releases=""
 selected_ipk_releases=""
