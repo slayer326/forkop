@@ -164,9 +164,13 @@ awk '
   in_main && /decide_i18n_installation/ { i18n = NR }
   in_main && /pkg_list_update/ { update = NR }
   in_main && /ensure_bootstrap_ucode_runtime/ { ensure = NR }
+  in_main && /resolve_forkop_release/ { resolve = NR }
+  in_main && /download_forkop_packages/ { download = NR }
+  in_main && /ensure_flash_space/ { space = NR }
+  in_main && /confirm_legacy_migration/ { confirm = NR }
   in_main && /detect_legacy_installation/ { detect = NR }
   in_main && /cleanup_legacy_installation/ { cleanup = NR }
-  in_main && /install_backend_package/ { backend = NR }
+  in_main && /install_backend_package/ && backend == 0 { backend = NR }
   in_main && /migrate_legacy_configuration/ { migration = NR }
   in_main && /validate_installed_configuration/ { validation = NR }
   in_main && /install_ui_packages/ { ui = NR }
@@ -174,13 +178,15 @@ awk '
   in_main && /^[[:space:]]*\}/ { in_main = 0 }
   END {
     if (detect > 0 && i18n > detect && select_sing_box > i18n &&
-        update > select_sing_box && ensure > update && cleanup > ensure &&
-        backend > cleanup && migration > backend && ui > migration &&
+        update > select_sing_box && ensure > update && resolve > ensure &&
+        download > resolve && space > download && confirm > space &&
+        backend > confirm && migration > backend && cleanup > confirm &&
+        ui > migration && ui > cleanup &&
         sing_box > ui && validation > sing_box)
       exit 0
     exit 1
   }
-' "$INSTALLER" || fail "install.sh must ask initial questions before package update, then migrate and finish installation in order"
+' "$INSTALLER" || fail "install.sh must download and preflight before destructive migration, then finish installation in order"
 
 helper="$WORK_DIR/install-json.uc"
 awk '

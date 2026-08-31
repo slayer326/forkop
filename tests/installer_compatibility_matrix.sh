@@ -64,6 +64,7 @@ expect_rejected 24.10.4 0 ramips/mt7621
 expect_rejected 24.10.4 0 mediatek/filogic mipsel_24kc
 expect_rejected 25.12.5 1 x86/64 x86_64
 
+interactive_terminal_available() { return 1; }
 SING_BOX_INSTALL_VARIANT=""
 sing_box_is_present() { return 1; }
 select_sing_box_installation >/dev/null
@@ -81,8 +82,8 @@ SING_BOX_INSTALL_VARIANT=""
 pkg_is_installed() {
   [ "$1" = "forkop" ] || [ "$1" = "luci-app-forkop" ]
 }
-[ "$(required_flash_space_kb)" = "6144" ] ||
-  fail_test "existing Forkop package updates must require 6 MB of free flash"
+[ "$(required_flash_space_kb)" = "15360" ] ||
+  fail_test "existing Forkop package updates must retain the 15 MB safety threshold"
 
 SING_BOX_INSTALL_VARIANT="tiny"
 [ "$(required_flash_space_kb)" = "15360" ] ||
@@ -91,7 +92,7 @@ SING_BOX_INSTALL_VARIANT="tiny"
 FORKOP_LEGACY_DETECTED=1
 LEGACY_CLEANUP_DONE=1
 SING_BOX_INSTALL_VARIANT=""
-[ "$(required_flash_space_kb)" = "6144" ] ||
-  fail_test "legacy migrations must use the 6 MB threshold after cleanup reclaims flash"
+[ "$(required_flash_space_kb)" = "15360" ] ||
+  fail_test "legacy migrations must pass the 15 MB preflight before cleanup"
 
 printf 'Installer compatibility matrix passed\n'
