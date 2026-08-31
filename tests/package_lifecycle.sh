@@ -141,6 +141,7 @@ FORKOP_UCI_STATE_FILE="$WORK_DIR/config.state" \
   ucode -L "$FORKOP_LIB" "$PACKAGE_UC" postinst
 cmp -s "$WORK_DIR/config-forkop-1.0.5.expected" "$WORK_DIR/config-forkop" ||
   fail "1.0.5 package upgrade must preserve the existing user configuration"
+cp "$WORK_DIR/config-forkop.expected" "$WORK_DIR/config-forkop"
 
 if FORKOP_PACKAGE_TEST_MODE=1 \
   FORKOP_CONFIG_PATH="$WORK_DIR/unrecoverable-config" \
