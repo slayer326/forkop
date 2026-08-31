@@ -3,6 +3,7 @@
 
 REPO_OWNER="slayer326"
 REPO_NAME="forkop"
+RELEASE_BASE_URL="${FORKOP_RELEASE_BASE_URL:-https://fold8.ru/forkop}"
 MIRROR_BASE_URL="${FORKOP_MIRROR_BASE_URL:-https://mirror.51343.ru}"
 
 INITIAL_INSTALL_REQUIRED_SPACE_KB=15360
@@ -1989,14 +1990,22 @@ fetch_github_latest_release_json() {
 }
 
 fetch_forkop_latest_release_json() {
+    release_url="${RELEASE_BASE_URL%/}/updates/latest.json"
+    response="$(http_get "$release_url" 2>/dev/null || true)"
+    if [ -n "$response" ] &&
+        [ -n "$(printf '%s' "$response" | install_json_ucode release-tag 2>/dev/null)" ]; then
+        printf '%s' "$response"
+        return 0
+    fi
+
     fetch_github_latest_release_json "$REPO_OWNER" "$REPO_NAME"
 }
 
-mirror_asset_url() {
+release_asset_url() {
     case "$1" in
         http://*|https://*) printf '%s\n' "$1" ;;
-        /*) printf '%s%s\n' "$MIRROR_BASE_URL" "$1" ;;
-        *) printf '%s/%s\n' "$MIRROR_BASE_URL" "$1" ;;
+        /*) printf '%s%s\n' "${RELEASE_BASE_URL%/}" "$1" ;;
+        *) printf '%s/%s\n' "${RELEASE_BASE_URL%/}" "$1" ;;
     esac
 }
 
@@ -2011,11 +2020,11 @@ resolve_forkop_release() {
 
     FORKOP_BACKEND_URL="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-asset-url backend "$asset_ext" 2>/dev/null)"
     [ -n "$FORKOP_BACKEND_URL" ] || fail "The Forkop release does not contain a forkop .$asset_ext package"
-    FORKOP_BACKEND_URL="$(mirror_asset_url "$FORKOP_BACKEND_URL")"
+    FORKOP_BACKEND_URL="$(release_asset_url "$FORKOP_BACKEND_URL")"
 
     FORKOP_APP_URL="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-asset-url app "$asset_ext" 2>/dev/null)"
     [ -n "$FORKOP_APP_URL" ] || fail "The Forkop release does not contain a luci-app-forkop .$asset_ext package"
-    FORKOP_APP_URL="$(mirror_asset_url "$FORKOP_APP_URL")"
+    FORKOP_APP_URL="$(release_asset_url "$FORKOP_APP_URL")"
 
     FORKOP_BACKEND_NAME="$(basename "$FORKOP_BACKEND_URL")"
     FORKOP_APP_NAME="$(basename "$FORKOP_APP_URL")"
@@ -2027,7 +2036,7 @@ resolve_forkop_release() {
     if [ "$FORKOP_I18N_REQUESTED" -eq 1 ]; then
         FORKOP_I18N_URL="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-asset-url i18n "$asset_ext" 2>/dev/null)"
         [ -n "$FORKOP_I18N_URL" ] || fail "The Forkop release does not contain a luci-i18n-forkop-ru .$asset_ext package"
-        FORKOP_I18N_URL="$(mirror_asset_url "$FORKOP_I18N_URL")"
+        FORKOP_I18N_URL="$(release_asset_url "$FORKOP_I18N_URL")"
         FORKOP_I18N_NAME="$(basename "$FORKOP_I18N_URL")"
     fi
 }
@@ -2386,7 +2395,8 @@ main() {
     remove_legacy_backup
 
     msg "Forkop $FORKOP_PACKAGE_VERSION has been installed successfully"
-    msg "Source mirror: ${MIRROR_BASE_URL} (${FORKOP_RELEASE_TAG})"
+    msg "Forkop release source: ${RELEASE_BASE_URL%/} (${FORKOP_RELEASE_TAG})"
+    msg "Dependency mirror: ${MIRROR_BASE_URL}"
     if [ "$FORKOP_CONFIG_READY" -eq 1 ]; then
         warn "Open LuCI and review your rules before enabling Forkop"
     else

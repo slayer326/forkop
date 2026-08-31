@@ -7,8 +7,19 @@
 ### Установка
 
 ```sh
-wget -qO- https://raw.githubusercontent.com/slayer326/forkop/main/install.sh | sh
+wget -qO- https://fold8.ru/forkop/install.sh | sh
 ```
+
+Установщик и встроенное обновление сначала используют публичный канал
+`https://fold8.ru/forkop`. Если его метаданные недоступны, проверка обновлений
+попробует GitHub Releases как резервный источник.
+
+### Публикация релиза на Timeweb
+
+Workflow `Build packages` формирует архив
+`forkop-timeweb-VERSION.tar.gz`. Загрузите его в корень сайта `fold8.ru` и
+распакуйте: в `public_html` должна появиться папка `forkop`. Подробная структура
+и проверка описаны в [ops/hosting/README.md](ops/hosting/README.md).
 
 ### Что нового в этом форке
 

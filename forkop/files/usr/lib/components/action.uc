@@ -9,6 +9,7 @@ const BIN_PATH = getenv("FORKOP_BIN") || constants.FORKOP_BIN || "/usr/bin/forko
 const SERVICE_INIT = getenv("FORKOP_SERVICE_INIT") || constants.FORKOP_SERVICE_INIT || "/etc/init.d/forkop";
 const FORKOP_VERSION = getenv("FORKOP_VERSION") || constants.FORKOP_VERSION || "";
 const FORKOP_RELEASE_REPO = getenv("FORKOP_RELEASE_REPO") || constants.FORKOP_RELEASE_REPO || "slayer326/forkop";
+const FORKOP_RELEASE_BASE_URL = getenv("FORKOP_RELEASE_BASE_URL") || constants.FORKOP_RELEASE_BASE_URL || "https://fold8.ru/forkop";
 const FORKOP_MIRROR_BASE_URL = getenv("FORKOP_MIRROR_BASE_URL") || constants.FORKOP_MIRROR_BASE_URL || "";
 const RUNTIME_STATE_DIR = getenv("FORKOP_RUNTIME_STATE_DIR") || "/var/run/forkop";
 const SYSTEM_INFO_CACHE_FILE = getenv("FORKOP_SYSTEM_INFO_CACHE_FILE") || RUNTIME_STATE_DIR + "/system-info.json";
@@ -584,6 +585,15 @@ function fetch_github_releases_json(owner, repo, per_page) {
 }
 
 function latest_forkop_release_json() {
+    if (FORKOP_RELEASE_BASE_URL != "") {
+        let release_base_url = FORKOP_RELEASE_BASE_URL;
+        while (substr(release_base_url, length(release_base_url) - 1, 1) == "/")
+            release_base_url = substr(release_base_url, 0, length(release_base_url) - 1);
+        let response = http_get(release_base_url + "/updates/latest.json");
+        if (response != "" && trim(helper_output_input(response, "release-metadata-tsv", [])) != "")
+            return response;
+    }
+
     let parts = split(FORKOP_RELEASE_REPO, "/");
     if (length(parts) != 2 || as_string(parts[0]) == "" || as_string(parts[1]) == "")
         return "";
@@ -592,8 +602,16 @@ function latest_forkop_release_json() {
 
 function forkop_release_url(value) {
     value = as_string(value);
-    if (FORKOP_MIRROR_BASE_URL != "" && substr(value, 0, 1) == "/")
-        return FORKOP_MIRROR_BASE_URL + value;
+    if (value == "" || substr(value, 0, 7) == "http://" || substr(value, 0, 8) == "https://")
+        return value;
+    if (FORKOP_RELEASE_BASE_URL != "") {
+        let release_base_url = FORKOP_RELEASE_BASE_URL;
+        while (substr(release_base_url, length(release_base_url) - 1, 1) == "/")
+            release_base_url = substr(release_base_url, 0, length(release_base_url) - 1);
+        if (substr(value, 0, 1) == "/")
+            return release_base_url + value;
+        return release_base_url + "/" + value;
+    }
     return value;
 }
 

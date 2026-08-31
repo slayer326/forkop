@@ -21,9 +21,12 @@ fi
 
 grep -Fq '"slayer326/forkop"' "$CONSTANTS_UC" ||
   fail "Forkop releases must default to slayer326/forkop"
-if grep -Fq '/forkop/updates/latest.json' "$ACTION_UC"; then
-  fail "Forkop updates must come from GitHub Releases instead of the private mirror"
-fi
+grep -Fq '"https://fold8.ru/forkop"' "$CONSTANTS_UC" ||
+  fail "Forkop releases must default to the public fold8.ru release channel"
+grep -Fq 'release_base_url + "/updates/latest.json"' "$ACTION_UC" ||
+  fail "Forkop updates must query fold8.ru before GitHub"
+grep -Fq 'return fetch_github_release_json(parts[0], parts[1]);' "$ACTION_UC" ||
+  fail "Forkop updates must retain GitHub Releases as a fallback"
 
 grep -Fq "text: 'Tiny'" "$UPDATES_TS" || fail "Tiny switch is missing"
 grep -Fq "text: 'Extended'" "$UPDATES_TS" || fail "Extended switch is missing"

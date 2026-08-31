@@ -38,6 +38,7 @@ function constants_map() {
     c.FORKOP_SERVICE_NAME = env("FORKOP_SERVICE_NAME", "forkop");
     c.FORKOP_SERVICE_INIT = env("FORKOP_SERVICE_INIT", "/etc/init.d/forkop");
     c.FORKOP_RELEASE_REPO = env("FORKOP_RELEASE_REPO", "slayer326/forkop");
+    c.FORKOP_RELEASE_BASE_URL = env("FORKOP_RELEASE_BASE_URL", "https://fold8.ru/forkop");
     c.FORKOP_LUCI_VIEW_NAMESPACE = env("FORKOP_LUCI_VIEW_NAMESPACE", "forkop");
     c.FORKOP_LUCI_VIEW_DIR = env("FORKOP_LUCI_VIEW_DIR", "/www/luci-static/resources/view/" + c.FORKOP_LUCI_VIEW_NAMESPACE);
     c.FORKOP_LUCI_I18N_DOMAIN = env("FORKOP_LUCI_I18N_DOMAIN", "forkop");
