@@ -36,7 +36,7 @@ normalize_link() {
   local output="$WORK_DIR/$label.json"
 
   printf '%s\n' "$link" >"$input"
-  ucode "$PARSER" normalize-uri-list "$input" "$output"
+  ucode -L "$FORKOP_LIB" "$PARSER" normalize-uri-list "$input" "$output"
   printf '%s\n' "$output"
 }
 
@@ -82,7 +82,7 @@ cat >"$singbox_input" <<'JSON'
   ]
 }
 JSON
-ucode "$PARSER" normalize-content "$singbox_input" "$singbox_output"
+ucode -L "$FORKOP_LIB" "$PARSER" normalize-content "$singbox_input" "$singbox_output"
 assert_contains "$singbox_output" '"type": "hysteria2"' "sing-box HY2 type"
 assert_contains "$singbox_output" '"alpn": [ "h3" ]' "sing-box HY2 ALPN"
 assert_contains "$singbox_output" '"enabled": true' "sing-box HY2 TLS enabled"
@@ -107,13 +107,13 @@ cat >"$singbox_missing_tls_input" <<'JSON'
   ]
 }
 JSON
-ucode "$PARSER" normalize-content "$singbox_missing_tls_input" "$singbox_missing_tls_output"
+ucode -L "$FORKOP_LIB" "$PARSER" normalize-content "$singbox_missing_tls_input" "$singbox_missing_tls_output"
 assert_contains "$singbox_missing_tls_output" '"enabled": true' "sing-box HY2 missing TLS enabled"
 
 for fingerprint in randomizedalpn randomizednoalpn; do
   fingerprint_output="$WORK_DIR/$fingerprint.json"
   normalize_link "$fingerprint" "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=tls&sni=example.com&fp=$fingerprint" >/dev/null
-  ucode "$PARSER" normalize-uri-list "$WORK_DIR/$fingerprint.in" "$fingerprint_output"
+  ucode -L "$FORKOP_LIB" "$PARSER" normalize-uri-list "$WORK_DIR/$fingerprint.in" "$fingerprint_output"
   assert_contains "$fingerprint_output" '"fingerprint": "randomized"' "uTLS $fingerprint normalization"
 done
 

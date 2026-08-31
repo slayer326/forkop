@@ -2,6 +2,7 @@
 set -eo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+FORKOP_LIB="$ROOT_DIR/forkop/files/usr/lib"
 PARSER="$ROOT_DIR/forkop/files/usr/lib/subscription/parser.uc"
 WORK_DIR="$(mktemp -d)"
 
@@ -46,7 +47,7 @@ normalize_link() {
   local output="$WORK_DIR/$label.json"
 
   printf '%s\n' "$link" > "$input"
-  ucode "$PARSER" normalize-uri-list "$input" "$output"
+  ucode -L "$FORKOP_LIB" "$PARSER" normalize-uri-list "$input" "$output"
   printf '%s\n' "$output"
 }
 
@@ -66,12 +67,12 @@ BASE_QUERY='encryption=none&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&sni=exam
 cat >"$WORK_DIR/valid-reality.json" <<'JSON'
 {"outbounds":[{"type":"vless","tag":"valid-reality","tls":{"enabled":true,"reality":{"enabled":true,"public_key":"jNXHt1yRo0vDuchQlIP6Z0ZvjT3KtzVI-T4E7RoLJS0"}}}]}
 JSON
-ucode "$PARSER" validate-subscription "$WORK_DIR/valid-reality.json" ||
+ucode -L "$FORKOP_LIB" "$PARSER" validate-subscription "$WORK_DIR/valid-reality.json" ||
   fail "valid REALITY public key must pass subscription validation"
 cat >"$WORK_DIR/invalid-reality.json" <<'JSON'
 {"outbounds":[{"type":"vless","tag":"invalid-reality","tls":{"enabled":true,"reality":{"enabled":true,"public_key":"abc"}}}]}
 JSON
-if ucode "$PARSER" validate-subscription "$WORK_DIR/invalid-reality.json"; then
+if ucode -L "$FORKOP_LIB" "$PARSER" validate-subscription "$WORK_DIR/invalid-reality.json"; then
   fail "invalid REALITY public key must fail before cache promotion"
 fi
 
@@ -130,7 +131,7 @@ proxies:
     server: proxy.example
     port: 8080
 YAML
-ucode "$PARSER" normalize-clash-yaml "$clash_input" "$clash_output"
+ucode -L "$FORKOP_LIB" "$PARSER" normalize-clash-yaml "$clash_input" "$clash_output"
 assert_contains "$clash_output" '"alpn": [ "http/1.1" ]' "clash-vless-ws"
 assert_contains "$clash_output" '"encryption": "mlkem768x25519plus.native.test"' "clash-vless-ws"
 assert_not_contains "$clash_output" '"tag": "clash-http"' "clash-http"
@@ -180,7 +181,7 @@ cat > "$xray_input" <<'JSON'
   ]
 }
 JSON
-ucode "$PARSER" normalize-content "$xray_input" "$xray_output"
+ucode -L "$FORKOP_LIB" "$PARSER" normalize-content "$xray_input" "$xray_output"
 assert_contains "$xray_output" '"alpn": [ "http/1.1" ]' "xray-vless-ws"
 assert_not_contains "$xray_output" '"alpn": [ "h2", "http/1.1" ]' "xray-vless-ws"
 assert_contains "$xray_output" '"encryption": "mlkem768x25519plus.native.test"' "xray-vless-ws"
@@ -192,9 +193,9 @@ gzip_output="$WORK_DIR/gzip-normalized.json"
 printf 'vless://%s@example.com:443?type=ws&%s&path=%%2Fws#gzip-vless\n' "$UUID" "$BASE_QUERY" > "$gzip_plain"
 gzip -c "$gzip_plain" > "$gzip_input"
 cp "$gzip_input" "$gzip_decoded"
-ucode "$PARSER" try-decode-gzip-content "$gzip_decoded"
+ucode -L "$FORKOP_LIB" "$PARSER" try-decode-gzip-content "$gzip_decoded"
 assert_contains "$gzip_decoded" 'gzip-vless' "gzip decode in place"
-ucode "$PARSER" normalize-content-validated "$gzip_input" "$gzip_output"
+ucode -L "$FORKOP_LIB" "$PARSER" normalize-content-validated "$gzip_input" "$gzip_output"
 assert_contains "$gzip_output" '"tag": "gzip-vless"' "gzip normalize validated"
 assert_contains "$gzip_output" '"alpn": [ "http/1.1" ]' "gzip normalized ALPN"
 

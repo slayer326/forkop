@@ -349,7 +349,7 @@ cat >"$WORK_DIR/runtime-cache/proxy-subscription-1.json" <<'JSON'
 {"outbounds":[{"type":"direct","tag":"one"}]}
 JSON
 printf '%s' 'https://example.com/one.txt' >"$WORK_DIR/runtime-cache/proxy-subscription-1.url"
-printf '%s' 'v2rayN' >"$WORK_DIR/runtime-cache/proxy-subscription-1.user_agent"
+printf '%s' 'Happ/2.8.0' >"$WORK_DIR/runtime-cache/proxy-subscription-1.user_agent"
 
 cache_ucode section-current-usable-cache-fixture \
   "$WORK_DIR/cache-current.json" proxy "$WORK_DIR/runtime-cache" "$WORK_DIR/persistent-cache" "sing-box/default" >/dev/null ||

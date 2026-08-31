@@ -3,6 +3,8 @@ set -eo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STABLE_REF="${FORKOP_STABLE_REF:-0.7.19.9}"
+STABLE_VERSION="${FORKOP_STABLE_VERSION:-0.7.19.9}"
+STABLE_COMMIT="${FORKOP_STABLE_COMMIT:-68d516e85b9a81b5a37e8e258610098ed03b02d1}"
 STABLE_REPO="${FORKOP_STABLE_REPO:-}"
 MATRIX_SCRIPT="$ROOT_DIR/tests/helpers/config_contract_matrix.js"
 WORK_DIR="$(mktemp -d)"
@@ -23,8 +25,16 @@ ensure_stable_ref() {
     return 0
   fi
 
-  git -C "$ROOT_DIR" fetch --force --depth=1 origin "refs/tags/$STABLE_REF:refs/tags/$STABLE_REF" >/dev/null 2>&1 ||
-    fail "stable ref is unavailable and could not be fetched: $STABLE_REF"
+  if git -C "$ROOT_DIR" fetch --force --depth=1 origin "refs/tags/$STABLE_REF:refs/tags/$STABLE_REF" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if git -C "$ROOT_DIR" rev-parse --verify "$STABLE_COMMIT^{commit}" >/dev/null 2>&1; then
+    STABLE_REF="$STABLE_COMMIT"
+    return 0
+  fi
+
+  fail "stable baseline is unavailable: tag $STABLE_REF or commit $STABLE_COMMIT"
 }
 
 prepare_stable_repo() {
@@ -37,7 +47,7 @@ prepare_stable_repo() {
   fi
 
   ensure_stable_ref
-  STABLE_REPO="$WORK_DIR/stable-$STABLE_REF"
+  STABLE_REPO="$WORK_DIR/stable-$STABLE_VERSION"
   mkdir -p "$STABLE_REPO"
   git -C "$ROOT_DIR" archive "$STABLE_REF" | tar -x -C "$STABLE_REPO" ||
     fail "failed to materialize stable baseline: $STABLE_REF"
