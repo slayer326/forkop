@@ -10,9 +10,6 @@
 wget -qO- https://raw.githubusercontent.com/slayer326/forkop/main/install.sh | sh
 ```
 
-Установщик загружает Forkop из последнего релиза [slayer326/forkop](https://github.com/slayer326/forkop/releases). Зеркало используется только для зависимостей OpenWrt, sing-box и списков маршрутизации.
-
-
 ### Что нового в этом форке
 
 ⚙️ Что было сделано:
