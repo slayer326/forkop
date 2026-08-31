@@ -2960,13 +2960,8 @@ function parse_subscription_source_entry(entry) {
     if (core_url.scheme(entry) != "https")
         return subscription_source_entry_result(false, "", "", "Subscription URL must use HTTPS");
 
-    let host = lc(core_url.host(entry));
-    let supported_hosts = {
-        "aes2215.vs2112.51343.ru": true,
-        "sub.flintnet.pro": true
-    };
-    if (!supported_hosts[host])
-        return subscription_source_entry_result(false, "", "", "This subscription provider is not supported");
+    if (match(entry, /[ \t\r\n]/) != null || as_string(core_url.host(entry)) == "")
+        return subscription_source_entry_result(false, "", "", "Invalid URL format");
 
     return subscription_source_entry_result(true, entry, "", "");
 }

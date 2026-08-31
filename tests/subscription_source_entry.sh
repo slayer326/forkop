@@ -48,17 +48,24 @@ assert_rejects() {
 
 assert_tsv ' https://aes2215.vs2112.51343.ru/sub.txt ' 'https://aes2215.vs2112.51343.ru/sub.txt' ''
 assert_tsv ' https://sub.flintnet.pro/b5_Ymcw6Rxo8vptW ' 'https://sub.flintnet.pro/b5_Ymcw6Rxo8vptW' ''
+assert_tsv ' https://example.com/sub.txt ' 'https://example.com/sub.txt' ''
+assert_tsv ' https://internet.matryoshka.my/a ' 'https://internet.matryoshka.my/a' ''
 grep -Fq '"sub.flintnet.pro"' "$ROOT_DIR/luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js" ||
   fail "LuCI subscription validation must allow Flintnet"
 grep -Fq 'flintnetSubscriptionUrl(value) ? "0" : "1"' "$ROOT_DIR/luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js" ||
   fail "LuCI must disable URLTest group imports by default for Flintnet"
+grep -Fq 'main.validateUrl(parsed.url, ["https:"])' "$ROOT_DIR/luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js" ||
+  fail "LuCI subscription validation must allow every valid HTTPS provider"
+if grep -Fq 'supportedHosts' "$ROOT_DIR/luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js"; then
+  fail "LuCI subscription validation must not contain a provider allowlist"
+fi
 
 assert_rejects 'https://aes2215.vs2112.51343.ru/a | Custom Agent/1.0' 'Configure User-Agent in the subscription item settings'
 assert_rejects 'https://aes2215.vs2112.51343.ru/a | Agent One | Agent Two' 'Configure User-Agent in the subscription item settings'
 assert_rejects 'https://aes2215.vs2112.51343.ru/a| Agent' 'Configure User-Agent in the subscription item settings'
 assert_rejects 'http://aes2215.vs2112.51343.ru/sub.txt' 'Subscription URL must use HTTPS'
-assert_rejects 'https://example.com/sub.txt' 'This subscription provider is not supported'
-assert_rejects 'https://aes2215.vs2112.51343.ru.example.com/sub.txt' 'This subscription provider is not supported'
+assert_rejects 'https:///sub.txt' 'Invalid URL format'
+assert_rejects 'https://example.com/sub scription' 'Invalid URL format'
 assert_rejects 'file:///tmp/sub.txt' 'Subscription URL must use HTTPS'
 
 cat >"$WORK_DIR/require-subscription-parser.uc" <<'UCODE'
@@ -81,7 +88,7 @@ if (!flintnet.valid || flintnet.url != "https://sub.flintnet.pro/b5_Ymcw6Rxo8vpt
     exit(1);
 
 let foreign = parser.parse_subscription_source_entry("https://internet.matryoshka.my/a");
-if (foreign.valid || foreign.error != "This subscription provider is not supported")
+if (!foreign.valid || foreign.url != "https://internet.matryoshka.my/a")
     exit(1);
 UCODE
 

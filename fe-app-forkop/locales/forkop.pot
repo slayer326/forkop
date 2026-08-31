@@ -1796,10 +1796,6 @@ msgstr ""
 msgid "Not running"
 msgstr ""
 
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:4542
-msgid "Only Forkop X subscription URLs are supported"
-msgstr ""
-
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:2835
 msgid "Only from the specified countries."
 msgstr ""
