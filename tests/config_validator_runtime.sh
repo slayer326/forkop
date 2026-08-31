@@ -335,7 +335,8 @@ cat >"$WORK_DIR/bad-manual-hwid.json" <<'JSON'
   ]
 }
 JSON
-assert_rejects "bad manual HWID" "$WORK_DIR/bad-manual-hwid.json" "manual HWID enabled but HWID is empty"
+validate_fixture "$WORK_DIR/bad-manual-hwid.json" >/dev/null ||
+  fail "legacy manual HWID settings should be ignored when automatic HWID is enforced"
 
 cat >"$WORK_DIR/bad-latency-url.json" <<'JSON'
 {
