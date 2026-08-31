@@ -26,6 +26,9 @@ ensure_flash_space
 sing_box_recovery_owner() { printf '%s\n' "$WORK_DIR/forkop"; }
 pkg_is_installed() { return 1; }
 legacy_binary_managed_sing_box_present() { return 0; }
+# This call intentionally exercises the sourced implementation before later
+# scenario-specific test doubles replace it.
+# shellcheck disable=SC2218
 prepare_sing_box_recovery
 [ "$SING_BOX_RECOVERY_RESTORE_ACTION" = "install_extended_compressed" ] ||
   fail_test "legacy binary-managed sing-box must be safely replaceable and restorable"
