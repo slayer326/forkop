@@ -32,6 +32,14 @@ fail() {
 
 [ -r "$INSTALLER" ] || fail "install.sh is missing"
 
+grep -Fq 'REPO_OWNER="slayer326"' "$INSTALLER" ||
+  fail "installer must use releases from slayer326/forkop"
+grep -Fq 'fetch_github_latest_release_json "$REPO_OWNER" "$REPO_NAME"' "$INSTALLER" ||
+  fail "installer must resolve Forkop packages through GitHub Releases"
+if grep -Fq '/forkop/updates/latest.json' "$INSTALLER"; then
+  fail "installer must not resolve Forkop packages through the private mirror"
+fi
+
 grep -Fq 'trap cleanup EXIT' "$INSTALLER" ||
   fail "installer cleanup must run on every exit"
 for signal_status in "HUP 129" "INT 130" "TERM 143"; do

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-GITHUB_REPOSITORY="${FORKOP_GITHUB_REPOSITORY:-Screamshow/forkop}"
+GITHUB_REPOSITORY="${FORKOP_GITHUB_REPOSITORY:-slayer326/forkop}"
 MIRROR_ROOT="${MIRROR_ROOT:-/srv/mirror/public/forkop}"
 BUILD_ROOT="${FORKOP_BUILD_ROOT:-/srv/mirror/build/automatic}"
 LOCK_FILE="${FORKOP_BUILD_LOCK_FILE:-/run/lock/forkop-git-build.lock}"
@@ -40,10 +40,10 @@ trap cleanup EXIT
 git clone --depth 1 --branch "$tag" \
     "https://github.com/$GITHUB_REPOSITORY.git" "$source_dir"
 
-# Never publish a release that would send Forkop updates or built-in lists
-# around the private mirror.
+# Keep mirrored OpenWrt dependencies and built-in lists, while Forkop itself
+# follows releases from this GitHub repository.
 grep -Fq 'mirror_base_url' "$source_dir/forkop/files/usr/lib/core/constants.uc"
-grep -Fq '/forkop/updates/latest.json' "$source_dir/forkop/files/usr/lib/components/action.uc"
+grep -Fq 'slayer326/forkop' "$source_dir/forkop/files/usr/lib/core/constants.uc"
 
 rm -rf "$output_dir"
 "$source_dir/build.sh" "$version" "$output_dir"
