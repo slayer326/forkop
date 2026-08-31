@@ -46,4 +46,22 @@ cleanup
 grep -Fq 'https://mirror.51343.ru/openwrt/releases/24.10.7/' "$distfeeds" ||
   fail_test "committed transaction was unexpectedly rolled back"
 
+routerich_feeds="$WORK_DIR/etc/opkg/routerich-distfeeds.conf"
+cat >"$routerich_feeds" <<'EOF'
+src/gz routerich_core https://packages.routerich.ru/24.10/mediatek/filogic/24.10.6/core
+src/gz routerich_base https://packages.routerich.ru/24.10/mediatek/filogic/24.10.6/base
+src/gz routerich_luci https://packages.routerich.ru/24.10/mediatek/filogic/24.10.6/luci
+src/gz routerich_packages https://packages.routerich.ru/24.10/mediatek/filogic/24.10.6/packages
+src/gz routerich_routing https://packages.routerich.ru/24.10/mediatek/filogic/24.10.6/routing
+src/gz routerich_telephony https://packages.routerich.ru/24.10/mediatek/filogic/24.10.6/telephony
+src/gz routerich https://packages.routerich.ru/24.10/mediatek/filogic/routerich
+EOF
+cp "$routerich_feeds" "$WORK_DIR/routerich-original"
+OPKG_DISTFEEDS_FILE="$routerich_feeds"
+PKG_IS_APK=0
+command_exists() { return 0; }
+configure_opkg_mirror >/dev/null
+cmp -s "$WORK_DIR/routerich-original" "$routerich_feeds" ||
+  fail_test "Routerich OPKG feeds must remain byte-for-byte unchanged"
+
 printf 'Installer feed transaction tests passed\n'

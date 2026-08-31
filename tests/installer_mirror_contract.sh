@@ -19,8 +19,8 @@ grep -Fq 'configure_opkg_mirror' "$INSTALLER" || {
     echo "installer does not configure OpenWrt 24 OPKG feeds" >&2
     exit 1
 }
-grep -Fq '24.10.*)' "$INSTALLER" || {
-    echo "installer does not accept all mirrored OpenWrt 24.10 patch releases" >&2
+grep -Fq 'packages\.routerich\.ru/' "$INSTALLER" || {
+    echo "installer does not recognize Routerich OPKG feeds" >&2
     exit 1
 }
 grep -Fq 'MIRROR_TRANSACTION_ACTIVE=1' "$INSTALLER" || {
