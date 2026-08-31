@@ -23,6 +23,9 @@ FORKOP_APP_FILE="$WORK_DIR/app.ipk"
 FORKOP_I18N_FILE="$WORK_DIR/i18n.ipk"
 
 pkg_is_installed() { return 0; }
+
+APK_WORLD_FILE="$WORK_DIR/apk-world"
+: >"$APK_WORLD_FILE"
 expected_required=$((4 * PACKAGE_ARCHIVE_SPACE_FACTOR + PACKAGE_INSTALL_OVERHEAD_KB + FLASH_RESERVE_KB))
 [ "$(forkop_install_required_space_kb)" -eq "$expected_required" ] ||
   fail_test "Forkop space plan must be derived from the downloaded package sizes"
@@ -37,6 +40,29 @@ pkg_is_installed() { return 0; }
 
 available_flash_space_kb() { printf '%s\n' "$expected_required"; }
 ensure_flash_space >/dev/null
+
+(
+  printf '%s\n' sing-box-tiny >"$APK_WORLD_FILE"
+  PKG_IS_APK=1
+  pkg_is_installed() { [ "$1" = sing-box ]; }
+  package_file_list() { printf '%s\n' /usr/bin/sing-box /etc/init.d/sing-box; }
+  sing_box_tiny_is_active() { return 1; }
+  download_sing_box_tiny_package() { SING_BOX_TINY_FILE="$WORK_DIR/tiny-world.apk"; }
+  dd if=/dev/zero of="$WORK_DIR/tiny-world.apk" bs=1024 count=2 status=none
+  package_reclaimable_space_kb() { printf '%s\n' 10000; }
+  interactive_terminal_available() { return 0; }
+  numbered_yes_no_prompt() { return 0; }
+  switch_sing_box_to_downloaded_tiny() {
+    printf '%s\n' "$1" >"$WORK_DIR/world-switch"
+    SING_BOX_TINY_SWITCHED=1
+  }
+  available_flash_space_kb() { printf '%s\n' 10000; }
+  ensure_flash_space >/dev/null
+)
+[ "$(cat "$WORK_DIR/world-switch")" = sing-box ] ||
+  fail_test "a stale sing-box-tiny APK world entry must force conversion before the Forkop transaction"
+: >"$APK_WORLD_FILE"
+pkg_is_installed() { return 0; }
 
 pkg_is_installed() { [ "$1" = sing-box ]; }
 package_file_list() { printf '%s\n' /usr/bin/sing-box /etc/init.d/sing-box; }
@@ -121,6 +147,18 @@ dd if=/dev/zero of="$WORK_DIR/tiny.ipk" bs=1024 count=2 status=none
   fi
   [ "$SING_BOX_TINY_SWITCHED" -eq 0 ] || fail_test "failed tiny validation must not be marked successful"
   [ "$SING_BOX_CHANGE_STARTED" -eq 1 ] || fail_test "post-removal failure must preserve the sing-box change marker"
+)
+(
+  SING_BOX_TINY_FILE="$WORK_DIR/tiny.ipk"
+  : >"$WORK_DIR/partial-tiny-switch"
+  pkg_remove_name() { printf 'remove:%s\n' "$1" >>"$WORK_DIR/partial-tiny-switch"; }
+  pkg_install_files() { printf 'install:%s\n' "$1" >>"$WORK_DIR/partial-tiny-switch"; }
+  validate_sing_box_tiny_install() { return 0; }
+  switch_sing_box_to_downloaded_tiny sing-box-tiny
+  grep -Fxq 'remove:sing-box-tiny' "$WORK_DIR/partial-tiny-switch" ||
+    fail_test "a partially installed sing-box-tiny package must be removed before repair"
+  grep -Fxq "install:$WORK_DIR/tiny.ipk" "$WORK_DIR/partial-tiny-switch" ||
+    fail_test "a partially installed sing-box-tiny package must be reinstalled from the downloaded archive"
 )
 
 installed_sing_box_package() { printf '%s\n' sing-box; }
