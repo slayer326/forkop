@@ -179,14 +179,14 @@ awk '
   END {
     if (detect > 0 && i18n > detect && select_sing_box > i18n &&
         update > select_sing_box && ensure > update && resolve > ensure &&
-        download > resolve && space > download && confirm > space &&
-        backend > confirm && migration > backend && cleanup > confirm &&
+        download > resolve && confirm > download && space > confirm &&
+        backend > space && migration > backend && cleanup > space &&
         ui > migration && ui > cleanup &&
         sing_box > ui && validation > sing_box)
       exit 0
     exit 1
   }
-' "$INSTALLER" || fail "install.sh must download and preflight before destructive migration, then finish installation in order"
+' "$INSTALLER" || fail "install.sh must download, back up legacy config, and preflight before destructive migration"
 
 helper="$WORK_DIR/install-json.uc"
 awk '
