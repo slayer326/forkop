@@ -73,3 +73,40 @@ grep -Fq 'set forkop.settings.mirror_base_url=https://mirror.51343.ru' "$WORK_DI
   fail "mirror base URL was not configured"
 
 printf 'PASS: full APK mirror migration\n'
+
+mkdir -p "$WORK_DIR/opkg-root/etc/opkg"
+cat >"$WORK_DIR/opkg-root/etc/opkg/distfeeds.conf" <<'EOF'
+src/gz openwrt_core https://downloads.openwrt.org/releases/24.10.5/targets/mediatek/filogic/packages
+src/gz openwrt_base https://downloads.openwrt.org/releases/24.10.5/packages/aarch64_cortex-a53/base
+src/gz openwrt_luci https://archive.openwrt.org/releases/24.10.5/packages/aarch64_cortex-a53/luci
+EOF
+cat >"$WORK_DIR/bin/opkg" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod 0755 "$WORK_DIR/bin/opkg"
+
+PATH="$WORK_DIR/bin:$PATH" \
+FORKOP_MIGRATION_ROOT="$WORK_DIR/opkg-root" \
+FORKOP_MIGRATION_APK_BIN="$WORK_DIR/bin/missing-apk" \
+FORKOP_MIGRATION_OPKG_BIN="$WORK_DIR/bin/opkg" \
+FORKOP_MIGRATION_UCI_BIN="$WORK_DIR/bin/uci" \
+MIGRATION_UCI_LOG="$WORK_DIR/opkg-uci.log" \
+  sh "$MIGRATION"
+
+if grep -Eq 'archive\.openwrt\.org|downloads\.openwrt\.org' \
+  "$WORK_DIR/opkg-root/etc/opkg/distfeeds.conf"; then
+  fail "official OpenWrt 24 feeds were not fully redirected"
+fi
+grep -Fq 'https://mirror.51343.ru/openwrt/releases/24.10.5/targets/mediatek/filogic/packages' \
+  "$WORK_DIR/opkg-root/etc/opkg/distfeeds.conf" ||
+  fail "mirrored OpenWrt 24 target feed is missing"
+grep -Fq 'https://mirror.51343.ru/openwrt/releases/24.10.5/packages/aarch64_cortex-a53/base' \
+  "$WORK_DIR/opkg-root/etc/opkg/distfeeds.conf" ||
+  fail "mirrored OpenWrt 24 architecture feed is missing"
+[ ! -e "$WORK_DIR/opkg-root/etc/apk/keys/forkop-mirror.pem" ] ||
+  fail "OPKG migration must not install an APK key"
+grep -Fq 'set forkop.settings.mirror_base_url=https://mirror.51343.ru' "$WORK_DIR/opkg-uci.log" ||
+  fail "OPKG migration did not configure the runtime mirror URL"
+
+printf 'PASS: full OPKG mirror migration\n'

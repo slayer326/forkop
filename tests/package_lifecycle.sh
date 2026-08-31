@@ -128,6 +128,20 @@ FORKOP_UCI_STATE_FILE="$WORK_DIR/config.state" \
 cmp -s "$WORK_DIR/config-forkop.expected" "$WORK_DIR/config-forkop" ||
   fail "package postinst must preserve an existing user configuration"
 
+cat >"$WORK_DIR/config-forkop" <<'EOF_CONFIG_105'
+config settings 'settings'
+        option config_version '1.0.5'
+        option custom_remote_setting 'preserve-me'
+EOF_CONFIG_105
+cp "$WORK_DIR/config-forkop" "$WORK_DIR/config-forkop-1.0.5.expected"
+FORKOP_PACKAGE_TEST_MODE=1 \
+FORKOP_CONFIG_PATH="$WORK_DIR/config-forkop" \
+FORKOP_DEFAULT_CONFIG_PATH="$WORK_DIR/default-forkop" \
+FORKOP_UCI_STATE_FILE="$WORK_DIR/config.state" \
+  ucode -L "$FORKOP_LIB" "$PACKAGE_UC" postinst
+cmp -s "$WORK_DIR/config-forkop-1.0.5.expected" "$WORK_DIR/config-forkop" ||
+  fail "1.0.5 package upgrade must preserve the existing user configuration"
+
 if FORKOP_PACKAGE_TEST_MODE=1 \
   FORKOP_CONFIG_PATH="$WORK_DIR/unrecoverable-config" \
   FORKOP_DEFAULT_CONFIG_PATH="$WORK_DIR/missing-default-config" \

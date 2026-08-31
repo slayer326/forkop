@@ -37,18 +37,19 @@ rm -rf "$STAGING" "$UPDATES_STAGING"
 mkdir -p "$STAGING" "$UPDATES_STAGING"
 
 for package in forkop luci-app-forkop luci-i18n-forkop-ru; do
-    source_file="$BUILD_DIRECTORY/${package}_${VERSION}.apk"
-    [[ -s "$source_file" ]] || {
-        echo "Missing package artifact: $source_file" >&2
-        exit 1
-    }
-    cp "$source_file" "$STAGING/${package}-${VERSION}.apk"
-    cp "$source_file" "$UPDATES_STAGING/${package}_${VERSION}.apk"
-done
-
-for ipk_file in "$BUILD_DIRECTORY"/*.ipk; do
-    [[ -e "$ipk_file" ]] || continue
-    cp "$ipk_file" "$STAGING/"
+    for extension in apk ipk; do
+        source_file="$BUILD_DIRECTORY/${package}_${VERSION}.${extension}"
+        [[ -s "$source_file" ]] || {
+            echo "Missing package artifact: $source_file" >&2
+            exit 1
+        }
+        if [[ "$extension" == "apk" ]]; then
+            cp "$source_file" "$STAGING/${package}-${VERSION}.apk"
+        else
+            cp "$source_file" "$STAGING/"
+        fi
+        cp "$source_file" "$UPDATES_STAGING/${package}_${VERSION}.${extension}"
+    done
 done
 
 openssl ec -in "$PRIVATE_KEY" -pubout \
@@ -78,7 +79,10 @@ cat > "$UPDATES_STAGING/release.json" <<EOF
   "assets": [
     {"name": "forkop_$VERSION.apk", "browser_download_url": "/forkop/updates/releases/$VERSION/forkop_$VERSION.apk"},
     {"name": "luci-app-forkop_$VERSION.apk", "browser_download_url": "/forkop/updates/releases/$VERSION/luci-app-forkop_$VERSION.apk"},
-    {"name": "luci-i18n-forkop-ru_$VERSION.apk", "browser_download_url": "/forkop/updates/releases/$VERSION/luci-i18n-forkop-ru_$VERSION.apk"}
+    {"name": "luci-i18n-forkop-ru_$VERSION.apk", "browser_download_url": "/forkop/updates/releases/$VERSION/luci-i18n-forkop-ru_$VERSION.apk"},
+    {"name": "forkop_$VERSION.ipk", "browser_download_url": "/forkop/updates/releases/$VERSION/forkop_$VERSION.ipk"},
+    {"name": "luci-app-forkop_$VERSION.ipk", "browser_download_url": "/forkop/updates/releases/$VERSION/luci-app-forkop_$VERSION.ipk"},
+    {"name": "luci-i18n-forkop-ru_$VERSION.ipk", "browser_download_url": "/forkop/updates/releases/$VERSION/luci-i18n-forkop-ru_$VERSION.ipk"}
   ]
 }
 EOF

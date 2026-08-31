@@ -15,6 +15,22 @@ grep -Fq 'configure_apk_mirror' "$INSTALLER" || {
     echo "installer does not configure mirrored OpenWrt feeds" >&2
     exit 1
 }
+grep -Fq 'configure_opkg_mirror' "$INSTALLER" || {
+    echo "installer does not configure OpenWrt 24 OPKG feeds" >&2
+    exit 1
+}
+grep -Fq '24.10.*)' "$INSTALLER" || {
+    echo "installer does not accept all mirrored OpenWrt 24.10 patch releases" >&2
+    exit 1
+}
+grep -Fq 'MIRROR_TRANSACTION_ACTIVE=1' "$INSTALLER" || {
+    echo "installer feed changes are not transactional" >&2
+    exit 1
+}
+grep -Fq 'rollback_package_mirror' "$INSTALLER" || {
+    echo "installer cannot restore feeds after a failed mirror update" >&2
+    exit 1
+}
 grep -Fq 'for repository_file in /etc/apk/repositories "$distfeeds"' "$INSTALLER" || {
     echo "installer does not redirect both APK repository locations" >&2
     exit 1

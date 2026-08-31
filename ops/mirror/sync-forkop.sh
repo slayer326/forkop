@@ -4,6 +4,7 @@ set -euo pipefail
 GITHUB_REPOSITORY="${FORKOP_GITHUB_REPOSITORY:-Screamshow/forkop}"
 MIRROR_ROOT="${MIRROR_ROOT:-/srv/mirror/public/forkop}"
 LOCK_FILE="${FORKOP_LOCK_FILE:-/run/lock/forkop-mirror.lock}"
+INSTALLER_OVERRIDE="${FORKOP_INSTALLER_OVERRIDE:-/usr/local/share/forkop/install.sh}"
 
 exec 9>"$LOCK_FILE"
 flock -n 9 || {
@@ -33,7 +34,11 @@ jq -r '.assets[] | select(.name | test("\\.(apk|ipk)$|^SHA256SUMS$|^RELEASE_NOTE
         curl -fsSL --retry 3 "$url" -o "$staging/$name"
     done
 
-for required in "forkop_${version}.apk" "luci-app-forkop_${version}.apk"; do
+for required in \
+    "forkop_${version}.apk" \
+    "luci-app-forkop_${version}.apk" \
+    "forkop_${version}.ipk" \
+    "luci-app-forkop_${version}.ipk"; do
     [[ -s "$staging/$required" ]] || {
         echo "Required Forkop release asset is missing: $required" >&2
         exit 1
@@ -43,6 +48,9 @@ done
 curl -fsSL --retry 3 \
     "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$tag/install.sh" \
     -o "$staging/install.sh"
+if [[ -s "$INSTALLER_OVERRIDE" ]]; then
+    cp "$INSTALLER_OVERRIDE" "$staging/install.sh"
+fi
 
 date --iso-8601=seconds > "$staging/.mirrored-at"
 rm -rf "$destination"
