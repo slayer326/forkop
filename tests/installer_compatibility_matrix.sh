@@ -76,4 +76,16 @@ select_sing_box_installation >/dev/null
 [ -z "$SING_BOX_INSTALL_VARIANT" ] ||
   fail_test "upgrade must preserve the installed sing-box variant"
 
+FORKOP_LEGACY_DETECTED=0
+SING_BOX_INSTALL_VARIANT=""
+pkg_is_installed() {
+  [ "$1" = "forkop" ] || [ "$1" = "luci-app-forkop" ]
+}
+[ "$(required_flash_space_kb)" = "6144" ] ||
+  fail_test "existing Forkop package updates must require 6 MB of free flash"
+
+SING_BOX_INSTALL_VARIANT="tiny"
+[ "$(required_flash_space_kb)" = "15360" ] ||
+  fail_test "new sing-box installations must retain the 15 MB free-flash requirement"
+
 printf 'Installer compatibility matrix passed\n'
