@@ -4,11 +4,6 @@
 
 > **Forkop — это бывший Podkop Plus.** Проект переименован и продолжает развиваться как независимый форк [Podkop](https://github.com/itdoginfo/podkop).
 
-### Установка
-
-```sh
-wget -qO- https://mirror.51343.ru/forkop/install.sh | sh
-```
 
 
 ### Что нового в этом форке
