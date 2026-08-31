@@ -88,4 +88,10 @@ SING_BOX_INSTALL_VARIANT="tiny"
 [ "$(required_flash_space_kb)" = "15360" ] ||
   fail_test "new sing-box installations must retain the 15 MB free-flash requirement"
 
+FORKOP_LEGACY_DETECTED=1
+LEGACY_CLEANUP_DONE=1
+SING_BOX_INSTALL_VARIANT=""
+[ "$(required_flash_space_kb)" = "6144" ] ||
+  fail_test "legacy migrations must use the 6 MB threshold after cleanup reclaims flash"
+
 printf 'Installer compatibility matrix passed\n'
