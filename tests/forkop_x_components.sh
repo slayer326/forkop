@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ACTION_UC="$ROOT_DIR/forkop/files/usr/lib/components/action.uc"
 UPDATES_TS="$ROOT_DIR/fe-app-forkop/src/forkop/tabs/updates/initController.ts"
 DIAGNOSTICS_TS="$ROOT_DIR/fe-app-forkop/src/forkop/tabs/diagnostic/initController.ts"
+CONSTANTS_UC="$ROOT_DIR/forkop/files/usr/lib/core/constants.uc"
 
 fail() {
   printf 'FAIL: %s\n' "$1" >&2
@@ -16,6 +17,12 @@ grep -Fq '/forkop/sing-box-extended/latest.json' "$ACTION_UC" ||
 if grep -A12 'function resolve_sing_box_extended_release' "$ACTION_UC" |
   grep -Fq 'fetch_github'; then
   fail "sing-box Extended resolver must not fall back to GitHub"
+fi
+
+grep -Fq '"slayer326/forkop"' "$CONSTANTS_UC" ||
+  fail "Forkop releases must default to slayer326/forkop"
+if grep -Fq '/forkop/updates/latest.json' "$ACTION_UC"; then
+  fail "Forkop updates must come from GitHub Releases instead of the private mirror"
 fi
 
 grep -Fq "text: 'Tiny'" "$UPDATES_TS" || fail "Tiny switch is missing"

@@ -8,7 +8,7 @@ const LIB_DIR = getenv("FORKOP_LIB") || "/usr/lib/forkop";
 const BIN_PATH = getenv("FORKOP_BIN") || constants.FORKOP_BIN || "/usr/bin/forkop";
 const SERVICE_INIT = getenv("FORKOP_SERVICE_INIT") || constants.FORKOP_SERVICE_INIT || "/etc/init.d/forkop";
 const FORKOP_VERSION = getenv("FORKOP_VERSION") || constants.FORKOP_VERSION || "";
-const FORKOP_RELEASE_REPO = getenv("FORKOP_RELEASE_REPO") || constants.FORKOP_RELEASE_REPO || "Screamshow/forkop";
+const FORKOP_RELEASE_REPO = getenv("FORKOP_RELEASE_REPO") || constants.FORKOP_RELEASE_REPO || "slayer326/forkop";
 const FORKOP_MIRROR_BASE_URL = getenv("FORKOP_MIRROR_BASE_URL") || constants.FORKOP_MIRROR_BASE_URL || "";
 const RUNTIME_STATE_DIR = getenv("FORKOP_RUNTIME_STATE_DIR") || "/var/run/forkop";
 const SYSTEM_INFO_CACHE_FILE = getenv("FORKOP_SYSTEM_INFO_CACHE_FILE") || RUNTIME_STATE_DIR + "/system-info.json";
@@ -584,13 +584,6 @@ function fetch_github_releases_json(owner, repo, per_page) {
 }
 
 function latest_forkop_release_json() {
-    if (FORKOP_MIRROR_BASE_URL != "") {
-        let response = http_get(FORKOP_MIRROR_BASE_URL + "/forkop/updates/latest.json");
-        if (response == "")
-            return "";
-        return response;
-    }
-
     let parts = split(FORKOP_RELEASE_REPO, "/");
     if (length(parts) != 2 || as_string(parts[0]) == "" || as_string(parts[1]) == "")
         return "";

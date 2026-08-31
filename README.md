@@ -1,9 +1,16 @@
 # Forkop X
 
-[![Releases](https://img.shields.io/github/v/release/Screamshow/forkop?label=releases)](https://github.com/Screamshow/forkop/releases)
+[![Releases](https://img.shields.io/github/v/release/slayer326/forkop?label=releases)](https://github.com/slayer326/forkop/releases)
 
 > **Forkop — это бывший Podkop Plus.** Проект переименован и продолжает развиваться как независимый форк [Podkop](https://github.com/itdoginfo/podkop).
 
+### Установка
+
+```sh
+wget -qO- https://raw.githubusercontent.com/slayer326/forkop/main/install.sh | sh
+```
+
+Установщик загружает Forkop из последнего релиза [slayer326/forkop](https://github.com/slayer326/forkop/releases). Зеркало используется только для зависимостей OpenWrt, sing-box и списков маршрутизации.
 
 
 ### Что нового в этом форке

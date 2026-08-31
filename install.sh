@@ -1,7 +1,7 @@
 #!/bin/sh
 # shellcheck shell=dash
 
-REPO_OWNER="Screamshow"
+REPO_OWNER="slayer326"
 REPO_NAME="forkop"
 MIRROR_BASE_URL="${FORKOP_MIRROR_BASE_URL:-https://mirror.51343.ru}"
 
@@ -1989,9 +1989,7 @@ fetch_github_latest_release_json() {
 }
 
 fetch_forkop_latest_release_json() {
-    response="$(http_get "$MIRROR_BASE_URL/forkop/updates/latest.json" 2>/dev/null || true)"
-    [ -n "$response" ] || fail "Failed to query Forkop release metadata from $MIRROR_BASE_URL"
-    printf '%s' "$response"
+    fetch_github_latest_release_json "$REPO_OWNER" "$REPO_NAME"
 }
 
 mirror_asset_url() {

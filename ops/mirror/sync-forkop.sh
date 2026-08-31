@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-GITHUB_REPOSITORY="${FORKOP_GITHUB_REPOSITORY:-Screamshow/forkop}"
+GITHUB_REPOSITORY="${FORKOP_GITHUB_REPOSITORY:-slayer326/forkop}"
 MIRROR_ROOT="${MIRROR_ROOT:-/srv/mirror/public/forkop}"
 LOCK_FILE="${FORKOP_LOCK_FILE:-/run/lock/forkop-mirror.lock}"
 INSTALLER_OVERRIDE="${FORKOP_INSTALLER_OVERRIDE:-/usr/local/share/forkop/install.sh}"
