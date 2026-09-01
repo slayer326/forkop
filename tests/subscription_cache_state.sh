@@ -228,7 +228,7 @@ cat >"$WORK_DIR/cache-maintenance.json" <<'JSON'
       "enabled": "1",
       "action": "proxy",
       "subscription_urls": [
-        "https://example.com/one.txt",
+        "https://aes2215.vs2112.51343.ru/one.txt",
         "https://example.com/two.txt"
       ]
     },
@@ -348,7 +348,7 @@ JSON
 cat >"$WORK_DIR/runtime-cache/proxy-subscription-1.json" <<'JSON'
 {"outbounds":[{"type":"direct","tag":"one"}]}
 JSON
-printf '%s' 'https://example.com/one.txt' >"$WORK_DIR/runtime-cache/proxy-subscription-1.url"
+printf '%s' 'https://aes2215.vs2112.51343.ru/one.txt' >"$WORK_DIR/runtime-cache/proxy-subscription-1.url"
 printf '%s' 'Happ/2.8.0' >"$WORK_DIR/runtime-cache/proxy-subscription-1.user_agent"
 
 cache_ucode section-current-usable-cache-fixture \
