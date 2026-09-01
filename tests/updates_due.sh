@@ -98,6 +98,12 @@ assert_eq 'https://cdn.jsdelivr.net/gh/itdoginfo/allow-domains@main/Subnets/IPv4
 assert_eq 'https://cdn.jsdelivr.net/gh/itdoginfo/allow-domains@main/Subnets/IPv4/telegram.lst' \
   "$(updates_ucode jsdelivr-fallback-url https://mirror.51343.ru/forkop/lists/allow-domains/Subnets/IPv4/telegram.lst)" \
   "allow-domains mirror jsDelivr fallback"
+assert_eq 'https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Subnets/IPv4/telegram.lst' \
+  "$(updates_ucode github-raw-fallback-url https://mirror.51343.ru/forkop/lists/allow-domains/Subnets/IPv4/telegram.lst)" \
+  "allow-domains mirror raw GitHub fallback"
+assert_eq 'https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Subnets/IPv4/telegram.lst' \
+  "$(updates_ucode github-raw-fallback-url https://cdn.jsdelivr.net/gh/itdoginfo/allow-domains@main/Subnets/IPv4/telegram.lst)" \
+  "allow-domains jsDelivr raw GitHub fallback"
 assert_eq 'https://cdn.jsdelivr.net/gh/Greeg0ry/b4geoip-forkop@main/srs/valve.srs' \
   "$(updates_ucode jsdelivr-fallback-url https://raw.githubusercontent.com/Greeg0ry/b4geoip-forkop/main/srs/valve.srs)" \
   "b4geoip-forkop jsDelivr fallback"

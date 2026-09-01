@@ -31,6 +31,14 @@ grep -Fq 'rollback_package_mirror' "$INSTALLER" || {
     echo "installer cannot restore feeds after a failed mirror update" >&2
     exit 1
 }
+grep -Fq 'verify_download_sha256' "$INSTALLER" || {
+    echo "installer does not verify downloaded release package hashes" >&2
+    exit 1
+}
+grep -Fq 'release-asset-sha256' "$INSTALLER" || {
+    echo "installer does not read release package hashes" >&2
+    exit 1
+}
 grep -Fq 'for repository_file in /etc/apk/repositories "$distfeeds"' "$INSTALLER" || {
     echo "installer does not redirect both APK repository locations" >&2
     exit 1
