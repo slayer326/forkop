@@ -68,6 +68,9 @@ require_pattern 'command_success_from_args([ "/etc/init.d/sing-box", "stop" ])' 
   "fallback retry must stop the failed sing-box instance before regeneration"
 require_pattern 'status = retry_sing_box_with_ruleset_fallback();' \
   "startup must retry sing-box with fallback rule-set sources"
+reload_fallback_count="$(grep -Fc 'status = retry_sing_box_with_ruleset_fallback();' "$LIFECYCLE_UC")"
+[ "$reload_fallback_count" -ge 2 ] ||
+  fail "sing-box reload must retry remote rule sets with fallback sources"
 require_pattern 'record_ruleset_start_failure();' \
   "startup must publish a terminal rule-set download error after all sources fail"
 require_pattern 'Automatic startup retries are disabled until the next manual start.' \
