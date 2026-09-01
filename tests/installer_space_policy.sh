@@ -45,7 +45,7 @@ ensure_flash_space >/dev/null
   printf '%s\n' sing-box-tiny >"$APK_WORLD_FILE"
   PKG_IS_APK=1
   pkg_is_installed() { [ "$1" = sing-box ]; }
-  package_file_list() { printf '%s\n' /usr/bin/sing-box /etc/init.d/sing-box; }
+  package_owns_path() { [ "$1" = sing-box ] && [ "$2" = /usr/bin/sing-box ]; }
   sing_box_tiny_is_active() { return 1; }
   download_sing_box_tiny_package() { SING_BOX_TINY_FILE="$WORK_DIR/tiny-world.apk"; }
   dd if=/dev/zero of="$WORK_DIR/tiny-world.apk" bs=1024 count=2 status=none
@@ -62,6 +62,7 @@ ensure_flash_space >/dev/null
 [ "$(cat "$WORK_DIR/world-switch")" = sing-box ] ||
   fail_test "a stale sing-box-tiny APK world entry must force conversion before the Forkop transaction"
 : >"$APK_WORLD_FILE"
+PKG_IS_APK=0
 pkg_is_installed() { return 0; }
 
 pkg_is_installed() { [ "$1" = sing-box ]; }

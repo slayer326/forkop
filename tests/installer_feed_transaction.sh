@@ -25,6 +25,8 @@ distfeeds="$WORK_DIR/etc/opkg/distfeeds.conf"
 cat > "$distfeeds" <<'EOF'
 src/gz openwrt_core https://downloads.openwrt.org/releases/24.10.7/targets/mediatek/filogic/packages
 src/gz openwrt_base https://archive.openwrt.org/releases/24.10.7/packages/aarch64_cortex-a53/base
+https://downloads.openwrt.org/releases/v25.x/v25.12.5/mediatek/filogic/packages/packages.adb
+https://downloads.openwrt.org/releases/v25.x/v25.12.5/aarch64_cortex-a53/video/packages.adb
 EOF
 cp "$distfeeds" "$WORK_DIR/original"
 
@@ -32,6 +34,10 @@ begin_package_mirror_transaction
 rewrite_package_repository_file "$distfeeds"
 grep -Fq 'https://mirror.51343.ru/openwrt/releases/24.10.7/' "$distfeeds" ||
   fail_test "transaction did not rewrite OpenWrt 24 feeds"
+grep -Fxq 'https://mirror.51343.ru/openwrt/releases/25.12.5/targets/mediatek/filogic/packages/packages.adb' "$distfeeds" ||
+  fail_test "transaction did not normalize an OpenWrt 25 target feed"
+grep -Fxq 'https://mirror.51343.ru/openwrt/releases/25.12.5/packages/aarch64_cortex-a53/video/packages.adb' "$distfeeds" ||
+  fail_test "transaction did not normalize an OpenWrt 25 package feed"
 [ -s "$distfeeds.pre-forkop-mirror" ] ||
   fail_test "transaction did not create a persistent recovery copy"
 
@@ -45,6 +51,21 @@ commit_package_mirror_transaction
 cleanup
 grep -Fq 'https://mirror.51343.ru/openwrt/releases/24.10.7/' "$distfeeds" ||
   fail_test "committed transaction was unexpectedly rolled back"
+
+PKG_IS_APK=1
+apk() {
+  case "$1:$2:$3" in
+    'info:-e:sing-box-tiny') printf '%s\n' 'sing-box-tiny'; return 0 ;;
+    'info:-e:sing-box') printf '%s\n' 'sing-box-tiny'; return 0 ;;
+    'info:-W:/usr/bin/sing-box') printf '%s\n' '/usr/bin/sing-box is owned by sing-box-tiny-1.13.18-r1'; return 0 ;;
+  esac
+  return 1
+}
+installed_sing_box_package | grep -Fxq 'sing-box-tiny' ||
+  fail_test "APK ownership lookup did not recognize sing-box-tiny"
+if pkg_is_installed sing-box; then
+  fail_test "APK virtual sing-box dependency was mistaken for the normal sing-box package"
+fi
 
 routerich_feeds="$WORK_DIR/etc/opkg/routerich-distfeeds.conf"
 cat >"$routerich_feeds" <<'EOF'
