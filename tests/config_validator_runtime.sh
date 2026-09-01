@@ -85,8 +85,8 @@ cat >"$WORK_DIR/valid.json" <<'JSON'
       "enabled": "1",
       "action": "proxy",
       "ports": [ "80", "1000-2000" ],
-      "subscription_urls": [ "https://example.com/sub.txt" ],
-      "subscription_url_settings": "{\"https://example.com/sub.txt\":{\"user_agent\":\"Agent/1.0\"}}",
+      "subscription_urls": [ "https://aes2215.vs2112.51343.ru/sub.txt" ],
+      "subscription_url_settings": "{\"https://aes2215.vs2112.51343.ru/sub.txt\":{\"user_agent\":\"Agent/1.0\"}}",
       "subscription_update_enabled": "1",
       "subscription_update_interval": "12h",
       "urltest_enabled": "1",
@@ -329,7 +329,7 @@ cat >"$WORK_DIR/bad-manual-hwid.json" <<'JSON'
       ".name": "proxy_sub_1",
       ".type": "subscription_url",
       "section": "proxy",
-      "url": "https://example.com/sub.txt",
+      "url": "https://aes2215.vs2112.51343.ru/sub.txt",
       "auto_hwid": "0"
     }
   ]
