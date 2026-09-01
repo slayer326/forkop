@@ -1383,7 +1383,7 @@ assert_eq "list_proxy urltest_custom" \
 assert_eq "6h" \
   "$(state_ucode settings-update-interval-fixture "$WORK_DIR/reload-state-signatures.json")" \
   "settings update interval"
-assert_eq "1h" \
+assert_eq "4h" \
   "$(state_ucode subscription-update-interval-fixture "$WORK_DIR/reload-state-signatures.json" list_proxy)" \
   "default subscription update interval"
 assert_eq "" \
