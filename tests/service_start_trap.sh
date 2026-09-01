@@ -58,23 +58,10 @@ require_pattern 'module_background(UPDATES_UC, [ "list-update" ])' \
   "startup list_update background job must be owned by service/lifecycle.uc"
 require_pattern 'module_background(DIAGNOSTICS_UC, [ "get-system-info" ])' \
   "startup system-info background job must be owned by service/lifecycle.uc"
-require_pattern 'function retry_sing_box_with_ruleset_fallback()' \
-  "startup must own remote rule-set fallback retry logic"
-require_pattern 'result.SRS_MAIN_URL = SRS_FALLBACK_MAIN_URL;' \
-  "fallback retry must regenerate community rule-set URLs"
-require_pattern 'result.SRS_ADS_HAGEZI_PRO_URL = SRS_FALLBACK_ADS_HAGEZI_PRO_URL;' \
-  "fallback retry must regenerate adblock rule-set URL"
-require_pattern 'command_success_from_args([ "/etc/init.d/sing-box", "stop" ])' \
-  "fallback retry must stop the failed sing-box instance before regeneration"
-require_pattern 'status = retry_sing_box_with_ruleset_fallback();' \
-  "startup must retry sing-box with fallback rule-set sources"
-reload_fallback_count="$(grep -Fc 'status = retry_sing_box_with_ruleset_fallback();' "$LIFECYCLE_UC")"
-[ "$reload_fallback_count" -ge 2 ] ||
-  fail "sing-box reload must retry remote rule sets with fallback sources"
-require_pattern 'record_ruleset_start_failure();' \
-  "startup must publish a terminal rule-set download error after all sources fail"
-require_pattern 'Automatic startup retries are disabled until the next manual start.' \
-  "terminal rule-set failure must explain retry suppression in LuCI logs"
+reject_pattern 'retry_sing_box_with_ruleset_fallback' \
+  "sing-box failures must not be misclassified as remote rule-set failures after cache materialization"
+reject_pattern 'Automatic startup retries are disabled until the next manual start.' \
+  "rule-set download failures must degrade to the persistent local cache instead of suppressing startup retries"
 require_pattern 'startup_config_fingerprint = external_config_fingerprint();' \
   "startup must snapshot runtime-relevant config after validation"
 require_pattern 'mark_pending_reload_if_config_changed(startup_config_fingerprint, "config_changed_during_start")' \

@@ -110,6 +110,26 @@ assert_eq 'https://cdn.jsdelivr.net/gh/Greeg0ry/b4geoip-forkop@main/srs/valve.sr
 assert_eq '' \
   "$(updates_ucode jsdelivr-fallback-url https://example.com/custom.lst)" \
   "custom lists must not be rewritten to jsDelivr"
+grep -Fq '[ "wget", "--proxy=on", "-T", "20", "-O", filepath, url ]' "$UPDATES_UC" ||
+  fail "list downloads must use the OpenWrt BusyBox wget-compatible command"
+if grep -Fq '"wget", "-T", "20", "-t", "1"' "$UPDATES_UC"; then
+  fail "list downloads must not use GNU wget-only retry options"
+fi
+awk '
+  /function list_update\(\)/ { in_update = 1 }
+  in_update && /acquire_runtime_lock\(RELOAD_LOCK_DIR, true\)/ { acquire_line = NR }
+  in_update && /finish_list_update\(1\)/ { failure_finish_line = NR }
+  in_update && /finish_list_update\(ok \? 0 : 1\)/ { success_finish_line = NR }
+  in_update && /^}/ { done = 1; exit }
+  END { exit done && acquire_line && failure_finish_line > acquire_line && success_finish_line > acquire_line ? 0 : 1 }
+' "$UPDATES_UC" || fail "list update must hold the reload lock through every completion path"
+awk '
+  /function finish_list_update\(status\)/ { in_finish = 1 }
+  in_finish && /release_runtime_lock\(RELOAD_LOCK_DIR\)/ { release_line = NR }
+  in_finish && /service_state_success\(\[ "run-pending-reload-if-requested", PENDING_RELOAD_FILE, SERVICE_INIT \]\)/ { pending_line = NR }
+  in_finish && /^}/ { done = 1; exit }
+  END { exit done && release_line && pending_line > release_line ? 0 : 1 }
+' "$UPDATES_UC" || fail "pending reload must run only after list update releases the runtime lock"
 assert_eq 7 \
   "$(grep -c 'log_message("Failed to download .*"error");' "$UPDATES_UC")" \
   "terminal list download errors"

@@ -90,6 +90,13 @@ if grep -Fq 'coreutils-sort' "$FORKOP_MAKEFILE" "$BUILD_SCRIPT"; then
   fail "unused coreutils-sort runtime dependency must not be packaged"
 fi
 
+require_package_dependency "nftables-json"
+if grep -Eq '(^|[[:space:],+])nftables([[:space:],]|$)' "$FORKOP_MAKEFILE" "$BUILD_SCRIPT"; then
+  fail "Forkop must depend on the concrete nftables-json provider, not the nftables virtual package"
+fi
+grep -Fq "command_exists(\"nft\")" "$ROOT_DIR/forkop/files/usr/lib/config/validator.uc" ||
+  fail "runtime validation must reject a missing nft executable before applying rules"
+
 grep -Fq "must use x.y.z format" "$FORKOP_MAKEFILE" ||
   fail "forkop/Makefile must enforce the three-part release version contract"
 grep -Fq 'APK_INTERNAL_VERSION="$RELEASE_VERSION"' "$BUILD_SCRIPT" ||
