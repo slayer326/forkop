@@ -4,6 +4,7 @@ set -eo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FORKOP_LIB="$ROOT_DIR/forkop/files/usr/lib"
 PARSER="$ROOT_DIR/forkop/files/usr/lib/subscription/parser.uc"
+FORKOP_LIB="$ROOT_DIR/forkop/files/usr/lib"
 WORK_DIR="$(mktemp -d)"
 
 cleanup() {
@@ -22,7 +23,7 @@ assert_tsv() {
   local expected_user_agent="$3"
   local parsed tab url user_agent
 
-  parsed="$(ucode "$PARSER" parse-source-entry-tsv "$entry")"
+  parsed="$(ucode -L "$FORKOP_LIB" "$PARSER" parse-source-entry-tsv "$entry")"
   tab="$(printf '\t')"
   url="${parsed%%"$tab"*}"
   if [ "$url" = "$parsed" ]; then
@@ -40,7 +41,7 @@ assert_rejects() {
   local expected="$2"
   local output
 
-  if output="$(ucode "$PARSER" parse-source-entry-tsv "$entry" 2>/dev/null)"; then
+  if output="$(ucode -L "$FORKOP_LIB" "$PARSER" parse-source-entry-tsv "$entry" 2>/dev/null)"; then
     fail "entry should be rejected: $entry"
   fi
   printf '%s\n' "$output" | grep -q "$expected" || fail "expected reject message containing $expected"
