@@ -383,7 +383,7 @@ cache_ucode section-current-usable-cache-fixture \
   fail "persistent cache should restore and satisfy current cache"
 test -s "$WORK_DIR/runtime-cache/proxy-subscription-2.json" ||
   fail "persistent cache restore should write runtime json"
-assert_eq 'https://example.com/two.txt' \
+assert_eq 'https://aes2215.vs2112.51343.ru/two.txt' \
   "$(cat "$WORK_DIR/runtime-cache/proxy-subscription-2.url")" \
   "restored subscription URL"
 
