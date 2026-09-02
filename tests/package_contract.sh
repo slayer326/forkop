@@ -115,6 +115,8 @@ grep -Fq "list applied_migrations 'flintnet_urltest_default'" "$FORKOP_CONFIG" |
   fail "new installations must mark the Flintnet URLTest migration as applied"
 grep -Fq "list applied_migrations 'retired_secondary_rulesets'" "$FORKOP_CONFIG" ||
   fail "new installations must mark the retired secondary rule set migration as applied"
+grep -Fq "list applied_migrations 'secondary_rulesets_mirror_v1'" "$FORKOP_CONFIG" ||
+  fail "new installations must mark the secondary rule set mirror migration as applied"
 grep -Fq '/usr/lib/forkop/config/migration.uc migrate' "$FORKOP_MAKEFILE" ||
   fail "OpenWrt package postinst must run configuration migrations"
 [ "$(grep -Fc '/usr/lib/forkop/config/migration.uc migrate' "$BUILD_SCRIPT")" -ge 3 ] ||

@@ -39,6 +39,7 @@ for (const removed of ["belcloud", "cloudflare", "aeza", "akamai", "zerocdn"]) {
 
 for (const required of [
   '`${_("Built-in rule sets")} #2`',
+  "mirror.51343.ru/forkop/lists/b4geoip-forkop/srs/",
   "Greeg0ry/b4geoip-forkop/main/srs/",
   "SECONDARY_RULESET_OPTIONS",
 ]) {
