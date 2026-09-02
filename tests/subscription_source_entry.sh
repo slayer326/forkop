@@ -48,8 +48,11 @@ assert_rejects() {
 
 assert_tsv ' https://aes2215.vs2112.51343.ru/sub.txt ' 'https://aes2215.vs2112.51343.ru/sub.txt' ''
 assert_tsv ' https://sub.flintnet.pro/b5_Ymcw6Rxo8vptW ' 'https://sub.flintnet.pro/b5_Ymcw6Rxo8vptW' ''
+assert_tsv ' https://sub.hat.onl/nCVZ6cpZukZuS4yY ' 'https://sub.hat.onl/nCVZ6cpZukZuS4yY' ''
 grep -Fq '"sub.flintnet.pro"' "$ROOT_DIR/luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js" ||
   fail "LuCI subscription validation must allow Flintnet"
+grep -Fq '"sub.hat.onl"' "$ROOT_DIR/luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js" ||
+  fail "LuCI subscription validation must allow Hat"
 grep -Fq 'flintnetSubscriptionUrl(value) ? "0" : "1"' "$ROOT_DIR/luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js" ||
   fail "LuCI must disable URLTest group imports by default for Flintnet"
 
@@ -78,6 +81,10 @@ if (invalid.valid || invalid.error != "Subscription URL must use HTTPS")
 
 let flintnet = parser.parse_subscription_source_entry("https://sub.flintnet.pro/b5_Ymcw6Rxo8vptW");
 if (!flintnet.valid || flintnet.url != "https://sub.flintnet.pro/b5_Ymcw6Rxo8vptW")
+    exit(1);
+
+let hat = parser.parse_subscription_source_entry("https://sub.hat.onl/nCVZ6cpZukZuS4yY");
+if (!hat.valid || hat.url != "https://sub.hat.onl/nCVZ6cpZukZuS4yY")
     exit(1);
 
 let foreign = parser.parse_subscription_source_entry("https://internet.matryoshka.my/a");
