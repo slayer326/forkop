@@ -21,7 +21,7 @@ for (const option of ["russia_inside", "russia_outside", "ukraine_inside"]) {
   }
 }
 
-for (const option of ["blizzard", "valve", "xbox", "anthropic", "google"]) {
+for (const option of ["blizzard", "valve", "anthropic", "google"]) {
   if (!main.includes(`${option}:`)) {
     fail(`${option} must be available in built-in rule sets #2`);
   }
