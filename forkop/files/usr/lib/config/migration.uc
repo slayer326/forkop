@@ -44,7 +44,7 @@ const CHILD_ITEM_TYPES = [
 ];
 const SECONDARY_RULESET_RAW_PREFIX = "https://raw.githubusercontent.com/Greeg0ry/b4geoip-forkop/main/srs/";
 const SECONDARY_RULESET_CDN_PREFIX = "https://cdn.jsdelivr.net/gh/Greeg0ry/b4geoip-forkop@main/srs/";
-const SECONDARY_RULESET_MIRROR_PREFIX = "https://mirror.51343.ru/forkop/lists/b4geoip-forkop/srs/";
+const SECONDARY_RULESET_MIRROR_PREFIX = "https://fold8.ru/forkop/lists/b4geoip-forkop/srs/";
 const CURRENT_SECONDARY_RULESET_IDS = {
     adobe: true, anthropic: true, apple: true, blizzard: true, bungie: true,
     ccp: true, electronicarts: true, epicgames: true, google: true,

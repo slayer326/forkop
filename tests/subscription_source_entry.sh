@@ -46,7 +46,7 @@ assert_rejects() {
   printf '%s\n' "$output" | grep -q "$expected" || fail "expected reject message containing $expected"
 }
 
-assert_tsv ' https://aes2215.vs2112.51343.ru/sub.txt ' 'https://aes2215.vs2112.51343.ru/sub.txt' ''
+assert_tsv ' https://subscriptions.example/sub.txt ' 'https://subscriptions.example/sub.txt' ''
 assert_tsv ' https://sub.flintnet.pro/b5_Ymcw6Rxo8vptW ' 'https://sub.flintnet.pro/b5_Ymcw6Rxo8vptW' ''
 assert_tsv ' https://example.com/sub.txt ' 'https://example.com/sub.txt' ''
 assert_tsv ' https://internet.matryoshka.my/a ' 'https://internet.matryoshka.my/a' ''
@@ -59,10 +59,10 @@ if grep -Fq 'supportedHosts' "$ROOT_DIR/luci-app-forkop/htdocs/luci-static/resou
   fail "LuCI subscription validation must not contain a provider allowlist"
 fi
 
-assert_rejects 'https://aes2215.vs2112.51343.ru/a | Custom Agent/1.0' 'Configure User-Agent in the subscription item settings'
-assert_rejects 'https://aes2215.vs2112.51343.ru/a | Agent One | Agent Two' 'Configure User-Agent in the subscription item settings'
-assert_rejects 'https://aes2215.vs2112.51343.ru/a| Agent' 'Configure User-Agent in the subscription item settings'
-assert_rejects 'http://aes2215.vs2112.51343.ru/sub.txt' 'Subscription URL must use HTTPS'
+assert_rejects 'https://subscriptions.example/a | Custom Agent/1.0' 'Configure User-Agent in the subscription item settings'
+assert_rejects 'https://subscriptions.example/a | Agent One | Agent Two' 'Configure User-Agent in the subscription item settings'
+assert_rejects 'https://subscriptions.example/a| Agent' 'Configure User-Agent in the subscription item settings'
+assert_rejects 'http://subscriptions.example/sub.txt' 'Subscription URL must use HTTPS'
 assert_rejects 'https:///sub.txt' 'Invalid URL format'
 assert_rejects 'https://example.com/sub scription' 'Invalid URL format'
 assert_rejects 'file:///tmp/sub.txt' 'Subscription URL must use HTTPS'
@@ -70,11 +70,11 @@ assert_rejects 'file:///tmp/sub.txt' 'Subscription URL must use HTTPS'
 cat >"$WORK_DIR/require-subscription-parser.uc" <<'UCODE'
 let parser = require("subscription.parser");
 
-let parsed = parser.parse_subscription_source_entry("https://aes2215.vs2112.51343.ru/a");
-if (!parsed.valid || parsed.url != "https://aes2215.vs2112.51343.ru/a" || parsed.user_agent != "")
+let parsed = parser.parse_subscription_source_entry("https://subscriptions.example/a");
+if (!parsed.valid || parsed.url != "https://subscriptions.example/a" || parsed.user_agent != "")
     exit(1);
 
-let legacy = parser.parse_subscription_source_entry("https://aes2215.vs2112.51343.ru/a | Agent");
+let legacy = parser.parse_subscription_source_entry("https://subscriptions.example/a | Agent");
 if (legacy.valid || legacy.error != "Configure User-Agent in the subscription item settings")
     exit(1);
 

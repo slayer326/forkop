@@ -19,7 +19,7 @@ sed '/^main "\$@"$/d' "$ROOT_DIR/install.sh" > "$WORK_DIR/install-library.sh"
 . "$WORK_DIR/install-library.sh"
 
 TMP_DIR="$WORK_DIR/tmp"
-MIRROR_BASE_URL="https://mirror.51343.ru"
+MIRROR_BASE_URL="https://fold8.ru"
 mkdir -p "$TMP_DIR" "$WORK_DIR/etc/opkg"
 distfeeds="$WORK_DIR/etc/opkg/distfeeds.conf"
 cat > "$distfeeds" <<'EOF'
@@ -32,11 +32,11 @@ cp "$distfeeds" "$WORK_DIR/original"
 
 begin_package_mirror_transaction
 rewrite_package_repository_file "$distfeeds"
-grep -Fq 'https://mirror.51343.ru/openwrt/releases/24.10.7/' "$distfeeds" ||
+grep -Fq 'https://fold8.ru/openwrt/releases/24.10.7/' "$distfeeds" ||
   fail_test "transaction did not rewrite OpenWrt 24 feeds"
-grep -Fxq 'https://mirror.51343.ru/openwrt/releases/25.12.5/targets/mediatek/filogic/packages/packages.adb' "$distfeeds" ||
+grep -Fxq 'https://fold8.ru/openwrt/releases/25.12.5/targets/mediatek/filogic/packages/packages.adb' "$distfeeds" ||
   fail_test "transaction did not normalize an OpenWrt 25 target feed"
-grep -Fxq 'https://mirror.51343.ru/openwrt/releases/25.12.5/packages/aarch64_cortex-a53/video/packages.adb' "$distfeeds" ||
+grep -Fxq 'https://fold8.ru/openwrt/releases/25.12.5/packages/aarch64_cortex-a53/video/packages.adb' "$distfeeds" ||
   fail_test "transaction did not normalize an OpenWrt 25 package feed"
 [ -s "$distfeeds.pre-forkop-mirror" ] ||
   fail_test "transaction did not create a persistent recovery copy"
@@ -49,7 +49,7 @@ begin_package_mirror_transaction
 rewrite_package_repository_file "$distfeeds"
 commit_package_mirror_transaction
 cleanup
-grep -Fq 'https://mirror.51343.ru/openwrt/releases/24.10.7/' "$distfeeds" ||
+grep -Fq 'https://fold8.ru/openwrt/releases/24.10.7/' "$distfeeds" ||
   fail_test "committed transaction was unexpectedly rolled back"
 
 PKG_IS_APK=1

@@ -33,6 +33,21 @@ forkop/
         └── SHA256SUMS
 ```
 
+Этот архив публикует пакеты и метаданные релиза Forkop. Полное зеркало
+зависимостей — отдельный набор данных. Если оно используется, на `fold8.ru`
+должны также существовать следующие пути:
+
+```text
+openwrt/releases/                         # пакеты OpenWrt
+forkop/lists/                             # списки и ruleset-файлы
+forkop/sing-box-extended/latest.json      # метаданные sing-box Extended
+forkop/sing-box-extended/releases/        # пакеты sing-box Extended
+zapret-manager/proxy/                     # прокси-кэш Zapret Manager
+```
+
+Их подготавливают скрипты из `ops/mirror/`; они не входят в небольшой архив
+отдельного релиза `forkop-timeweb-VERSION.tar.gz`.
+
 Для нестандартного домена архив можно подготовить локально:
 
 ```sh
