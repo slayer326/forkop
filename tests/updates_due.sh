@@ -110,6 +110,12 @@ assert_eq 'https://cdn.jsdelivr.net/gh/Greeg0ry/b4geoip-forkop@main/srs/valve.sr
 assert_eq 'https://cdn.jsdelivr.net/gh/Greeg0ry/b4geoip-forkop@main/srs/valve.srs' \
   "$(updates_ucode jsdelivr-fallback-url https://mirror.51343.ru/forkop/lists/b4geoip-forkop/srs/valve.srs)" \
   "b4geoip-forkop mirror jsDelivr fallback"
+assert_eq 'https://raw.githubusercontent.com/Greeg0ry/b4geoip-forkop/main/srs/valve.srs' \
+  "$(updates_ucode github-raw-fallback-url https://mirror.51343.ru/forkop/lists/b4geoip-forkop/srs/valve.srs)" \
+  "b4geoip-forkop mirror raw GitHub fallback"
+assert_eq 'https://raw.githubusercontent.com/Greeg0ry/b4geoip-forkop/main/srs/valve.srs' \
+  "$(updates_ucode github-raw-fallback-url https://cdn.jsdelivr.net/gh/Greeg0ry/b4geoip-forkop@main/srs/valve.srs)" \
+  "b4geoip-forkop jsDelivr raw GitHub fallback"
 assert_eq '' \
   "$(updates_ucode jsdelivr-fallback-url https://example.com/custom.lst)" \
   "custom lists must not be rewritten to jsDelivr"

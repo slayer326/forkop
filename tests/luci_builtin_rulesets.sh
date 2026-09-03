@@ -23,11 +23,11 @@ for (const option of ["russia_inside", "russia_outside", "ukraine_inside"]) {
 
 const currentSecondaryOptions = [
   "adobe", "anthropic", "apple", "blizzard", "bungie", "ccp",
-  "electronicarts", "epicgames", "google", "nintendo", "play2go", "riot",
+  "electronicarts", "epicgames", "google", "nintendo", "riot",
   "roblox", "sony", "taketwo", "ubisoft", "valve", "wargaming", "xbox",
 ];
 
-// These entries are present in the current upstream b4geoip catalogue.
+// These entries are supported by the current upstream Forkop catalogue.
 for (const option of currentSecondaryOptions) {
   if (!main.includes(`${option}:`)) {
     fail(`${option} must be available in built-in rule sets #2`);
@@ -42,7 +42,7 @@ for (const removed of [
   "aeza", "akamai", "amazon", "belcloud", "buyvm", "cdn77", "cloudflare",
   "cogent", "constant", "contabo", "datacamp", "digitalocean", "digitalone",
   "fastly", "gcore", "glesys", "gthost", "hetzner", "meganz", "melbicom",
-  "oracle", "ovh", "scalaxy", "scaleway", "vercel", "zerocdn",
+  "oracle", "ovh", "play2go", "scalaxy", "scaleway", "vercel", "zerocdn",
 ]) {
   if (secondaryOptions[1].includes(`${removed}:`)) {
     fail(`${removed} was retired upstream and must not be offered as a secondary rule set`);
@@ -53,7 +53,7 @@ const actualSecondaryOptions = [...secondaryOptions[1].matchAll(/^  ([a-z0-9]+):
   .map((match) => match[1])
   .sort();
 if (JSON.stringify(actualSecondaryOptions) !== JSON.stringify([...currentSecondaryOptions].sort())) {
-  fail('secondary built-in rule sets must match the current upstream catalogue exactly');
+  fail('secondary built-in rule sets must match the supported upstream catalogue exactly');
 }
 
 for (const required of [
