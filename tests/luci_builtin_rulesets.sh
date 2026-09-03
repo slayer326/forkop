@@ -21,6 +21,7 @@ for (const option of ["russia_inside", "russia_outside", "ukraine_inside"]) {
   }
 }
 
+// These entries are present in the current upstream b4geoip catalogue.
 for (const option of ["blizzard", "valve", "anthropic", "google"]) {
   if (!main.includes(`${option}:`)) {
     fail(`${option} must be available in built-in rule sets #2`);
