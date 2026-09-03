@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-MIRROR_BASE="${1:-${FORKOP_MIRROR_BASE:-https://fold8.ru}}"
+MIRROR_BASE="${1:-${FORKOP_MIRROR_BASE:-https://mirror.51343.ru}}"
 DISTFEEDS="/etc/apk/repositories.d/distfeeds.list"
 
 fail() {
