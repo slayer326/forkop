@@ -58,7 +58,7 @@ interface ComponentActionButton {
 
 interface ComponentCard {
   component: Forkop.ComponentName;
-  column: 0 | 1;
+  column: 0 | 1 | 2;
   title: string;
   version: string;
   latestVersion?: string;
@@ -89,10 +89,6 @@ if (typeof window !== 'undefined') {
   window.addEventListener('pageshow', () => {
     pageUnloading = false;
   });
-}
-
-function isNotInstalled(version: string | undefined) {
-  return !version || version === 'not installed';
 }
 
 function shouldShowInstallAfterCheck(component: Forkop.ComponentName) {
@@ -818,6 +814,7 @@ function getComponentCards(): ComponentCard[] {
   const zapret2Installed = Boolean(systemInfo.zapret2_installed);
   const byedpiInstalled = Boolean(systemInfo.byedpi_installed);
   const zapretManagerInstalled = Boolean(systemInfo.zapret_manager_installed);
+  const packetSteeringEnabled = systemInfo.packet_steering_mode === '2';
   const singBoxExtended =
     Boolean(systemInfo.sing_box_extended) && !systemInfo.sing_box_compressed;
   const singBoxTiny = Boolean(systemInfo.sing_box_tiny);
@@ -967,6 +964,29 @@ function getComponentCards(): ComponentCard[] {
       latestVersion: '',
       releaseUrl: 'https://github.com/Screamshow/Zapret-Manager',
       actions: zapretManagerActions,
+    },
+    {
+      component: 'packet_steering',
+      column: 2,
+      title: 'Packet Steering',
+      version: packetSteeringEnabled ? _('Mode 2 enabled') : _('Normal mode'),
+      actions: [
+        packetSteeringEnabled
+          ? {
+              key: 'packetSteeringRestore',
+              text: _('Restore normal mode'),
+              icon: renderRotateCcwIcon24,
+              component: 'packet_steering',
+              action: 'restore',
+            }
+          : {
+              key: 'packetSteeringEnable',
+              text: _('Enable mode 2'),
+              icon: renderRotateCcwIcon24,
+              component: 'packet_steering',
+              action: 'enable',
+            },
+      ],
     },
   ];
 }
@@ -1208,7 +1228,7 @@ function renderUpdatesComponents() {
     return;
   }
 
-  const columns = [[], []] as Node[][];
+  const columns = [[], [], []] as Node[][];
   getComponentCards().forEach((card) => {
     columns[card.column].push(renderComponentCard(card));
   });
@@ -1217,6 +1237,7 @@ function renderUpdatesComponents() {
     container.replaceChildren(
       E('div', { class: 'fkp_updates-page__components-column' }, columns[0]),
       E('div', { class: 'fkp_updates-page__components-column' }, columns[1]),
+      E('div', { class: 'fkp_updates-page__components-column' }, columns[2]),
     );
   });
 }

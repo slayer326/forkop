@@ -318,7 +318,7 @@ cat >"$WORK_DIR/bad-subscription.json" <<'JSON'
 JSON
 assert_rejects "bad subscription" "$WORK_DIR/bad-subscription.json" "Configure User-Agent in the subscription item settings"
 
-cat >"$WORK_DIR/bad-manual-hwid.json" <<'JSON'
+cat >"$WORK_DIR/legacy-manual-hwid.json" <<'JSON'
 {
   "settings": { ".name": "settings", ".type": "settings" },
   "section": [
@@ -335,8 +335,7 @@ cat >"$WORK_DIR/bad-manual-hwid.json" <<'JSON'
   ]
 }
 JSON
-validate_fixture "$WORK_DIR/bad-manual-hwid.json" >/dev/null ||
-  fail "legacy manual HWID settings should be ignored when automatic HWID is enforced"
+validate_fixture "$WORK_DIR/legacy-manual-hwid.json"
 
 cat >"$WORK_DIR/bad-latency-url.json" <<'JSON'
 {

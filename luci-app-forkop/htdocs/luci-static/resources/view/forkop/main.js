@@ -1006,13 +1006,9 @@ var SECONDARY_RULESET_OPTIONS = {
   ubisoft: "Ubisoft",
   valve: "Valve",
   wargaming: "Wargaming",
-  aeza: "Aeza",
-  akamai: "Akamai",
   amazon: "Amazon",
-  belcloud: "BelCloud",
   buyvm: "BuyVM",
   cdn77: "CDN77",
-  cloudflare: "Cloudflare",
   cogent: "Cogent",
   constant: "Constant",
   contabo: "Contabo",
@@ -1031,7 +1027,6 @@ var SECONDARY_RULESET_OPTIONS = {
   scalaxy: "Scalaxy",
   scaleway: "Scaleway",
   vercel: "Vercel",
-  zerocdn: "ZeroCDN",
   adobe: "Adobe",
   anthropic: "Anthropic",
   apple: "Apple",
@@ -1154,12 +1149,6 @@ function svgEl(tag, attrs = {}, children = []) {
 // src/helpers/insertIf.ts
 function insertIf(condition, elements) {
   return condition ? elements : [];
-}
-
-// src/helpers/isCopyableProxyLink.ts
-var COPYABLE_PROXY_URI_RE = /^(vless|vmess|trojan|ss|ssr|hysteria2|hy2|tuic|socks4|socks4a|socks5):\/\//i;
-function isCopyableProxyLink(link) {
-  return COPYABLE_PROXY_URI_RE.test((link || "").trim());
 }
 
 // src/icons/renderLoaderCircleIcon24.ts
@@ -1679,65 +1668,6 @@ function renderBookOpenTextIcon24() {
   );
 }
 
-// src/icons/renderCopyIcon24.ts
-function renderCopyIcon24() {
-  return svgEl(
-    "svg",
-    {
-      xmlns: "http://www.w3.org/2000/svg",
-      width: "24",
-      height: "24",
-      viewBox: "0 0 24 24",
-      fill: "none",
-      stroke: "currentColor",
-      "stroke-width": "2",
-      "stroke-linecap": "round",
-      "stroke-linejoin": "round",
-      class: "lucide lucide-copy-icon lucide-copy"
-    },
-    [
-      svgEl("rect", {
-        width: "14",
-        height: "14",
-        x: "8",
-        y: "8",
-        rx: "2",
-        ry: "2"
-      }),
-      svgEl("path", {
-        d: "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
-      })
-    ]
-  );
-}
-
-// src/icons/renderLinkIcon24.ts
-function renderLinkIcon24() {
-  return svgEl(
-    "svg",
-    {
-      xmlns: "http://www.w3.org/2000/svg",
-      width: "24",
-      height: "24",
-      viewBox: "0 0 24 24",
-      fill: "none",
-      stroke: "currentColor",
-      "stroke-width": "2",
-      "stroke-linecap": "round",
-      "stroke-linejoin": "round",
-      class: "lucide lucide-link-icon lucide-link"
-    },
-    [
-      svgEl("path", {
-        d: "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
-      }),
-      svgEl("path", {
-        d: "M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
-      })
-    ]
-  );
-}
-
 // src/icons/renderDownloadIcon24.ts
 function renderDownloadIcon24() {
   const NS = "http://www.w3.org/2000/svg";
@@ -1871,7 +1801,7 @@ function renderMetadataAction(label, url) {
       title: label,
       "aria-label": label
     },
-    renderLinkIcon24()
+    label
   );
 }
 function renderSubscriptionMetadata(metadata) {
@@ -1893,9 +1823,9 @@ function renderSubscriptionMetadata(metadata) {
     refillDate ? { label: _("Refill"), value: refillDate } : void 0
   ].filter(Boolean);
   const actions = [
-    renderMetadataAction("Profile", metadata.webPageUrl),
-    renderMetadataAction("Support", metadata.supportUrl),
-    renderMetadataAction("More details", metadata.announceUrl)
+    renderMetadataAction(_("Profile"), metadata.webPageUrl),
+    renderMetadataAction(_("Support"), metadata.supportUrl),
+    renderMetadataAction(_("More details"), metadata.announceUrl)
   ].filter(Boolean);
   return E("div", { class: "fkp_dashboard-page__subscription-meta" }, [
     E("div", { class: "fkp_dashboard-page__subscription-meta__main" }, [
@@ -1986,7 +1916,6 @@ function getLatencyTestLabel(latencyProgress) {
 function renderDefaultState({
   section,
   onChooseOutbound,
-  onCopyOutbound,
   onShowUrlTestInfo,
   onShowPriorityInfo,
   onTestLatency,
@@ -2019,7 +1948,6 @@ function renderDefaultState({
       }
       return "fkp_dashboard-page__outbound-grid__item__latency--red";
     }
-    const canCopyLink = Boolean(outbound.canCopyLink) || isCopyableProxyLink(outbound.link);
     const footerLabel = getOutboundFooterLabel(outbound);
     const selectorSwitching = Boolean(selectorSwitchingTag);
     const outboundSwitching = selectorSwitchingTag === outbound.code;
@@ -2058,22 +1986,6 @@ function renderDefaultState({
         ] : [],
         E("div", { class: "fkp_dashboard-page__outbound-grid__item__header" }, [
           E("b", {}, renderFlagEmojis(outbound.displayName)),
-          ...canCopyLink ? [
-            E(
-              "button",
-              {
-                type: "button",
-                class: "btn fkp_dashboard-page__outbound-grid__item__copy-button",
-                title: _("Copy proxy link"),
-                "aria-label": _("Copy proxy link"),
-                click: (event) => {
-                  event.stopPropagation();
-                  onCopyOutbound(section, outbound);
-                }
-              },
-              renderCopyIcon24()
-            )
-          ] : [],
           ...outbound.urlTestInfo ? [
             E(
               "button",
@@ -2340,8 +2252,6 @@ function render() {
             },
             onChooseOutbound: () => {
             },
-            onCopyOutbound: () => {
-            },
             onShowUrlTestInfo: () => {
             },
             onShowPriorityInfo: () => {
@@ -2376,22 +2286,6 @@ function showToast(message, type, duration = 3e3) {
     toast.classList.remove("visible");
     setTimeout(() => toast.remove(), 300);
   }, duration);
-}
-
-// src/helpers/copyToClipboard.ts
-function copyToClipboard(text) {
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  document.body.appendChild(textarea);
-  textarea.select();
-  try {
-    document.execCommand("copy");
-    showToast(_("Copied"), "success");
-  } catch (_err) {
-    showToast(_("Failed to copy!"), "error");
-    console.error("copyToClipboard - e", _err);
-  }
-  document.body.removeChild(textarea);
 }
 
 // src/forkop/methods/custom/getConfigSections.ts
@@ -3703,7 +3597,6 @@ function buildUrlTestInfo({
     childCodes.flatMap((childCode) => {
       const childEntry = proxyByCode.get(childCode);
       const link = manualLinkByCode.get(childCode) || cachedProxyLinks.get(childCode) || "";
-      const canCopyLink = isCopyableProxyLink(link);
       return [
         {
           code: childCode,
@@ -3717,8 +3610,6 @@ function buildUrlTestInfo({
           latency: childEntry?.value?.history?.[0]?.delay || 0,
           type: childEntry?.value?.type || "",
           selected: selectedCode === childCode,
-          link,
-          canCopyLink,
           country: showDetectedCountries ? outboundMetadata?.countries?.[childCode] : void 0
         }
       ];
@@ -3782,7 +3673,6 @@ function buildPriorityInfo({
     const members = uniqueCodes(level.outbounds || []).map((childCode) => {
       const childEntry = proxyByCode.get(childCode);
       const link = manualLinkByCode.get(childCode) || cachedProxyLinks.get(childCode) || "";
-      const canCopyLink = isCopyableProxyLink(link);
       return {
         code: childCode,
         displayName: getOutboundDisplayName(
@@ -3795,8 +3685,6 @@ function buildPriorityInfo({
         latency: childEntry?.value?.history?.[0]?.delay || 0,
         type: childEntry?.value?.type || "",
         selected: selectedCode === childCode,
-        link,
-        canCopyLink,
         country: showDetectedCountries ? outboundMetadata?.countries?.[childCode] : void 0,
         levelIndex,
         levelName: level.displayName,
@@ -3874,7 +3762,6 @@ function buildProxyGroupOutbounds(section, proxies, outboundMetadata, urltestGro
       return [];
     }
     const link = manualLinkByCode.get(code) || cachedProxyLinks.get(code) || "";
-    const canCopyLink = isCopyableProxyLink(link);
     const displayName = priorityConfig?.displayName || urlTestConfig?.displayName || getOutboundDisplayName(
       code,
       item,
@@ -3890,8 +3777,6 @@ function buildProxyGroupOutbounds(section, proxies, outboundMetadata, urltestGro
         latency: item?.value.history?.[0]?.delay || 0,
         type: priorityConfig ? "Priority" : item?.value.type || "URLTest",
         selected: selector?.value?.now === code,
-        link,
-        canCopyLink,
         description: outboundMetadata?.descriptions?.[code],
         country: showDetectedCountries ? outboundMetadata?.countries?.[code] : void 0,
         runtimeAvailable: item ? void 0 : false,
@@ -4023,15 +3908,7 @@ function getOutboundMetadata(dashboardCache) {
     descriptions
   };
 }
-function getCachedProxyLinks(dashboardCache) {
-  return new Map(
-    Object.entries(objectMap(dashboardCache?.links)).filter(
-      ([, link]) => isCopyableProxyLink(link)
-    )
-  );
-}
-async function getDashboardSections(options = {}) {
-  const includeSubscriptionCopyState = options.includeSubscriptionCopyState ?? true;
+async function getDashboardSections() {
   const configSections = hydrateConfigSections(await getConfigSections());
   const [clashProxies, runtimeMetadata] = await Promise.all([
     getClashApiProxies(configSections),
@@ -4067,7 +3944,7 @@ async function getDashboardSections(options = {}) {
           subscriptionSourceCount,
           dashboardCache
         ) : void 0;
-        const cachedProxyLinks = includeSubscriptionCopyState ? getCachedProxyLinks(dashboardCache) : /* @__PURE__ */ new Map();
+        const cachedProxyLinks = /* @__PURE__ */ new Map();
         const urltestGroups = mergeUrlTestGroups(
           getUrlTestGroups(dashboardCache),
           runtimeMetadata.urltestGroups
@@ -4112,7 +3989,6 @@ async function getDashboardSections(options = {}) {
               latency: outbound?.value?.history?.[0]?.delay || 0,
               type: outbound?.value?.type || "",
               selected: true,
-              canCopyLink: false,
               runtimeAvailable: Boolean(outbound)
             }
           ]
@@ -4133,8 +4009,7 @@ async function getDashboardSections(options = {}) {
               displayName: getJsonOutboundDisplayName(section) || outbound?.value?.name || "",
               latency: outbound?.value?.history?.[0]?.delay || 0,
               type: outbound?.value?.type || "",
-              selected: true,
-              canCopyLink: false
+              selected: true
             }
           ]
         };
@@ -4410,6 +4285,7 @@ var initialDiagnosticStore = {
     byedpi_version: "loading",
     byedpi_installed: 0,
     zapret_manager_installed: 0,
+    packet_steering_mode: "",
     server_inbounds_enabled_count: -1,
     openwrt_version: "loading",
     device_model: "loading"
@@ -4438,6 +4314,9 @@ var initialDiagnosticStore = {
     },
     showSingBoxConfig: {
       loading: false
+    },
+    supportReport: {
+      loading: false
     }
   },
   diagnosticsRunAction: { loading: false },
@@ -4461,7 +4340,9 @@ var initialDiagnosticStore = {
     byedpiInstall: { loading: false },
     byedpiRemove: { loading: false },
     zapretManagerInstall: { loading: false },
-    zapretManagerRemove: { loading: false }
+    zapretManagerRemove: { loading: false },
+    packetSteeringEnable: { loading: false },
+    packetSteeringRestore: { loading: false }
   },
   updatesChecks: {
     forkop: { status: null, latest_version: "", release_url: "" },
@@ -4469,7 +4350,8 @@ var initialDiagnosticStore = {
     zapret: { status: null, latest_version: "", release_url: "" },
     zapret2: { status: null, latest_version: "", release_url: "" },
     byedpi: { status: null, latest_version: "", release_url: "" },
-    zapret_manager: { status: null, latest_version: "", release_url: "" }
+    zapret_manager: { status: null, latest_version: "", release_url: "" },
+    packet_steering: { status: null, latest_version: "", release_url: "" }
   }
 };
 
@@ -4817,7 +4699,9 @@ var componentActionKeyMap = {
   "byedpi:install": "byedpiInstall",
   "byedpi:remove": "byedpiRemove",
   "zapret_manager:install": "zapretManagerInstall",
-  "zapret_manager:remove": "zapretManagerRemove"
+  "zapret_manager:remove": "zapretManagerRemove",
+  "packet_steering:enable": "packetSteeringEnable",
+  "packet_steering:restore": "packetSteeringRestore"
 };
 function getComponentActionKey(component, action) {
   return componentActionKeyMap[`${component}:${action}`];
@@ -4926,7 +4810,9 @@ function getEmptyUpdatesActions() {
     byedpiInstall: { loading: false },
     byedpiRemove: { loading: false },
     zapretManagerInstall: { loading: false },
-    zapretManagerRemove: { loading: false }
+    zapretManagerRemove: { loading: false },
+    packetSteeringEnable: { loading: false },
+    packetSteeringRestore: { loading: false }
   };
 }
 function getEmptyDiagnosticsActions() {
@@ -5698,6 +5584,14 @@ function setSubscriptionUpdating(sectionName, updating, local = false) {
     }
   });
 }
+function subscriptionUpdateErrorMessage(message) {
+  const detail = `${message || ""}`.trim();
+  const fallback = _("Failed to update subscriptions");
+  if (!detail || detail === fallback || detail === "Subscription update failed") {
+    return fallback;
+  }
+  return `${fallback}: ${detail}`;
+}
 function setSelectorSwitching(sectionName, tag) {
   const sectionsWidget = store.get().sectionsWidget;
   const selectorSwitchingSections = {
@@ -5768,7 +5662,7 @@ async function completeSubscriptionUpdateJob(jobId, sectionName, response) {
   }
   if (failed2) {
     if (shouldNotify) {
-      showToast(_("Failed to update subscriptions"), "error");
+      showToast(subscriptionUpdateErrorMessage(message), "error");
     }
     return;
   }
@@ -5803,7 +5697,7 @@ async function followSubscriptionUpdateState(state) {
       const message = error instanceof Error ? error.message : _("Failed to update subscriptions");
       setSubscriptionUpdating(sectionName, false);
       if (!isTransientRpcError(message)) {
-        showToast(_("Failed to update subscriptions"), "error");
+        showToast(subscriptionUpdateErrorMessage(message), "error");
       }
     }
   } finally {
@@ -6100,14 +5994,6 @@ async function handleTestLatency(latencyType, sectionName, tag, timeout) {
     }
   }
 }
-function handleCopyOutbound(outbound) {
-  const link = outbound.link;
-  if (link && isCopyableProxyLink(link)) {
-    copyToClipboard(link);
-    return;
-  }
-  showToast(_("Proxy link is unavailable"), "error");
-}
 function formatUrlTestModalValue(value) {
   if (typeof value === "boolean") {
     return value ? _("Yes") : _("No");
@@ -6202,19 +6088,6 @@ function renderUrlTestSelectedValue(info) {
     ]
   );
 }
-function renderUrlTestCopyButton(title, onClick) {
-  return E(
-    "button",
-    {
-      type: "button",
-      class: "btn fkp_dashboard-page__urltest-details__copy-button",
-      title,
-      "aria-label": title,
-      click: onClick
-    },
-    renderCopyIcon24()
-  );
-}
 function renderUrlTestInfoModal(outbound) {
   const info = outbound.urlTestInfo;
   if (!info) {
@@ -6298,13 +6171,7 @@ function renderUrlTestInfoModal(outbound) {
                     formatUrlTestLatency(member.latency)
                   )
                 ]
-              ),
-              member.canCopyLink ? renderUrlTestCopyButton(_("Copy proxy link"), (event) => {
-                event.preventDefault();
-                handleCopyOutbound(member);
-              }) : E("span", {
-                class: "fkp_dashboard-page__urltest-details__copy-placeholder"
-              })
+              )
             ]
           )
         ) : [
@@ -6646,13 +6513,7 @@ function renderPriorityInfoModal(outbound) {
                     formatUrlTestLatency(member.latency)
                   )
                 ]
-              ),
-              member.canCopyLink ? renderUrlTestCopyButton(_("Copy proxy link"), (event) => {
-                event.preventDefault();
-                handleCopyOutbound(member);
-              }) : E("span", {
-                class: "fkp_dashboard-page__urltest-details__copy-placeholder"
-              })
+              )
             ]
           )
         ) : [
@@ -6717,7 +6578,7 @@ async function handleUpdateSubscription(section) {
       const message = error instanceof Error ? error.message : _("Failed to update subscriptions");
       setSubscriptionUpdating(section.sectionName, false);
       if (!isTransientRpcError(message)) {
-        showToast(_("Failed to update subscriptions"), "error");
+        showToast(subscriptionUpdateErrorMessage(message), "error");
       }
     }
   } finally {
@@ -6800,8 +6661,6 @@ async function renderSectionsWidget() {
       },
       onChooseOutbound: () => {
       },
-      onCopyOutbound: () => {
-      },
       onShowUrlTestInfo: () => {
       },
       onShowPriorityInfo: () => {
@@ -6850,9 +6709,6 @@ async function renderSectionsWidget() {
       },
       onChooseOutbound: (sectionName, selector, tag) => {
         void handleChooseOutbound(sectionName, selector, tag);
-      },
-      onCopyOutbound: (_section, outbound) => {
-        handleCopyOutbound(outbound);
       },
       onShowUrlTestInfo: (outbound) => {
         handleShowUrlTestInfo(outbound);
@@ -7372,29 +7228,21 @@ var styles = `
     margin-left: auto;
     display: flex;
     justify-content: flex-end;
-    gap: var(--subscription-meta-action-gap);
+    gap: 8px;
 }
 
 .fkp_dashboard-page .btn.fkp_dashboard-page__subscription-meta__action {
-    width: var(--subscription-meta-action-size);
-    height: var(--subscription-meta-action-size);
-    min-width: var(--subscription-meta-action-size);
-    min-height: var(--subscription-meta-action-size);
-    padding: 2px;
+    width: auto;
+    min-width: 0;
+    min-height: 32px;
+    padding: 5px 10px;
     box-sizing: border-box;
     display: flex;
     align-items: center;
     justify-content: center;
     flex: 0 0 auto;
-    line-height: 1;
+    line-height: 1.2;
     margin: 0;
-}
-
-.fkp_dashboard-page__subscription-meta__action svg {
-    width: 15px;
-    height: 15px;
-    display: block;
-    flex: 0 0 auto;
 }
 
 .fkp_dashboard-page__subscription-meta__announce {
@@ -7429,7 +7277,7 @@ var styles = `
     }
 
     .fkp_dashboard-page__subscription-meta__title {
-        max-width: calc(100% - 42px);
+        max-width: calc(100% - 92px);
     }
 }
 
@@ -8623,6 +8471,7 @@ var UNKNOWN_SYSTEM_INFO = {
   byedpi_version: _("unknown"),
   byedpi_installed: 0,
   zapret_manager_installed: 0,
+  packet_steering_mode: "",
   server_inbounds_enabled_count: -1,
   openwrt_version: _("unknown"),
   device_model: _("unknown")
@@ -8829,6 +8678,22 @@ function renderButton({
     },
     [...insertIf(hasIcon, [getWrappedIcon()]), E("span", {}, text)]
   );
+}
+
+// src/helpers/copyToClipboard.ts
+function copyToClipboard(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    document.execCommand("copy");
+    showToast(_("Copied"), "success");
+  } catch (_err) {
+    showToast(_("Failed to copy!"), "error");
+    console.error("copyToClipboard - e", _err);
+  }
+  document.body.removeChild(textarea);
 }
 
 // src/partials/modal/renderModal.ts
@@ -9103,7 +8968,8 @@ function renderAvailableActions({
   disable,
   globalCheck,
   viewLogs,
-  showSingBoxConfig
+  showSingBoxConfig,
+  supportReport
 }) {
   return E("div", { class: "fkp_diagnostic-page__right-bar__actions" }, [
     E("b", {}, _("Available actions")),
@@ -9182,6 +9048,15 @@ function renderAvailableActions({
         text: _("Show sing-box config"),
         loading: showSingBoxConfig.loading,
         disabled: showSingBoxConfig.disabled
+      })
+    ]),
+    ...insertIf(supportReport.visible, [
+      renderButton({
+        onClick: supportReport.onClick,
+        icon: renderDownloadIcon24,
+        text: _("Download support report"),
+        loading: supportReport.loading,
+        disabled: supportReport.disabled
       })
     ])
   ]);
@@ -9461,9 +9336,7 @@ async function runSectionsCheck() {
     state: "loading",
     items: []
   });
-  const sections = await getDashboardSections({
-    includeSubscriptionCopyState: false
-  });
+  const sections = await getDashboardSections();
   if (!sections.success) {
     updateCheckStore({
       order,
@@ -9919,6 +9792,15 @@ function maskGlobalCheckText(text = "") {
     return maskedLine;
   }).join("\n");
 }
+function maskSupportReportText(text = "") {
+  return maskGlobalCheckText(text).replace(
+    /\b(?:vless|vmess|trojan|ss|ssr|hysteria2|hy2|tuic|socks4a?|socks5):\/\/\S+/gi,
+    MASKED_VALUE
+  ).replace(
+    /(https?:\/\/\S*[?&](?:token|key|uuid|password|secret)=)\S+/gi,
+    "$1" + MASKED_VALUE
+  );
+}
 
 // src/forkop/tabs/diagnostic/initController.ts
 var SERVICE_STATUS_REFRESH_INTERVAL_MS = 2e3;
@@ -9976,6 +9858,49 @@ function isLocalMutatingServiceActionLoading() {
 }
 function isMutatingServiceActionLoading() {
   return isLocalMutatingServiceActionLoading() || isServiceTransitionStatus(store.get().servicesInfoWidget.data.forkopStatus);
+}
+function downloadSupportReport(text) {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const stamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
+  link.href = url;
+  link.download = `forkop-support-report-${stamp}.txt`;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+async function handleDownloadSupportReport() {
+  setDiagnosticActionLoading("supportReport", true);
+  try {
+    const [globalCheck, logs] = await Promise.all([
+      ForkopShellMethods.globalCheck(),
+      ForkopShellMethods.checkLogs()
+    ]);
+    const globalText = globalCheck.success ? String(globalCheck.data ?? "") : _("Global check could not be collected.");
+    const logsText = logs.success ? String(logs.data ?? "") : _("Forkop logs could not be collected.");
+    downloadSupportReport(
+      [
+        "Forkop support report",
+        `Generated: ${(/* @__PURE__ */ new Date()).toISOString()}`,
+        "",
+        "=== Global check (sensitive values masked) ===",
+        maskSupportReportText(globalText).trim(),
+        "",
+        "=== Recent Forkop logs ===",
+        maskSupportReportText(logsText).trim(),
+        ""
+      ].join("\n")
+    );
+    showToast(_("Support report downloaded"), "success");
+  } catch (error) {
+    logger.error("[DIAGNOSTIC]", "handleDownloadSupportReport - e", error);
+    showToast(_("Failed to create support report"), "error");
+  } finally {
+    setDiagnosticActionLoading("supportReport", false);
+  }
 }
 function getForkopStatusText(running, enabled) {
   if (running) {
@@ -10560,6 +10485,12 @@ function renderDiagnosticAvailableActionsWidget() {
       loading: diagnosticsActions.showSingBoxConfig.loading,
       visible: true,
       onClick: handleShowSingBoxConfig,
+      disabled: utilityActionsDisabled
+    },
+    supportReport: {
+      loading: diagnosticsActions.supportReport.loading,
+      visible: true,
+      onClick: () => void handleDownloadSupportReport(),
       disabled: utilityActionsDisabled
     }
   });
@@ -13633,6 +13564,7 @@ function getComponentCards() {
   const zapret2Installed = Boolean(systemInfo.zapret2_installed);
   const byedpiInstalled = Boolean(systemInfo.byedpi_installed);
   const zapretManagerInstalled = Boolean(systemInfo.zapret_manager_installed);
+  const packetSteeringEnabled = systemInfo.packet_steering_mode === "2";
   const singBoxExtended = Boolean(systemInfo.sing_box_extended) && !systemInfo.sing_box_compressed;
   const singBoxTiny = Boolean(systemInfo.sing_box_tiny);
   const forkopActions = getInstalledUpdateActions(
@@ -13756,6 +13688,27 @@ function getComponentCards() {
       latestVersion: "",
       releaseUrl: "https://github.com/Screamshow/Zapret-Manager",
       actions: zapretManagerActions
+    },
+    {
+      component: "packet_steering",
+      column: 2,
+      title: "Packet Steering",
+      version: packetSteeringEnabled ? _("Mode 2 enabled") : _("Normal mode"),
+      actions: [
+        packetSteeringEnabled ? {
+          key: "packetSteeringRestore",
+          text: _("Restore normal mode"),
+          icon: renderRotateCcwIcon24,
+          component: "packet_steering",
+          action: "restore"
+        } : {
+          key: "packetSteeringEnable",
+          text: _("Enable mode 2"),
+          icon: renderRotateCcwIcon24,
+          component: "packet_steering",
+          action: "enable"
+        }
+      ]
     }
   ];
 }
@@ -13948,14 +13901,15 @@ function renderUpdatesComponents() {
   if (!container) {
     return;
   }
-  const columns = [[], []];
+  const columns = [[], [], []];
   getComponentCards().forEach((card) => {
     columns[card.column].push(renderComponentCard(card));
   });
   return preserveScrollForPage(() => {
     container.replaceChildren(
       E("div", { class: "fkp_updates-page__components-column" }, columns[0]),
-      E("div", { class: "fkp_updates-page__components-column" }, columns[1])
+      E("div", { class: "fkp_updates-page__components-column" }, columns[1]),
+      E("div", { class: "fkp_updates-page__components-column" }, columns[2])
     );
   });
 }
@@ -14069,7 +14023,7 @@ var styles6 = `
 
 .fkp_updates-page__components {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: flex-start;
     gap: 10px;
     width: 100%;
@@ -14081,6 +14035,12 @@ var styles6 = `
     gap: 10px;
     min-width: 0;
     width: 100%;
+}
+
+@media (max-width: 1100px) {
+    .fkp_updates-page__components {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 760px) {

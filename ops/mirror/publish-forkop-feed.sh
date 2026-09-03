@@ -77,12 +77,12 @@ cat > "$UPDATES_STAGING/release.json" <<EOF
   "tag_name": "$VERSION",
   "html_url": "/forkop/updates/releases/$VERSION/",
   "assets": [
-    {"name": "forkop_$VERSION.apk", "browser_download_url": "/forkop/updates/releases/$VERSION/forkop_$VERSION.apk"},
-    {"name": "luci-app-forkop_$VERSION.apk", "browser_download_url": "/forkop/updates/releases/$VERSION/luci-app-forkop_$VERSION.apk"},
-    {"name": "luci-i18n-forkop-ru_$VERSION.apk", "browser_download_url": "/forkop/updates/releases/$VERSION/luci-i18n-forkop-ru_$VERSION.apk"},
-    {"name": "forkop_$VERSION.ipk", "browser_download_url": "/forkop/updates/releases/$VERSION/forkop_$VERSION.ipk"},
-    {"name": "luci-app-forkop_$VERSION.ipk", "browser_download_url": "/forkop/updates/releases/$VERSION/luci-app-forkop_$VERSION.ipk"},
-    {"name": "luci-i18n-forkop-ru_$VERSION.ipk", "browser_download_url": "/forkop/updates/releases/$VERSION/luci-i18n-forkop-ru_$VERSION.ipk"}
+    {"name": "forkop_$VERSION.apk", "browser_download_url": "/forkop/updates/releases/$VERSION/forkop_$VERSION.apk", "sha256": "$(sha256sum "$UPDATES_STAGING/forkop_$VERSION.apk" | awk '{print $1}')"},
+    {"name": "luci-app-forkop_$VERSION.apk", "browser_download_url": "/forkop/updates/releases/$VERSION/luci-app-forkop_$VERSION.apk", "sha256": "$(sha256sum "$UPDATES_STAGING/luci-app-forkop_$VERSION.apk" | awk '{print $1}')"},
+    {"name": "luci-i18n-forkop-ru_$VERSION.apk", "browser_download_url": "/forkop/updates/releases/$VERSION/luci-i18n-forkop-ru_$VERSION.apk", "sha256": "$(sha256sum "$UPDATES_STAGING/luci-i18n-forkop-ru_$VERSION.apk" | awk '{print $1}')"},
+    {"name": "forkop_$VERSION.ipk", "browser_download_url": "/forkop/updates/releases/$VERSION/forkop_$VERSION.ipk", "sha256": "$(sha256sum "$UPDATES_STAGING/forkop_$VERSION.ipk" | awk '{print $1}')"},
+    {"name": "luci-app-forkop_$VERSION.ipk", "browser_download_url": "/forkop/updates/releases/$VERSION/luci-app-forkop_$VERSION.ipk", "sha256": "$(sha256sum "$UPDATES_STAGING/luci-app-forkop_$VERSION.ipk" | awk '{print $1}')"},
+    {"name": "luci-i18n-forkop-ru_$VERSION.ipk", "browser_download_url": "/forkop/updates/releases/$VERSION/luci-i18n-forkop-ru_$VERSION.ipk", "sha256": "$(sha256sum "$UPDATES_STAGING/luci-i18n-forkop-ru_$VERSION.ipk" | awk '{print $1}')"}
   ]
 }
 EOF

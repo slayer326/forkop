@@ -21,14 +21,26 @@ for (const option of ["russia_inside", "russia_outside", "ukraine_inside"]) {
   }
 }
 
-for (const option of ["blizzard", "valve", "hetzner", "anthropic", "google"]) {
+// These entries are present in the current upstream b4geoip catalogue.
+for (const option of ["blizzard", "valve", "anthropic", "google"]) {
   if (!main.includes(`${option}:`)) {
     fail(`${option} must be available in built-in rule sets #2`);
   }
 }
 
+const secondaryOptions = main.match(/var SECONDARY_RULESET_OPTIONS = \{([\s\S]*?)\n\};/);
+if (!secondaryOptions) {
+  fail('secondary built-in rule set options are missing');
+}
+for (const removed of ["belcloud", "cloudflare", "aeza", "akamai", "zerocdn"]) {
+  if (secondaryOptions[1].includes(`${removed}:`)) {
+    fail(`${removed} was retired upstream and must not be offered as a secondary rule set`);
+  }
+}
+
 for (const required of [
   '`${_("Built-in rule sets")} #2`',
+  "mirror.51343.ru/forkop/lists/b4geoip-forkop/srs/",
   "Greeg0ry/b4geoip-forkop/main/srs/",
   "SECONDARY_RULESET_OPTIONS",
 ]) {

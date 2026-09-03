@@ -27,6 +27,7 @@ const SYSTEM_INFO_CACHE_FILE = getenv("FORKOP_SYSTEM_INFO_CACHE_FILE") || RUNTIM
 const RELOAD_STATE_FILE = getenv("FORKOP_RELOAD_STATE_FILE") || RUNTIME_STATE_DIR + "/reload-state";
 const RELOAD_STATE_SNAPSHOT_FILE = getenv("FORKOP_RELOAD_STATE_SNAPSHOT_FILE") || RUNTIME_STATE_DIR + "/reload-state.snapshot." + clock()[0] + "." + clock()[1];
 const PENDING_RELOAD_FILE = getenv("FORKOP_PENDING_RELOAD_FILE") || RUNTIME_STATE_DIR + "/reload.pending";
+const START_FAILURE_FILE = getenv("FORKOP_START_FAILURE_FILE") || RUNTIME_STATE_DIR + "/start.failure";
 const SERVICE_TRIGGER_SYNC_FILE = getenv("FORKOP_SERVICE_TRIGGER_SYNC_FILE") || RUNTIME_STATE_DIR + "/service-triggers.sync";
 const SUBSCRIPTION_UPDATE_STATE_DIR = getenv("FORKOP_SUBSCRIPTION_UPDATE_STATE_DIR") || RUNTIME_STATE_DIR + "/subscription-update";
 const SUBSCRIPTION_LINKS_DIR = getenv("FORKOP_SUBSCRIPTION_LINKS_DIR") || RUNTIME_STATE_DIR + "/subscription-links";
@@ -38,6 +39,7 @@ const RUNTIME_CACHE_FORMAT_FILE = getenv("FORKOP_RUNTIME_CACHE_FORMAT_FILE") || 
 const PERSISTENT_SUBSCRIPTION_CACHE_DIR = getenv("FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_DIR") || "/etc/forkop/subscription-cache";
 const PERSISTENT_SUBSCRIPTION_CACHE_FORMAT_FILE = getenv("FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_FORMAT_FILE") || PERSISTENT_SUBSCRIPTION_CACHE_DIR + "/cache-format";
 const PERSISTENT_SUBSCRIPTION_CACHE_FORMAT = getenv("FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_FORMAT") || "9";
+const LIFECYCLE_UC = LIB_DIR + "/service/lifecycle.uc";
 const SUBSCRIPTION_BOOTSTRAP_RETRY_PID_FILE = getenv("FORKOP_SUBSCRIPTION_BOOTSTRAP_RETRY_PID_FILE") || RUNTIME_STATE_DIR + "/subscription-bootstrap-retry.pid";
 const DNS_FAILOVER_STATE_FILE = getenv("FORKOP_DNS_FAILOVER_STATE_FILE") || RUNTIME_STATE_DIR + "/dns-failover.json";
 const DNS_FAILOVER_PID_FILE = getenv("FORKOP_DNS_FAILOVER_PID_FILE") || RUNTIME_STATE_DIR + "/dns-failover.pid";
@@ -80,6 +82,10 @@ const SB_SERVICE_MIXED_INBOUND_ADDRESS = constant_value("SB_SERVICE_MIXED_INBOUN
 const SB_SERVICE_MIXED_INBOUND_PORT = constant_value("SB_SERVICE_MIXED_INBOUND_PORT", "4534");
 const SB_VARIANT_STATE_FILE = constant_value("SB_VARIANT_STATE_FILE", "/etc/forkop/sing-box-variant");
 const SB_VERSION_STATE_FILE = constant_value("SB_VERSION_STATE_FILE", "/etc/forkop/sing-box-version");
+const SRS_FALLBACK_MAIN_URL = constant_value("SRS_FALLBACK_MAIN_URL", "https://github.com/itdoginfo/allow-domains/releases/latest/download");
+const SRS_FALLBACK_ADS_HAGEZI_PRO_URL = constant_value("SRS_FALLBACK_ADS_HAGEZI_PRO_URL", "https://github.com/zxc-rv/ad-filter/releases/latest/download/adlist.srs");
+const SRS_FALLBACK_SUPERCELL_URL = constant_value("SRS_FALLBACK_SUPERCELL_URL", "https://raw.githubusercontent.com/ushan0v/sing-box-supercell-ruleset/main/supercell.srs");
+const SRS_FALLBACK_GITHUB_URL = constant_value("SRS_FALLBACK_GITHUB_URL", "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/github.srs");
 
 const ZAPRET_PROVIDER_NFQWS_BIN = constant_value("ZAPRET_PROVIDER_NFQWS_BIN", "/opt/zapret/nfq/nfqws");
 const ZAPRET_ROUTE_MARK_BASE = constant_value("ZAPRET_ROUTE_MARK_BASE", "0x01000000");
@@ -100,6 +106,7 @@ const SINGBOX_UC = LIB_DIR + "/singbox/runtime.uc";
 const PRIORITY_UC = LIB_DIR + "/singbox/priority.uc";
 const DNS_FAILOVER_UC = LIB_DIR + "/singbox/dns_failover.uc";
 const SUBSCRIPTION_CACHE_UC = LIB_DIR + "/subscription/cache.uc";
+const RULESET_CACHE_UC = LIB_DIR + "/singbox/ruleset_cache.uc";
 const UPDATES_UC = LIB_DIR + "/components/updates.uc";
 const STATE_UC = LIB_DIR + "/service/state.uc";
 const RELOAD_UC = LIB_DIR + "/service/reload.uc";
@@ -252,7 +259,7 @@ function log_message(message, level) {
 }
 
 function lifecycle_env() {
-    return {
+    let result = {
         FORKOP_CONFIG_NAME: CONFIG_NAME,
         FORKOP_LIB: LIB_DIR,
         FORKOP_BIN: BIN_PATH,
@@ -288,6 +295,8 @@ function lifecycle_env() {
         BYEDPI_BIN: BYEDPI_BIN,
         FORKOP_RULE_CONDITION_CACHE_ENABLED: as_string(rule_condition_cache_enabled)
     };
+
+    return result;
 }
 
 function command_env(assignments) {
@@ -503,6 +512,10 @@ function setting_bool(name, fallback) {
     return bool_text(value);
 }
 
+function clear_start_failure() {
+    remove_file(START_FAILURE_FILE);
+}
+
 function dns_apply_status(args) {
     return module_status(DNS_APPLY_UC, args);
 }
@@ -663,10 +676,25 @@ function prepare_subscription_caches(mode) {
     return result.status;
 }
 
+function start_sing_box_and_wait() {
+    if (!command_success_from_args([ "/etc/init.d/sing-box", "start" ]))
+        return 1;
+
+    return module_status(STATE_UC, [
+        "wait-forkop-stable-start",
+        RT_TABLE_NAME,
+        NFT_TABLE_NAME,
+        NFT_FAKEIP_MARK,
+        as_string(SING_BOX_START_STABLE_MIN_AGE),
+        as_string(SING_BOX_START_VERIFY_TIMEOUT)
+    ]);
+}
+
 function start_main() {
     let status;
 
     log_message("Starting Forkop", "info");
+    clear_start_failure();
 
     status = validate_start_config();
     if (status != 0)
@@ -711,19 +739,7 @@ function start_main() {
 
     module_success(BYEDPI_UC, [ "start-runtime" ]);
 
-    if (!command_success_from_args([ "/etc/init.d/sing-box", "start" ])) {
-        log_message("Failed to start sing-box. Aborted.", "fatal");
-        return 1;
-    }
-
-    status = module_status(STATE_UC, [
-        "wait-forkop-stable-start",
-        RT_TABLE_NAME,
-        NFT_TABLE_NAME,
-        NFT_FAKEIP_MARK,
-        as_string(SING_BOX_START_STABLE_MIN_AGE),
-        as_string(SING_BOX_START_VERIFY_TIMEOUT)
-    ]);
+    status = start_sing_box_and_wait();
     if (status != 0) {
         log_message("sing-box did not reach a stable running state after start. Aborted.", "fatal");
         return status;
@@ -739,13 +755,33 @@ function start_main() {
     if (status != 0)
         return status;
 
-    module_background(DIAGNOSTICS_UC, [ "automatic-latency-test" ]);
     release_start_subscription_update_lock();
     module_success(ZAPRET_UC, [ "start-runtime" ]);
     module_success(ZAPRET2_UC, [ "start-runtime" ]);
 
-    module_background(UPDATES_UC, [ "list-update" ]);
     return 0;
+}
+
+/*
+ * On a cold start the reload state exists only after start_impl() completes.
+ * Refresh rule-sets first: if their cache changed, reload before automatic
+ * latency probes begin, so a large probe batch is never cancelled by reload.
+ */
+function refresh_rulesets_then_start_latency() {
+    let proxy_address = setting_bool("download_lists_via_proxy", false)
+        ? SB_SERVICE_MIXED_INBOUND_ADDRESS + ":" + as_string(SB_SERVICE_MIXED_INBOUND_PORT)
+        : "";
+    let status = module_status(RULESET_CACHE_UC, [ "refresh", proxy_address ]);
+
+    if (status == 0) {
+        log_message("Rule-set cache changed; reloading Forkop before automatic latency test", "info");
+        command_status_from_args([ SERVICE_INIT, "reload", "ruleset-cache" ]);
+        return;
+    }
+
+    if (status != 1)
+        log_message("Rule-set cache refresh failed; starting automatic latency test without a reload", "warn");
+    module_background(DIAGNOSTICS_UC, [ "automatic-latency-test" ]);
 }
 
 function start_impl() {
@@ -786,6 +822,8 @@ function start_impl() {
         return status;
     }
 
+    module_background(LIFECYCLE_UC, [ "refresh-rulesets-then-start-latency" ]);
+    module_background(UPDATES_UC, [ "list-update" ]);
     module_background(DIAGNOSTICS_UC, [ "get-system-info" ]);
     return 0;
 }
@@ -1295,6 +1333,11 @@ function reload(reason) {
     if (plan.needs_list_update == 1)
         module_background(UPDATES_UC, [ "list-update" ]);
 
+    module_background(RULESET_CACHE_UC, [
+        "refresh-and-reload",
+        setting_bool("download_lists_via_proxy", false) ? SB_SERVICE_MIXED_INBOUND_ADDRESS + ":" + as_string(SB_SERVICE_MIXED_INBOUND_PORT) : ""
+    ]);
+
     return finish_reload_status(module_status(STATE_UC, [
         "write-captured-reload-state",
         RELOAD_STATE_FILE,
@@ -1428,6 +1471,10 @@ else if (mode == "dns-failover-apply")
     status = dns_failover_apply(ARGV[1] || "");
 else if (mode == "restart")
     status = restart();
+else if (mode == "refresh-rulesets-then-start-latency") {
+    refresh_rulesets_then_start_latency();
+    status = 0;
+}
 else if (mode == "enable")
     status = enable_service();
 else if (mode == "disable")

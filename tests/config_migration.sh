@@ -175,7 +175,7 @@ assert(JSON.stringify(config.settings.dns_server) === JSON.stringify(['9.9.9.9']
 assert(JSON.stringify(config.settings.bootstrap_dns_server) === JSON.stringify(['1.1.1.1']), 'legacy Bootstrap DNS scalar migrated to ordered list');
 assert(config.settings.config_version === '1.0.5', 'legacy config should be marked at the current schema version');
 assert(config.settings.component_update_check_enabled === '1', 'component update checks should be enabled during migration');
-assert(JSON.stringify(config.settings.applied_migrations) === JSON.stringify(['interface_sections', 'enable_component_checks', 'http_connection_urls', 'flintnet_urltest_default']), 'legacy config should record named migrations');
+assert(JSON.stringify(config.settings.applied_migrations) === JSON.stringify(['interface_sections', 'enable_component_checks', 'http_connection_urls', 'flintnet_urltest_default', 'retired_secondary_rulesets', 'secondary_rulesets_mirror_v1']), 'legacy config should record named migrations');
 
 function assert(condition, message) {
   if (!condition) {
@@ -394,7 +394,7 @@ function assert(condition, message) {
 assert(out.changed === true, '1.0.1 config should require migration');
 assert(out.config.settings.config_version === '1.0.5', 'config schema version should advance to 1.0.5');
 assert(out.config.settings.component_update_check_enabled === '1', 'updates from 1.0.1 and below should enable component update checks');
-assert(JSON.stringify(out.config.settings.applied_migrations) === JSON.stringify(['interface_sections', 'enable_component_checks', 'http_connection_urls', 'flintnet_urltest_default']), 'named migrations should be recorded');
+assert(JSON.stringify(out.config.settings.applied_migrations) === JSON.stringify(['interface_sections', 'enable_component_checks', 'http_connection_urls', 'flintnet_urltest_default', 'retired_secondary_rulesets', 'secondary_rulesets_mirror_v1']), 'named migrations should be recorded');
 assert(!Object.prototype.hasOwnProperty.call(section, 'interfaces'), 'parent interface list should be removed');
 assert(JSON.stringify(interfaces.map(item => item.name)) === JSON.stringify(['awg0', 'tun0']), 'interfaces should keep their order');
 for (const item of interfaces) {
@@ -432,7 +432,7 @@ function assert(condition, message) {
 
 assert(out.config.settings.component_update_check_enabled === '0', '1.0.2 config must preserve an explicitly disabled component check');
 assert(out.config.settings.config_version === '1.0.5', '1.0.2 config should advance through the HTTP URL migration schema');
-assert(JSON.stringify(out.config.settings.applied_migrations) === JSON.stringify(['interface_sections', 'enable_component_checks', 'http_connection_urls', 'flintnet_urltest_default']), 'newer configs should mark skipped migrations');
+assert(JSON.stringify(out.config.settings.applied_migrations) === JSON.stringify(['interface_sections', 'enable_component_checks', 'http_connection_urls', 'flintnet_urltest_default', 'retired_secondary_rulesets', 'secondary_rulesets_mirror_v1']), 'newer configs should mark skipped migrations');
 NODE
 
 cat >"$WORK_DIR/forkop-1.0.4-http.json" <<'JSON'
@@ -498,7 +498,7 @@ assert(JSON.stringify(jsonOutbounds[1]) === JSON.stringify({
   server_port: 8080,
 }), 'unnamed HTTP URL should receive a unique http tag');
 assert(jsonOutbounds[2].type === 'direct' && jsonOutbounds[2].tag === 'http', 'existing JSON outbounds should remain unchanged');
-assert(JSON.stringify(out.config.settings.applied_migrations) === JSON.stringify(['interface_sections', 'enable_component_checks', 'http_connection_urls', 'flintnet_urltest_default']), 'HTTP URL migration should be recorded');
+assert(JSON.stringify(out.config.settings.applied_migrations) === JSON.stringify(['interface_sections', 'enable_component_checks', 'http_connection_urls', 'flintnet_urltest_default', 'retired_secondary_rulesets', 'secondary_rulesets_mirror_v1']), 'HTTP URL migration should be recorded');
 NODE
 
 cat >"$WORK_DIR/forkop-1.0.5-http.json" <<'JSON'
@@ -738,5 +738,31 @@ ucode -L "$FORKOP_LIB" "$MIGRATION" commit
 
 grep -Fxq 'commit forkop' "$WORK_DIR/uci-commit.log" ||
   fail "commit mode must commit forkop through core.uci"
+
+cp "$ROOT_DIR/tests/fixtures/retired-secondary-rulesets.json" "$WORK_DIR/retired-secondary-rulesets.json"
+
+FORKOP_LIB="$FORKOP_LIB" ucode -L "$FORKOP_LIB" "$MIGRATION" migrate-fixture "$WORK_DIR/retired-secondary-rulesets.json" >"$WORK_DIR/retired-secondary-rulesets-output.json"
+
+node - "$WORK_DIR/retired-secondary-rulesets-output.json" <<'NODE'
+const fs = require('fs');
+const out = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+const section = out.config.section[0];
+const values = section.rule_set_with_subnets || [];
+if (values.includes('https://raw.githubusercontent.com/Greeg0ry/b4geoip-forkop/main/srs/cloudflare.srs') ||
+    values.includes('https://cdn.jsdelivr.net/gh/Greeg0ry/b4geoip-forkop@main/srs/belcloud.srs')) {
+  console.error('retired b4geoip SRS URLs must be removed during migration');
+  process.exit(1);
+}
+if (!values.includes('https://mirror.51343.ru/forkop/lists/b4geoip-forkop/srs/valve.srs') ||
+    !values.includes('https://example.com/custom.srs')) {
+  console.error('the b4geoip migration must move current SRS URLs to mirror and preserve custom URLs');
+  process.exit(1);
+}
+if (!out.config.settings.applied_migrations.includes('retired_secondary_rulesets') ||
+    !out.config.settings.applied_migrations.includes('secondary_rulesets_mirror_v1')) {
+  console.error('b4geoip migrations must be recorded');
+  process.exit(1);
+}
+NODE
 
 printf 'installer config migration checks passed\n'

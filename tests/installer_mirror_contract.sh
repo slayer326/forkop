@@ -19,8 +19,8 @@ grep -Fq 'configure_opkg_mirror' "$INSTALLER" || {
     echo "installer does not configure OpenWrt 24 OPKG feeds" >&2
     exit 1
 }
-grep -Fq '24.10.*)' "$INSTALLER" || {
-    echo "installer does not accept all mirrored OpenWrt 24.10 patch releases" >&2
+grep -Fq 'packages\.routerich\.ru/' "$INSTALLER" || {
+    echo "installer does not recognize Routerich OPKG feeds" >&2
     exit 1
 }
 grep -Fq 'MIRROR_TRANSACTION_ACTIVE=1' "$INSTALLER" || {
@@ -29,6 +29,14 @@ grep -Fq 'MIRROR_TRANSACTION_ACTIVE=1' "$INSTALLER" || {
 }
 grep -Fq 'rollback_package_mirror' "$INSTALLER" || {
     echo "installer cannot restore feeds after a failed mirror update" >&2
+    exit 1
+}
+grep -Fq 'verify_download_sha256' "$INSTALLER" || {
+    echo "installer does not verify downloaded release package hashes" >&2
+    exit 1
+}
+grep -Fq 'release-asset-sha256' "$INSTALLER" || {
+    echo "installer does not read release package hashes" >&2
     exit 1
 }
 grep -Fq 'for repository_file in /etc/apk/repositories "$distfeeds"' "$INSTALLER" || {

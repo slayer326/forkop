@@ -4,6 +4,7 @@ set -eo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FORKOP_LIB="$ROOT_DIR/forkop/files/usr/lib"
 PARSER="$ROOT_DIR/forkop/files/usr/lib/subscription/parser.uc"
+FORKOP_LIB="$ROOT_DIR/forkop/files/usr/lib"
 GENERATOR="$ROOT_DIR/forkop/files/usr/lib/singbox/generator.uc"
 WORK_DIR="$(mktemp -d)"
 

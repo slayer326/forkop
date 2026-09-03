@@ -9,6 +9,9 @@ if grep -Fiq 'sourceforge' "$workflow"; then
 fi
 
 grep -Fq 'uses: softprops/action-gh-release@v2.4.0' "$workflow"
-grep -Fq 'files: ./filtered-bin/release/*.*' "$workflow"
+grep -Fq './ops/hosting/prepare-release.sh "$VERSION"' "$workflow"
+grep -Fq 'name: timeweb-files-${{ needs.preparation.outputs.version }}' "$workflow"
+grep -Fq './filtered-bin/release/*.*' "$workflow"
+grep -Fq './filtered-bin/hosting/*.tar.gz' "$workflow"
 
 printf 'release workflow checks passed\n'

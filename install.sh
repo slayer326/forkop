@@ -3,9 +3,15 @@
 
 REPO_OWNER="slayer326"
 REPO_NAME="forkop"
+RELEASE_BASE_URL="${FORKOP_RELEASE_BASE_URL:-https://fold8.ru/forkop}"
 MIRROR_BASE_URL="${FORKOP_MIRROR_BASE_URL:-https://mirror.51343.ru}"
 
-INITIAL_INSTALL_REQUIRED_SPACE_KB=15360
+FLASH_RESERVE_KB=1024
+PACKAGE_INSTALL_OVERHEAD_KB=512
+PACKAGE_ARCHIVE_SPACE_FACTOR=2
+MISSING_DEPENDENCY_ALLOWANCE_KB=256
+APK_WORLD_FILE="${FORKOP_APK_WORLD_FILE:-/etc/apk/world}"
+OPKG_DISTFEEDS_FILE="${FORKOP_OPKG_DISTFEEDS_FILE:-/etc/opkg/distfeeds.conf}"
 CONNECT_TIMEOUT_SECONDS=15
 METADATA_TIMEOUT_SECONDS=60
 DOWNLOAD_TIMEOUT_SECONDS=600
@@ -24,21 +30,27 @@ LEGACY_CLEANUP_STARTED=0
 FORKOP_I18N_REQUESTED=0
 INSTALLER_LANG="en"
 SING_BOX_INSTALL_VARIANT=""
-SING_BOX_RECOVERY_PERFORMED=0
-SING_BOX_RECOVERY_OWNER=""
-SING_BOX_RECOVERY_RESTORE_ACTION=""
+SING_BOX_TINY_FILE=""
+SING_BOX_TINY_SWITCHED=0
+SING_BOX_CHANGE_STARTED=0
+ALLOW_LOW_SPACE_TINY=0
+CONFIRM_LEGACY_MIGRATION=0
 
 FORKOP_RELEASE_JSON=""
 FORKOP_RELEASE_TAG=""
 FORKOP_BACKEND_URL=""
+FORKOP_BACKEND_SHA256=""
 FORKOP_BACKEND_NAME=""
 FORKOP_BACKEND_FILE=""
 FORKOP_APP_URL=""
+FORKOP_APP_SHA256=""
 FORKOP_APP_NAME=""
 FORKOP_APP_FILE=""
 FORKOP_I18N_URL=""
+FORKOP_I18N_SHA256=""
 FORKOP_I18N_NAME=""
 FORKOP_I18N_FILE=""
+FORKOP_INSTALL_REQUIRED_KB=0
 FORKOP_PACKAGE_VERSION=""
 FORKOP_CONFIG_READY=1
 FORKOP_CONFIG_VALIDATION_ERROR=""
@@ -60,7 +72,6 @@ warn() {
 }
 
 fail() {
-    restore_sing_box_on_failure
     rollback_legacy_config_on_failure
     restore_current_forkop_on_failure
     printf '\033[31;1m%s\033[0m\n' "$1" >&2
@@ -69,7 +80,7 @@ fail() {
 
 usage() {
     cat <<EOF
-Usage: $0
+Usage: $0 [options]
 
 Installs or updates Forkop packages:
   - forkop
@@ -80,6 +91,12 @@ Can also install or switch sing-box variant:
   - sing-box-tiny from the mirrored OpenWrt feeds (default)
   - stable sing-box from the mirrored OpenWrt feeds
   - sing-box-extended from GitHub OpenWrt packages (for xHTTP support)
+
+Automation options (must be explicitly requested):
+  --allow-low-space-tiny       Allow stable/extended sing-box to be replaced
+                               with tiny when no interactive terminal exists
+  --confirm-legacy-migration   Confirm removal and migration of a detected
+                               legacy installation without an interactive terminal
 EOF
 }
 
@@ -89,6 +106,12 @@ parse_args() {
             -h|--help)
                 usage
                 exit 0
+                ;;
+            --allow-low-space-tiny)
+                ALLOW_LOW_SPACE_TINY=1
+                ;;
+            --confirm-legacy-migration)
+                CONFIRM_LEGACY_MIGRATION=1
                 ;;
             *)
                 fail "Unknown installer option: $1"
@@ -1431,6 +1454,25 @@ function release_asset_url(kind, ext) {
     }
 }
 
+function release_asset_sha256(kind, ext) {
+    let release = read_stdin_json();
+    if (type(release) != "object" || type(release.assets) != "array")
+        return;
+    let version = as_string(release.tag_name || "");
+    if (!release_version_valid(version))
+        return;
+    for (let asset in release.assets) {
+        if (type(asset) != "object" || !asset_matches(asset.name, kind, ext, version))
+            continue;
+        let digest = lc(as_string(asset.sha256 || asset.digest || ""));
+        if (substr(digest, 0, 7) == "sha256:")
+            digest = substr(digest, 7);
+        if (match(digest, /^[0-9a-f]{64}$/) != null)
+            print(digest, "\n");
+        return;
+    }
+}
+
 let mode = ARGV[0] || "";
 
 if (mode == "github-message")
@@ -1439,6 +1481,8 @@ else if (mode == "release-tag")
     release_tag();
 else if (mode == "release-asset-url")
     release_asset_url(ARGV[1], ARGV[2]);
+else if (mode == "release-asset-sha256")
+    release_asset_sha256(ARGV[1], ARGV[2]);
 else if (mode == "uci-get") {
     let value = uci_get(ARGV[1]);
     if (value != "")
@@ -1508,11 +1552,25 @@ download_with_retry() {
     return 1
 }
 
+verify_download_sha256() {
+    file_path="$1"
+    expected="$(printf '%s' "$2" | tr 'A-F' 'a-f')"
+    label="$3"
+
+    case "$expected" in
+        *[!0-9a-f]*|'') fail "Release metadata has no valid SHA-256 for $label" ;;
+    esac
+    [ "${#expected}" -eq 64 ] || fail "Release metadata has no valid SHA-256 for $label"
+    command_exists sha256sum || fail "sha256sum is required to verify $label"
+    actual="$(sha256sum "$file_path" | awk '{print $1}')"
+    [ "$actual" = "$expected" ] || fail "SHA-256 verification failed for $label"
+}
+
 pkg_is_installed() {
     pkg_name="$1"
 
     if [ "$PKG_IS_APK" -eq 1 ]; then
-        apk info -e "$pkg_name" >/dev/null 2>&1
+        apk info -e "$pkg_name" 2>/dev/null | grep -Fxq "$pkg_name"
     else
         opkg list-installed 2>/dev/null | awk -v pkg="$pkg_name" '$1 == pkg { found = 1 } END { exit(found ? 0 : 1) }'
     fi
@@ -1551,7 +1609,9 @@ rewrite_package_repository_file() {
 
     rewritten="$TMP_DIR/repository.$MIRROR_BACKUP_COUNT.rewritten"
     sed -E \
-        "s#https?://[^/]+/(pub/software/openwrt/)?releases/#${MIRROR_BASE_URL}/openwrt/releases/#" \
+        -e "s#https?://[^/]+/(pub/software/openwrt/)?releases/#${MIRROR_BASE_URL}/openwrt/releases/#" \
+        -e "s#${MIRROR_BASE_URL}/openwrt/releases/v[0-9]+\\.x/v([0-9]+\\.[0-9]+\\.[0-9]+)/([^/]+)/([^/]+)/packages/packages\\.adb#${MIRROR_BASE_URL}/openwrt/releases/\\1/targets/\\2/\\3/packages/packages.adb#" \
+        -e "s#${MIRROR_BASE_URL}/openwrt/releases/v[0-9]+\\.x/v([0-9]+\\.[0-9]+\\.[0-9]+)/([^/]+)/([^/]+)/packages\\.adb#${MIRROR_BASE_URL}/openwrt/releases/\\1/packages/\\2/\\3/packages.adb#" \
         "$repository_file" > "$rewritten" || fail "Failed to prepare $repository_file"
 
     if grep -E 'https?://[^/]+/(pub/software/openwrt/)?releases/' "$rewritten" |
@@ -1605,11 +1665,16 @@ configure_apk_mirror() {
 }
 
 configure_opkg_mirror() {
-    distfeeds="/etc/opkg/distfeeds.conf"
+    distfeeds="$OPKG_DISTFEEDS_FILE"
 
     [ "$PKG_IS_APK" -eq 0 ] || return 0
     command_exists opkg || fail "OpenWrt opkg package manager is required"
     [ -s "$distfeeds" ] || fail "$distfeeds is missing or empty"
+
+    if grep -Eq '^[[:space:]]*src/gz[[:space:]]+routerich(_[[:alnum:]_-]+)?[[:space:]]+https?://packages\.routerich\.ru/' "$distfeeds"; then
+        msg "Routerich OPKG feeds remain unchanged; only Forkop release packages use $MIRROR_BASE_URL"
+        return 0
+    fi
 
     case "$MIRROR_BASE_URL" in
         https://*|http://*) ;;
@@ -1766,51 +1831,159 @@ available_flash_space_kb() {
     printf '%s\n' "$available_space"
 }
 
-required_flash_space_kb() {
-    printf '%s\n' "$INITIAL_INSTALL_REQUIRED_SPACE_KB"
+file_size_kb() {
+    file_size_bytes="$(wc -c <"$1" 2>/dev/null || true)"
+    case "$file_size_bytes" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    printf '%s\n' "$(((file_size_bytes + 1023) / 1024))"
 }
 
-sing_box_recovery_owner() {
-    if [ -x /usr/bin/forkop ]; then
-        printf '%s\n' "/usr/bin/forkop"
-    elif [ "$FORKOP_LEGACY_DETECTED" -eq 1 ] && [ -x "/usr/bin/$LEGACY_BACKEND_PACKAGE" ]; then
-        printf '%s\n' "/usr/bin/$LEGACY_BACKEND_PACKAGE"
-    fi
+forkop_install_required_space_kb() {
+    archive_kb=0
+    for package_file in "$FORKOP_BACKEND_FILE" "$FORKOP_APP_FILE" "$FORKOP_I18N_FILE"; do
+        [ -n "$package_file" ] && [ -s "$package_file" ] || continue
+        package_kb="$(file_size_kb "$package_file")" || return 1
+        archive_kb=$((archive_kb + package_kb))
+    done
+
+    [ "$archive_kb" -gt 0 ] || return 1
+
+    missing_dependency_count=0
+    for dependency in \
+        ca-bundle kmod-inet-diag kmod-netlink-diag kmod-tun curl ucode \
+        ucode-mod-fs ucode-mod-uci kmod-nft-tproxy coreutils-base64 \
+        bind-dig nftables-json kmod-nft-nat ip-full luci-base; do
+        pkg_is_installed "$dependency" ||
+            missing_dependency_count=$((missing_dependency_count + 1))
+    done
+
+    # OpenWrt compresses the writable overlay, so package archive size is a
+    # useful baseline. Doubling it covers unpacking variance; missing direct
+    # dependencies get a separate conservative allowance.
+    printf '%s\n' "$((
+        archive_kb * PACKAGE_ARCHIVE_SPACE_FACTOR +
+        missing_dependency_count * MISSING_DEPENDENCY_ALLOWANCE_KB +
+        PACKAGE_INSTALL_OVERHEAD_KB + FLASH_RESERVE_KB
+    ))"
 }
 
-prepare_sing_box_recovery() {
-    SING_BOX_RECOVERY_OWNER="$(sing_box_recovery_owner)"
-    SING_BOX_RECOVERY_RESTORE_ACTION=""
-
-    if pkg_is_installed "sing-box-extended"; then
-        SING_BOX_RECOVERY_RESTORE_ACTION="install_extended"
-    elif pkg_is_installed "sing-box"; then
-        SING_BOX_RECOVERY_RESTORE_ACTION="install_stable"
-    fi
-
-    [ -n "$SING_BOX_RECOVERY_OWNER" ] && [ -n "$SING_BOX_RECOVERY_RESTORE_ACTION" ]
+legacy_binary_managed_sing_box_present() {
+    [ "$FORKOP_LEGACY_DETECTED" -eq 1 ] &&
+        [ -r /etc/init.d/sing-box ] &&
+        grep -Fq 'managed sing-box service for binary variants' /etc/init.d/sing-box &&
+        [ -x /usr/bin/sing-box ]
 }
 
-run_sing_box_recovery_action() {
-    recovery_owner="$1"
-    recovery_action="$2"
-    recovery_log="$TMP_DIR/sing-box-space-recovery.log"
-
-    "$recovery_owner" component_action sing_box "$recovery_action" >"$recovery_log" 2>&1
+sing_box_tiny_is_active() {
+    pkg_is_installed "sing-box-tiny" &&
+        ! pkg_is_installed "sing-box" &&
+        ! pkg_is_installed "sing-box-extended" &&
+        [ -x /usr/bin/sing-box ]
 }
 
-restore_sing_box_on_failure() {
-    [ "$SING_BOX_RECOVERY_PERFORMED" -eq 1 ] || return 0
+apk_world_requests_sing_box_tiny() {
+    [ "$PKG_IS_APK" -eq 1 ] || return 1
+    [ -r "$APK_WORLD_FILE" ] || return 1
+    grep -Eq '^sing-box-tiny([<>=~].*)?$' "$APK_WORLD_FILE"
+}
 
-    recovery_owner="$SING_BOX_RECOVERY_OWNER"
-    [ -x /usr/bin/forkop ] && recovery_owner="/usr/bin/forkop"
-    if [ -x "$recovery_owner" ] &&
-        run_sing_box_recovery_action "$recovery_owner" "$SING_BOX_RECOVERY_RESTORE_ACTION"; then
-        warn "The previous sing-box variant was restored after the installation failure"
-        SING_BOX_RECOVERY_PERFORMED=0
+package_file_list() {
+    package_name="$1"
+    if [ "$PKG_IS_APK" -eq 1 ]; then
+        apk info -L "$package_name" 2>/dev/null
     else
-        warn "Failed to restore the previous sing-box variant automatically"
+        opkg files "$package_name" 2>/dev/null
     fi
+}
+
+package_owns_path() {
+    package_name="$1"
+    owned_path="$2"
+    if [ "$PKG_IS_APK" -eq 1 ]; then
+        apk info -W "$owned_path" 2>/dev/null |
+            grep -Fq "$owned_path is owned by ${package_name}-"
+    else
+        package_file_list "$package_name" |
+            sed 's#^\([^/]\)#/\1#' |
+            grep -Fxq "$owned_path"
+    fi
+}
+
+installed_sing_box_package() {
+    owner=""
+    owner_count=0
+    for candidate in sing-box-tiny sing-box sing-box-extended; do
+        if pkg_is_installed "$candidate" && package_owns_path "$candidate" /usr/bin/sing-box; then
+            owner="$candidate"
+            owner_count=$((owner_count + 1))
+        fi
+    done
+    [ "$owner_count" -eq 1 ] || return 1
+    printf '%s\n' "$owner"
+}
+
+package_reclaimable_space_kb() {
+    package_name="$1"
+    archive_kb=""
+
+    if [ "$PKG_IS_APK" -eq 1 ]; then
+        current_package_dir="$TMP_DIR/current-sing-box-package"
+        mkdir -p "$current_package_dir" || return 1
+        apk fetch --output "$current_package_dir" "$package_name" </dev/null || return 1
+        current_package_file="$(find "$current_package_dir" -maxdepth 1 -type f -name '*.apk' | head -n 1)"
+        [ -n "$current_package_file" ] && [ -s "$current_package_file" ] || return 1
+        archive_kb="$(file_size_kb "$current_package_file")" || return 1
+    else
+        archive_size_bytes="$(opkg info "$package_name" 2>/dev/null |
+            awk '$1 == "Size:" && $2 ~ /^[0-9]+$/ { value = $2 } END { print value }')"
+        case "$archive_size_bytes" in
+            ''|*[!0-9]*) return 1 ;;
+        esac
+        archive_kb=$(((archive_size_bytes + 1023) / 1024))
+    fi
+
+    # Count only 90% of the current package archive as guaranteed reclaimable.
+    # This leaves room for package metadata and preserved configuration files.
+    printf '%s\n' "$((archive_kb * 9 / 10))"
+}
+
+download_sing_box_tiny_package() {
+    [ -n "$SING_BOX_TINY_FILE" ] && [ -s "$SING_BOX_TINY_FILE" ] && return 0
+
+    if [ "$PKG_IS_APK" -eq 1 ]; then
+        apk fetch --output "$TMP_DIR" sing-box-tiny </dev/null || return 1
+        SING_BOX_TINY_FILE="$(find "$TMP_DIR" -maxdepth 1 -type f -name 'sing-box-tiny-*.apk' | head -n 1)"
+    else
+        (cd "$TMP_DIR" && opkg download sing-box-tiny </dev/null) || return 1
+        SING_BOX_TINY_FILE="$(find "$TMP_DIR" -maxdepth 1 -type f -name 'sing-box-tiny_*.ipk' | head -n 1)"
+    fi
+    [ -n "$SING_BOX_TINY_FILE" ] && [ -s "$SING_BOX_TINY_FILE" ]
+}
+
+pkg_remove_name() {
+    if [ "$PKG_IS_APK" -eq 1 ]; then
+        apk del --force-broken-world "$1" </dev/null
+    else
+        opkg remove --force-depends "$1" </dev/null
+    fi
+}
+
+switch_sing_box_to_downloaded_tiny() {
+    previous_package="$1"
+    [ -s "$SING_BOX_TINY_FILE" ] || return 1
+
+    pkg_remove_name "$previous_package" || return 1
+    SING_BOX_CHANGE_STARTED=1
+    pkg_install_files "$SING_BOX_TINY_FILE" || return 1
+    validate_sing_box_tiny_install || return 1
+    SING_BOX_TINY_SWITCHED=1
+}
+
+validate_sing_box_tiny_install() {
+    sing_box_tiny_is_active || return 1
+    /usr/bin/sing-box version >/dev/null 2>&1 || return 1
+    [ -x /etc/init.d/sing-box ] || return 1
 }
 
 restore_current_forkop_on_failure() {
@@ -1826,35 +1999,68 @@ restore_current_forkop_on_failure() {
 }
 
 ensure_flash_space() {
-    required_space="$(required_flash_space_kb)"
+    required_space="$(forkop_install_required_space_kb)" ||
+        fail "Failed to calculate the Forkop package installation size"
+    FORKOP_INSTALL_REQUIRED_KB="$required_space"
     available_space="$(available_flash_space_kb 2>/dev/null || true)"
 
-    [ -n "$available_space" ] || return 0
-    if [ "$available_space" -ge "$required_space" ]; then
-        msg "Flash preflight passed. Available: $((available_space / 1024)) MB, required: $((required_space / 1024)) MB"
+    [ -n "$available_space" ] || fail "Unable to determine free flash space"
+    pending_world_tiny=0
+    if apk_world_requests_sing_box_tiny && ! sing_box_tiny_is_active; then
+        pending_world_tiny=1
+        warn "APK world requests sing-box-tiny, but the installed sing-box state does not satisfy it; repairing this before installing Forkop"
+    fi
+
+    if [ "$available_space" -ge "$required_space" ] && [ "$pending_world_tiny" -eq 0 ]; then
+        msg "Flash preflight passed. Available: ${available_space} KB, installation plan: ${required_space} KB"
         return 0
     fi
 
-    prepare_sing_box_recovery ||
-        fail "Not enough free flash space. Available: $((available_space / 1024)) MB, required: $((required_space / 1024)) MB. No safely replaceable stable/extended sing-box variant was found."
-    interactive_terminal_available ||
-        fail "Not enough free flash space. Replacing sing-box with sing-box-tiny requires an interactive terminal."
+    previous_package="$(installed_sing_box_package 2>/dev/null || true)"
+    [ -n "$previous_package" ] ||
+        fail "Not enough free flash space. Available: ${available_space} KB, installation plan: ${required_space} KB. /usr/bin/sing-box is not owned by one supported package."
+    if [ "$previous_package" = "sing-box-tiny" ] && [ "$pending_world_tiny" -eq 0 ]; then
+        fail "Not enough free flash space after accounting for the already installed sing-box-tiny. Available: ${available_space} KB, installation plan: ${required_space} KB."
+    fi
 
+    download_sing_box_tiny_package ||
+        fail "Failed to download sing-box-tiny before changing the installed sing-box package"
+    tiny_archive_kb="$(file_size_kb "$SING_BOX_TINY_FILE")" ||
+        fail "Failed to determine the downloaded sing-box-tiny package size"
+    tiny_required_kb=$(((tiny_archive_kb * 5 + 3) / 4 + PACKAGE_INSTALL_OVERHEAD_KB))
+    reclaimable_kb="$(package_reclaimable_space_kb "$previous_package" 2>/dev/null || true)"
+    [ -n "$TMP_DIR" ] && rm -rf "$TMP_DIR/current-sing-box-package"
+    case "$reclaimable_kb" in
+        ''|*[!0-9]*) fail "Failed to calculate space reclaimable from $previous_package" ;;
+    esac
+    expected_after_kb=$((available_space + reclaimable_kb - tiny_required_kb))
+    if [ "$expected_after_kb" -lt "$required_space" ]; then
+        fail "Not enough free flash space even after replacing $previous_package with sing-box-tiny. Available now: ${available_space} KB, reclaimable: ${reclaimable_kb} KB, tiny allowance: ${tiny_required_kb} KB, Forkop plan: ${required_space} KB."
+    fi
+
+    msg "Low-space plan: ${available_space} KB free + ${reclaimable_kb} KB reclaimable - ${tiny_required_kb} KB for tiny = ${expected_after_kb} KB; Forkop plan: ${required_space} KB"
     warn "$(installer_text low_flash_space)"
-    numbered_yes_no_prompt "$(installer_text tiny_recovery_prompt)" ||
-        fail "Installation was cancelled before changing sing-box"
+    if interactive_terminal_available; then
+        numbered_yes_no_prompt "$(installer_text tiny_recovery_prompt)" ||
+            fail "Installation was cancelled before changing sing-box"
+    elif [ "$ALLOW_LOW_SPACE_TINY" -eq 1 ]; then
+        msg "Low-space sing-box-tiny replacement was explicitly authorized by --allow-low-space-tiny"
+    else
+        fail "Not enough free flash space. Replacing sing-box with sing-box-tiny requires an interactive terminal or --allow-low-space-tiny."
+    fi
+
     warn "$(installer_text tiny_recovery_warning)"
-    run_sing_box_recovery_action "$SING_BOX_RECOVERY_OWNER" "install_tiny" ||
-        fail "Failed to replace sing-box with sing-box-tiny; the existing variant was left unchanged or restored by its component manager"
-    SING_BOX_RECOVERY_PERFORMED=1
+    switch_sing_box_to_downloaded_tiny "$previous_package" ||
+        fail "Failed to replace $previous_package with the already downloaded sing-box-tiny package"
+    SING_BOX_INSTALL_VARIANT=""
 
     available_space="$(available_flash_space_kb 2>/dev/null || true)"
     if [ -n "$available_space" ] && [ "$available_space" -ge "$required_space" ]; then
-        msg "Flash preflight passed after switching to sing-box-tiny. Available: $((available_space / 1024)) MB, required: $((required_space / 1024)) MB"
+        msg "Flash preflight passed after switching to sing-box-tiny. Available: ${available_space} KB, installation plan: ${required_space} KB"
         return 0
     fi
 
-    fail "Not enough free flash space. Available: $((available_space / 1024)) MB, required: $((required_space / 1024)) MB"
+    fail "Free flash after installing sing-box-tiny is below the calculated Forkop plan. Available: ${available_space:-unknown} KB, installation plan: ${required_space} KB. sing-box-tiny remains installed."
 }
 
 installer_is_ru() {
@@ -1879,9 +2085,9 @@ installer_text() {
             sing_box_stable) printf '%s\n' "singbox stable" ;;
             sing_box_extended) printf '%s\n' "singbox extended (если нужен xhttp)" ;;
             sing_box_skip_msg) printf '%s\n' "Пропускаю установку sing-box." ;;
-            low_flash_space) printf '%s\n' "Свободного места во flash меньше требуемых 15 МБ." ;;
-            tiny_recovery_prompt) printf '%s\n' "Заменить установленный sing-box stable/extended на sing-box tiny и повторить проверку? Расширенные возможности, включая xhttp, станут недоступны" ;;
-            tiny_recovery_warning) printf '%s\n' "Переключаю sing-box на tiny. При последующей ошибке установщик попытается восстановить прежний вариант." ;;
+            low_flash_space) printf '%s\n' "Для установки Forkop не хватает места, но предварительный расчет подтверждает, что переход на sing-box tiny освободит достаточно flash." ;;
+            tiny_recovery_prompt) printf '%s\n' "Заменить установленный пакет sing-box на sing-box tiny? Это постоянное изменение; расширенные возможности, включая xhttp, станут недоступны" ;;
+            tiny_recovery_warning) printf '%s\n' "Устанавливаю заранее скачанный sing-box tiny напрямую через системный пакетный менеджер." ;;
             legacy_migration_prompt) printf '%s\n' "Перейти с legacy-версии на Forkop X? Ее пакеты будут удалены только после сохранения конфигурации и успешной предварительной проверки" ;;
             legacy_backup_ready) printf '%s\n' "Резервная копия legacy-конфигурации создана" ;;
             legacy_cleanup_start) printf '%s\n' "Удаляю legacy-пакеты и начинаю миграцию конфигурации" ;;
@@ -1904,9 +2110,9 @@ installer_text() {
         sing_box_stable) printf '%s\n' "singbox stable" ;;
         sing_box_extended) printf '%s\n' "singbox extended (if xhttp is needed)" ;;
         sing_box_skip_msg) printf '%s\n' "Skipping sing-box installation." ;;
-        low_flash_space) printf '%s\n' "Free flash space is below the required 15 MB." ;;
-        tiny_recovery_prompt) printf '%s\n' "Replace the installed stable/extended sing-box with sing-box tiny and check again? Advanced features, including xhttp, will become unavailable" ;;
-        tiny_recovery_warning) printf '%s\n' "Switching sing-box to tiny. If installation later fails, the installer will try to restore the previous variant." ;;
+        low_flash_space) printf '%s\n' "The Forkop installation plan needs more space, but preflight confirms that switching to sing-box tiny will free enough flash." ;;
+        tiny_recovery_prompt) printf '%s\n' "Replace the installed sing-box package with sing-box tiny? This is a permanent change; advanced features, including xhttp, will become unavailable" ;;
+        tiny_recovery_warning) printf '%s\n' "Installing the already downloaded sing-box tiny directly through the system package manager." ;;
         legacy_migration_prompt) printf '%s\n' "Migrate the legacy installation to Forkop X? Its packages will be removed only after configuration backup and successful preflight checks" ;;
         legacy_backup_ready) printf '%s\n' "Legacy configuration backup created" ;;
         legacy_cleanup_start) printf '%s\n' "Removing legacy packages and starting configuration migration" ;;
@@ -1989,14 +2195,22 @@ fetch_github_latest_release_json() {
 }
 
 fetch_forkop_latest_release_json() {
+    release_url="${RELEASE_BASE_URL%/}/updates/latest.json"
+    response="$(http_get "$release_url" 2>/dev/null || true)"
+    if [ -n "$response" ] &&
+        [ -n "$(printf '%s' "$response" | install_json_ucode release-tag 2>/dev/null)" ]; then
+        printf '%s' "$response"
+        return 0
+    fi
+
     fetch_github_latest_release_json "$REPO_OWNER" "$REPO_NAME"
 }
 
-mirror_asset_url() {
+release_asset_url() {
     case "$1" in
         http://*|https://*) printf '%s\n' "$1" ;;
-        /*) printf '%s%s\n' "$MIRROR_BASE_URL" "$1" ;;
-        *) printf '%s/%s\n' "$MIRROR_BASE_URL" "$1" ;;
+        /*) printf '%s%s\n' "${RELEASE_BASE_URL%/}" "$1" ;;
+        *) printf '%s/%s\n' "${RELEASE_BASE_URL%/}" "$1" ;;
     esac
 }
 
@@ -2011,11 +2225,13 @@ resolve_forkop_release() {
 
     FORKOP_BACKEND_URL="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-asset-url backend "$asset_ext" 2>/dev/null)"
     [ -n "$FORKOP_BACKEND_URL" ] || fail "The Forkop release does not contain a forkop .$asset_ext package"
-    FORKOP_BACKEND_URL="$(mirror_asset_url "$FORKOP_BACKEND_URL")"
+    FORKOP_BACKEND_URL="$(release_asset_url "$FORKOP_BACKEND_URL")"
+    FORKOP_BACKEND_SHA256="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-asset-sha256 backend "$asset_ext" 2>/dev/null)"
 
     FORKOP_APP_URL="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-asset-url app "$asset_ext" 2>/dev/null)"
     [ -n "$FORKOP_APP_URL" ] || fail "The Forkop release does not contain a luci-app-forkop .$asset_ext package"
-    FORKOP_APP_URL="$(mirror_asset_url "$FORKOP_APP_URL")"
+    FORKOP_APP_URL="$(release_asset_url "$FORKOP_APP_URL")"
+    FORKOP_APP_SHA256="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-asset-sha256 app "$asset_ext" 2>/dev/null)"
 
     FORKOP_BACKEND_NAME="$(basename "$FORKOP_BACKEND_URL")"
     FORKOP_APP_NAME="$(basename "$FORKOP_APP_URL")"
@@ -2027,7 +2243,8 @@ resolve_forkop_release() {
     if [ "$FORKOP_I18N_REQUESTED" -eq 1 ]; then
         FORKOP_I18N_URL="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-asset-url i18n "$asset_ext" 2>/dev/null)"
         [ -n "$FORKOP_I18N_URL" ] || fail "The Forkop release does not contain a luci-i18n-forkop-ru .$asset_ext package"
-        FORKOP_I18N_URL="$(mirror_asset_url "$FORKOP_I18N_URL")"
+        FORKOP_I18N_URL="$(release_asset_url "$FORKOP_I18N_URL")"
+        FORKOP_I18N_SHA256="$(printf '%s' "$FORKOP_RELEASE_JSON" | install_json_ucode release-asset-sha256 i18n "$asset_ext" 2>/dev/null)"
         FORKOP_I18N_NAME="$(basename "$FORKOP_I18N_URL")"
     fi
 }
@@ -2043,9 +2260,7 @@ select_sing_box_installation() {
     answer=""
     default_choice=1
 
-    if [ "$FORKOP_LEGACY_DETECTED" -eq 1 ] &&
-        [ -r /etc/init.d/sing-box ] &&
-        grep -Fq 'managed sing-box service for binary variants' /etc/init.d/sing-box; then
+    if legacy_binary_managed_sing_box_present; then
         SING_BOX_INSTALL_VARIANT="extended-compressed"
         msg "The legacy binary-managed sing-box variant will be reinstalled for Forkop"
         return 0
@@ -2191,6 +2406,10 @@ prepare_legacy_config_backup() {
 rollback_legacy_config_on_failure() {
     [ -n "$LEGACY_CONFIG_BACKUP" ] && [ -r "$LEGACY_CONFIG_BACKUP" ] || return 0
     if [ "$LEGACY_CLEANUP_STARTED" -eq 0 ]; then
+        if [ "$SING_BOX_CHANGE_STARTED" -eq 1 ]; then
+            warn "The legacy configuration backup remains at $LEGACY_CONFIG_BACKUP after the sing-box package change"
+            return 0
+        fi
         rm -f "$LEGACY_CONFIG_BACKUP"
         LEGACY_CONFIG_BACKUP=""
         return 0
@@ -2205,10 +2424,14 @@ rollback_legacy_config_on_failure() {
 confirm_legacy_migration() {
     [ "$FORKOP_LEGACY_DETECTED" -eq 1 ] || return 0
 
-    interactive_terminal_available ||
-        fail "Legacy migration requires an interactive terminal"
-    numbered_yes_no_prompt "$(installer_text legacy_migration_prompt)" ||
-        fail "Legacy migration was cancelled before changing installed packages"
+    if interactive_terminal_available; then
+        numbered_yes_no_prompt "$(installer_text legacy_migration_prompt)" ||
+            fail "Legacy migration was cancelled before changing installed packages"
+    elif [ "$CONFIRM_LEGACY_MIGRATION" -eq 1 ]; then
+        msg "Legacy migration was explicitly authorized by --confirm-legacy-migration"
+    else
+        fail "Legacy migration requires an interactive terminal or --confirm-legacy-migration"
+    fi
     prepare_legacy_config_backup
 }
 
@@ -2269,10 +2492,13 @@ download_forkop_packages() {
 
     download_with_retry "$FORKOP_BACKEND_URL" "$FORKOP_BACKEND_FILE" "$FORKOP_BACKEND_NAME" || fail "Failed to download $FORKOP_BACKEND_NAME"
     download_with_retry "$FORKOP_APP_URL" "$FORKOP_APP_FILE" "$FORKOP_APP_NAME" || fail "Failed to download $FORKOP_APP_NAME"
+    verify_download_sha256 "$FORKOP_BACKEND_FILE" "$FORKOP_BACKEND_SHA256" "$FORKOP_BACKEND_NAME"
+    verify_download_sha256 "$FORKOP_APP_FILE" "$FORKOP_APP_SHA256" "$FORKOP_APP_NAME"
 
     if [ -n "$FORKOP_I18N_URL" ]; then
         FORKOP_I18N_FILE="$TMP_DIR/$FORKOP_I18N_NAME"
         download_with_retry "$FORKOP_I18N_URL" "$FORKOP_I18N_FILE" "$FORKOP_I18N_NAME" || fail "Failed to download $FORKOP_I18N_NAME"
+        verify_download_sha256 "$FORKOP_I18N_FILE" "$FORKOP_I18N_SHA256" "$FORKOP_I18N_NAME"
     fi
 }
 
@@ -2367,8 +2593,8 @@ main() {
     msg "Downloading Forkop X packages before making system changes"
     download_forkop_packages
 
-    ensure_flash_space
     confirm_legacy_migration
+    ensure_flash_space
 
     if [ "$INSTALL_MODE" = "legacy" ]; then
         msg "Installing the Forkop X backend before removing legacy packages"
@@ -2386,7 +2612,8 @@ main() {
     remove_legacy_backup
 
     msg "Forkop $FORKOP_PACKAGE_VERSION has been installed successfully"
-    msg "Source mirror: ${MIRROR_BASE_URL} (${FORKOP_RELEASE_TAG})"
+    msg "Forkop release source: ${RELEASE_BASE_URL%/} (${FORKOP_RELEASE_TAG})"
+    msg "Dependency mirror: ${MIRROR_BASE_URL}"
     if [ "$FORKOP_CONFIG_READY" -eq 1 ]; then
         warn "Open LuCI and review your rules before enabling Forkop"
     else

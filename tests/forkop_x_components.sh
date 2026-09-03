@@ -21,9 +21,14 @@ fi
 
 grep -Fq '"slayer326/forkop"' "$CONSTANTS_UC" ||
   fail "Forkop releases must default to slayer326/forkop"
-if grep -Fq '/forkop/updates/latest.json' "$ACTION_UC"; then
-  fail "Forkop updates must come from GitHub Releases instead of the private mirror"
-fi
+grep -Fq '"https://fold8.ru/forkop"' "$CONSTANTS_UC" ||
+  fail "Forkop releases must default to the public fold8.ru release channel"
+grep -Fq 'release_base_url + "/updates/latest.json"' "$ACTION_UC" ||
+  fail "Forkop updates must query fold8.ru before GitHub"
+grep -Fq 'return fetch_github_release_json(parts[0], parts[1]);' "$ACTION_UC" ||
+  fail "Forkop updates must retain GitHub Releases as a fallback"
+grep -Fq 'asset_url: forkop_mirror_url(asset_url)' "$ACTION_UC" ||
+  fail "sing-box Extended relative assets must stay on the dependency mirror"
 
 grep -Fq "text: 'Tiny'" "$UPDATES_TS" || fail "Tiny switch is missing"
 grep -Fq "text: 'Extended'" "$UPDATES_TS" || fail "Extended switch is missing"
@@ -42,12 +47,22 @@ grep -Fq "key: 'zapretManagerRemove'" "$UPDATES_TS" ||
   fail "Zapret-Manager remove button is missing"
 grep -Fq 'function remove_zapret_manager(action)' "$ACTION_UC" ||
   fail "Zapret-Manager safe removal action is missing"
+grep -Fq 'function set_packet_steering(action)' "$ACTION_UC" ||
+  fail "Packet Steering action is missing"
+grep -Fq 'network.@globals[0].packet_steering' "$ACTION_UC" ||
+  fail "Packet Steering must target the first network globals section"
+grep -Fq "component: 'packet_steering'" "$UPDATES_TS" ||
+  fail "Packet Steering card is missing"
+grep -Fq "key: 'packetSteeringEnable'" "$UPDATES_TS" ||
+  fail "Packet Steering enable button is missing"
+grep -Fq "key: 'packetSteeringRestore'" "$UPDATES_TS" ||
+  fail "Packet Steering restore button is missing"
 grep -Fq 'clear_version_caches();' "$ACTION_UC" ||
   fail "component installation must invalidate system-info caches"
 if grep -Fq 'github_probe(proxy_address)' "$ROOT_DIR/forkop/files/usr/lib/components/updates.uc"; then
   fail "list updates must not wait for an unrelated GitHub availability probe"
 fi
-grep -Fq 'grid-template-columns: repeat(2, minmax(0, 1fr))' \
+grep -Fq 'grid-template-columns: repeat(3, minmax(0, 1fr))' \
   "$ROOT_DIR/fe-app-forkop/src/forkop/tabs/updates/styles.ts" ||
   fail "component columns must have equal fixed widths"
 grep -Fq "key: 'Forkop X'" "$DIAGNOSTICS_TS" ||

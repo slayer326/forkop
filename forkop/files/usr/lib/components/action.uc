@@ -9,6 +9,7 @@ const BIN_PATH = getenv("FORKOP_BIN") || constants.FORKOP_BIN || "/usr/bin/forko
 const SERVICE_INIT = getenv("FORKOP_SERVICE_INIT") || constants.FORKOP_SERVICE_INIT || "/etc/init.d/forkop";
 const FORKOP_VERSION = getenv("FORKOP_VERSION") || constants.FORKOP_VERSION || "";
 const FORKOP_RELEASE_REPO = getenv("FORKOP_RELEASE_REPO") || constants.FORKOP_RELEASE_REPO || "slayer326/forkop";
+const FORKOP_RELEASE_BASE_URL = getenv("FORKOP_RELEASE_BASE_URL") || constants.FORKOP_RELEASE_BASE_URL || "https://fold8.ru/forkop";
 const FORKOP_MIRROR_BASE_URL = getenv("FORKOP_MIRROR_BASE_URL") || constants.FORKOP_MIRROR_BASE_URL || "";
 const RUNTIME_STATE_DIR = getenv("FORKOP_RUNTIME_STATE_DIR") || "/var/run/forkop";
 const SYSTEM_INFO_CACHE_FILE = getenv("FORKOP_SYSTEM_INFO_CACHE_FILE") || RUNTIME_STATE_DIR + "/system-info.json";
@@ -584,6 +585,15 @@ function fetch_github_releases_json(owner, repo, per_page) {
 }
 
 function latest_forkop_release_json() {
+    if (FORKOP_RELEASE_BASE_URL != "") {
+        let release_base_url = FORKOP_RELEASE_BASE_URL;
+        while (substr(release_base_url, length(release_base_url) - 1, 1) == "/")
+            release_base_url = substr(release_base_url, 0, length(release_base_url) - 1);
+        let response = http_get(release_base_url + "/updates/latest.json");
+        if (response != "" && trim(helper_output_input(response, "release-metadata-tsv", [])) != "")
+            return response;
+    }
+
     let parts = split(FORKOP_RELEASE_REPO, "/");
     if (length(parts) != 2 || as_string(parts[0]) == "" || as_string(parts[1]) == "")
         return "";
@@ -592,8 +602,28 @@ function latest_forkop_release_json() {
 
 function forkop_release_url(value) {
     value = as_string(value);
-    if (FORKOP_MIRROR_BASE_URL != "" && substr(value, 0, 1) == "/")
-        return FORKOP_MIRROR_BASE_URL + value;
+    if (value == "" || substr(value, 0, 7) == "http://" || substr(value, 0, 8) == "https://")
+        return value;
+    if (FORKOP_RELEASE_BASE_URL != "") {
+        let release_base_url = FORKOP_RELEASE_BASE_URL;
+        while (substr(release_base_url, length(release_base_url) - 1, 1) == "/")
+            release_base_url = substr(release_base_url, 0, length(release_base_url) - 1);
+        if (substr(value, 0, 1) == "/")
+            return release_base_url + value;
+        return release_base_url + "/" + value;
+    }
+    return value;
+}
+
+function forkop_mirror_url(value) {
+    value = as_string(value);
+    if (value == "" || substr(value, 0, 7) == "http://" || substr(value, 0, 8) == "https://")
+        return value;
+    if (FORKOP_MIRROR_BASE_URL != "") {
+        if (substr(value, 0, 1) == "/")
+            return FORKOP_MIRROR_BASE_URL + value;
+        return FORKOP_MIRROR_BASE_URL + "/" + value;
+    }
     return value;
 }
 
@@ -1229,8 +1259,8 @@ function set_sing_box_extended_release_from_json(release_json, compressed) {
 
     return {
         tag,
-        release_url: forkop_release_url(trim(helper_output_input(release_json, "object-get-default", [ "html_url", "" ]))),
-        asset_url: forkop_release_url(asset_url),
+        release_url: forkop_mirror_url(trim(helper_output_input(release_json, "object-get-default", [ "html_url", "" ]))),
+        asset_url: forkop_mirror_url(asset_url),
         asset_name: path_basename(asset_url)
     };
 }
@@ -1833,12 +1863,26 @@ function install_forkop() {
         (release.i18n_url != "" && !download_with_retry(release.i18n_url, i18n_file, release.i18n_name)))
         action_fail("forkop", "install", "Failed to download Forkop release packages", FORKOP_VERSION, latest_version);
 
-    if (!run_logged("Installing LuCI app package " + release.app_name, pkg_install_files_command([ app_file ])))
-        action_fail("forkop", "install", "Failed to install LuCI app package", FORKOP_VERSION, latest_version);
-    if (i18n_file != "" && !run_logged("Installing LuCI Russian i18n package " + release.i18n_name, pkg_install_files_command([ i18n_file ])))
-        action_fail("forkop", "install", "Failed to install LuCI Russian i18n package", FORKOP_VERSION, latest_version);
-    if (!run_logged("Installing Forkop package " + release.backend_name, pkg_install_files_command([ backend_file ])))
-        action_fail("forkop", "install", "Failed to install Forkop package", FORKOP_VERSION, latest_version);
+    // apk refreshes repository indexes for every `add` invocation. Install the
+    // release files in one transaction on APK systems to retain dependency
+    // resolution while avoiding two redundant index refreshes. Keep opkg's
+    // established ordering unchanged.
+    if (is_apk()) {
+        let files = [ app_file ];
+        if (i18n_file != "")
+            push(files, i18n_file);
+        push(files, backend_file);
+        if (!run_logged("Installing Forkop release packages", pkg_install_files_command(files)))
+            action_fail("forkop", "install", "Failed to install Forkop release packages", FORKOP_VERSION, latest_version);
+    }
+    else {
+        if (!run_logged("Installing LuCI app package " + release.app_name, pkg_install_files_command([ app_file ])))
+            action_fail("forkop", "install", "Failed to install LuCI app package", FORKOP_VERSION, latest_version);
+        if (i18n_file != "" && !run_logged("Installing LuCI Russian i18n package " + release.i18n_name, pkg_install_files_command([ i18n_file ])))
+            action_fail("forkop", "install", "Failed to install LuCI Russian i18n package", FORKOP_VERSION, latest_version);
+        if (!run_logged("Installing Forkop package " + release.backend_name, pkg_install_files_command([ backend_file ])))
+            action_fail("forkop", "install", "Failed to install Forkop package", FORKOP_VERSION, latest_version);
+    }
 
     remove_file("/var/luci-indexcache");
     command_success("rm -f /var/luci-indexcache* /tmp/luci-indexcache* 2>/dev/null");
@@ -1885,6 +1929,26 @@ function dispatch_sing_box(action) {
         install_package_sing_box(action, false);
 }
 
+function set_packet_steering(action) {
+    let init_script = "/etc/init.d/packet_steering";
+    let config_path = "network.@globals[0].packet_steering";
+    let current_mode = trim(uci_core.get(config_path));
+    let target_mode = action == "enable" ? "2" : "1";
+
+    if (!file_exists(init_script))
+        action_fail("packet_steering", action, "Packet Steering service is not available", current_mode, target_mode);
+    if (!uci_core.available() ||
+        !uci_core.set(config_path, target_mode) ||
+        !uci_core.commit("network") ||
+        !command_success_from_args([ init_script, "restart" ]))
+        action_fail("packet_steering", action, "Failed to apply Packet Steering mode " + target_mode, current_mode, target_mode);
+
+    remove_file(SYSTEM_INFO_CACHE_FILE);
+    action_success("packet_steering", action,
+        target_mode == "2" ? "Packet Steering mode 2 has been enabled" : "Packet Steering normal mode has been restored",
+        target_mode, target_mode, current_mode == target_mode ? 0 : 1, "", "");
+}
+
 function normalize_component_name(component) {
     component = as_string(component);
     if (component == "sing-box" || component == "singbox")
@@ -1927,6 +1991,8 @@ function component_action(component, action) {
         install_zapret_manager(action);
     else if (component == "zapret_manager" && action == "remove")
         remove_zapret_manager(action);
+    else if (component == "packet_steering" && (action == "enable" || action == "restore"))
+        set_packet_steering(action);
     else
         action_fail(component != "" ? component : "unknown", action != "" ? action : "unknown", "Unknown component action");
 }

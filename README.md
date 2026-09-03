@@ -7,8 +7,19 @@
 ### Установка
 
 ```sh
-wget -qO- https://raw.githubusercontent.com/slayer326/forkop/main/install.sh | sh
+wget -qO- https://fold8.ru/forkop/install.sh | sh
 ```
+
+Установщик и встроенное обновление сначала используют публичный канал
+`https://fold8.ru/forkop`. Если его метаданные недоступны, проверка обновлений
+попробует GitHub Releases как резервный источник.
+
+### Публикация релиза на Timeweb
+
+Workflow `Build packages` формирует архив
+`forkop-timeweb-VERSION.tar.gz`. Загрузите его в корень сайта `fold8.ru` и
+распакуйте: в `public_html` должна появиться папка `forkop`. Подробная структура
+и проверка описаны в [ops/hosting/README.md](ops/hosting/README.md).
 
 ### Что нового в этом форке
 
@@ -20,7 +31,7 @@ wget -qO- https://raw.githubusercontent.com/slayer326/forkop/main/install.sh | s
 - QUIC при первой установке форсится выключенным
 - URLTest режим показывает текущий узел
 - Поддержка описания хостов из подписки
-- Fallback для листов на jsDelivr если зеркало недоступно
+- Fallback для листов на jsDelivr и Github если зеркало недоступно
 - Уменьшено количество полей и сложного функционала который нужен 0.1% пользователей
 - Установка zapret-manager-stressozz так же полностью с зеркала из GUI
 - Дополнительные встроенные листы для Blizzard, Sony, Bungie, Riot и т.д.
@@ -33,3 +44,5 @@ wget -qO- https://raw.githubusercontent.com/slayer326/forkop/main/install.sh | s
 - Поддерживает подписки любых провайдеров по HTTPS
 - Работа с ключами не ограничивается
 - User Agent Happ/(версия Forkop X) для поддержки описания хостов
+
+Телеграмм чат https://t.me/Flint_2/37459

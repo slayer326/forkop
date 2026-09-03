@@ -103,6 +103,12 @@ grep -Fq 'restore_sing_box_after_failed_package_install' "$ACTION_UC" ||
   fail "stable and tiny sing-box package installs must restore the previous variant after validation failures"
 grep -Fq 'let package_spec = package_name + "=" + package_version;' "$ACTION_UC" ||
   fail "APK sing-box installs must pin the concrete package version instead of selecting a provider"
+grep -Fq 'Installing Forkop release packages' "$ACTION_UC" ||
+  fail "APK Forkop releases must be installed in one transaction"
+grep -Fq 'let files = [ app_file ];' "$ACTION_UC" ||
+  fail "APK Forkop release transaction must start with the LuCI package"
+grep -Fq 'push(files, backend_file);' "$ACTION_UC" ||
+  fail "APK Forkop release transaction must include the backend package"
 grep -Fq 'command_from_args([ "apk", "add", "--force-reinstall", "--upgrade", package_spec ])' "$ACTION_UC" ||
   fail "APK sing-box reinstalls must use apk add --force-reinstall with the concrete package version"
 if grep -Fq '"apk", "fix", "--reinstall", "--upgrade", package_spec' "$ACTION_UC"; then

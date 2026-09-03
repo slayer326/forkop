@@ -77,22 +77,16 @@ select_sing_box_installation >/dev/null
 [ -z "$SING_BOX_INSTALL_VARIANT" ] ||
   fail_test "upgrade must preserve the installed sing-box variant"
 
-FORKOP_LEGACY_DETECTED=0
-SING_BOX_INSTALL_VARIANT=""
-pkg_is_installed() {
-  [ "$1" = "forkop" ] || [ "$1" = "luci-app-forkop" ]
-}
-[ "$(required_flash_space_kb)" = "15360" ] ||
-  fail_test "existing Forkop package updates must retain the 15 MB safety threshold"
-
-SING_BOX_INSTALL_VARIANT="tiny"
-[ "$(required_flash_space_kb)" = "15360" ] ||
-  fail_test "new sing-box installations must retain the 15 MB free-flash requirement"
-
-FORKOP_LEGACY_DETECTED=1
-LEGACY_CLEANUP_DONE=1
-SING_BOX_INSTALL_VARIANT=""
-[ "$(required_flash_space_kb)" = "15360" ] ||
-  fail_test "legacy migrations must pass the 15 MB preflight before cleanup"
+printf x >"$WORK_DIR/backend.ipk"
+printf xx >"$WORK_DIR/app.ipk"
+FORKOP_BACKEND_FILE="$WORK_DIR/backend.ipk"
+FORKOP_APP_FILE="$WORK_DIR/app.ipk"
+FORKOP_I18N_FILE=""
+pkg_is_installed() { return 0; }
+calculated_space="$(forkop_install_required_space_kb)"
+[ "$calculated_space" -eq "$((2 * PACKAGE_ARCHIVE_SPACE_FACTOR + PACKAGE_INSTALL_OVERHEAD_KB + FLASH_RESERVE_KB))" ] ||
+  fail_test "installer must calculate flash requirements from the selected downloaded packages"
+[ "$calculated_space" -lt 15360 ] ||
+  fail_test "installer must not retain the fixed 15 MB threshold"
 
 printf 'Installer compatibility matrix passed\n'

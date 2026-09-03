@@ -108,6 +108,12 @@ reload_stable_min_age_line="$(awk -v start="$sing_box_reload_line" 'NR > start &
 automatic_latency_start_line="$(grep -nF 'module_background(DIAGNOSTICS_UC, [ "automatic-latency-test" ])' "$LIFECYCLE_UC" | tail -n1 | cut -d: -f1)"
 [ -n "$automatic_latency_start_line" ] && [ "$automatic_latency_start_line" -gt "$reload_stable_min_age_line" ] ||
   fail "service/lifecycle.uc must start automatic latency tests after a stable sing-box reload"
+reload_state_write_line="$(grep -nF '"write-current-reload-state-clean"' "$LIFECYCLE_UC" | head -n1 | cut -d: -f1)"
+cold_start_refresh_line="$(grep -nF 'module_background(LIFECYCLE_UC, [ "refresh-rulesets-then-start-latency" ])' "$LIFECYCLE_UC" | head -n1 | cut -d: -f1)"
+[ -n "$cold_start_refresh_line" ] && [ "$cold_start_refresh_line" -gt "$reload_state_write_line" ] ||
+  fail "service/lifecycle.uc must defer cold-start rule-set refresh until reload state is saved"
+grep -Fq 'Rule-set cache changed; reloading Forkop before automatic latency test' "$LIFECYCLE_UC" ||
+  fail "service/lifecycle.uc must reload changed rule-sets before cold-start latency tests"
 grep -Fq 'Reload verification failed after sing-box was reloaded; stopping Forkop runtime' "$LIFECYCLE_UC" ||
   fail "service/lifecycle.uc must fail reload when sing-box does not stay stable"
 grep -Fq 'Reload runtime restart verification failed after Forkop was started; rolling back DNS changes' "$LIFECYCLE_UC" ||
