@@ -1324,7 +1324,9 @@ function migrate_retired_secondary_rulesets(ctx) {
                 ? SECONDARY_RULESET_RAW_PREFIX
                 : (index(reference, SECONDARY_RULESET_CDN_PREFIX) == 0
                     ? SECONDARY_RULESET_CDN_PREFIX
-                    : "");
+                    : (index(reference, SECONDARY_RULESET_MIRROR_PREFIX) == 0
+                        ? SECONDARY_RULESET_MIRROR_PREFIX
+                        : ""));
             let id = prefix != "" ? replace(reference, /^.*\//, "") : "";
             id = replace(id, /\.srs$/, "");
             if (prefix != "" && match(reference, /\.srs$/) != null && RETIRED_SECONDARY_RULESET_IDS[id]) {
@@ -1375,6 +1377,7 @@ const MIGRATIONS = [
     { id: "http_connection_urls", run: migrate_http_connection_urls },
     { id: "flintnet_urltest_default", run: migrate_flintnet_urltest_default },
     { id: "retired_secondary_rulesets", run: migrate_retired_secondary_rulesets },
+    { id: "retired_secondary_rulesets_v2", run: migrate_retired_secondary_rulesets },
     { id: "secondary_rulesets_mirror_v1", run: migrate_secondary_rulesets_to_mirror }
 ];
 
