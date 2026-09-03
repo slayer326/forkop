@@ -552,7 +552,7 @@ cat >"$WORK_DIR/flintnet-urltest.json" <<'JSON'
       ".name": "other",
       ".type": "subscription_url",
       "section": "VPN",
-      "url": "https://subscriptions.example/example",
+      "url": "https://aes2215.vs2112.51343.ru/example",
       "include_urltest_groups": "1"
     }
   ]
@@ -753,7 +753,7 @@ if (values.includes('https://raw.githubusercontent.com/Greeg0ry/b4geoip-forkop/m
   console.error('retired b4geoip SRS URLs must be removed during migration');
   process.exit(1);
 }
-if (!values.includes('https://fold8.ru/forkop/lists/b4geoip-forkop/srs/valve.srs') ||
+if (!values.includes('https://mirror.51343.ru/forkop/lists/b4geoip-forkop/srs/valve.srs') ||
     !values.includes('https://example.com/custom.srs')) {
   console.error('the b4geoip migration must move current SRS URLs to mirror and preserve custom URLs');
   process.exit(1);

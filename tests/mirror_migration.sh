@@ -61,23 +61,23 @@ if grep -Eq 'archive\.openwrt\.org|ftp\.snt\.utwente\.nl|downloads\.openwrt\.org
   "$WORK_DIR/root/etc/apk/repositories.d/distfeeds.list"; then
   fail "official OpenWrt feeds were not fully redirected"
 fi
-grep -Fq 'https://fold8.ru/openwrt/releases/25.12.4/' \
+grep -Fq 'https://mirror.51343.ru/openwrt/releases/25.12.4/' \
   "$WORK_DIR/root/etc/apk/repositories.d/distfeeds.list" ||
   fail "mirror release URL is missing"
-grep -Fxq 'https://fold8.ru/openwrt/releases/25.12.5/targets/mediatek/filogic/packages/packages.adb' \
+grep -Fxq 'https://mirror.51343.ru/openwrt/releases/25.12.5/targets/mediatek/filogic/packages/packages.adb' \
   "$WORK_DIR/root/etc/apk/repositories.d/distfeeds.list" ||
   fail "version-series APK target feed was not normalized"
-grep -Fxq 'https://fold8.ru/openwrt/releases/25.12.5/packages/aarch64_cortex-a53/video/packages.adb' \
+grep -Fxq 'https://mirror.51343.ru/openwrt/releases/25.12.5/packages/aarch64_cortex-a53/video/packages.adb' \
   "$WORK_DIR/root/etc/apk/repositories.d/distfeeds.list" ||
   fail "version-series APK package feed was not normalized"
-grep -Fxq 'https://fold8.ru/forkop/mirror/current/packages.adb' \
+grep -Fxq 'https://mirror.51343.ru/forkop/mirror/current/packages.adb' \
   "$WORK_DIR/root/etc/apk/repositories.d/forkop.list" ||
   fail "Forkop current feed is missing"
 grep -Fq 'BEGIN PUBLIC KEY' "$WORK_DIR/root/etc/apk/keys/forkop-mirror.pem" ||
   fail "Forkop mirror key is missing"
 grep -Fq 'add_list forkop.settings.applied_migrations=mirror_51343_ru_v1' "$WORK_DIR/uci.log" ||
   fail "migration marker was not recorded"
-grep -Fq 'set forkop.settings.mirror_base_url=https://fold8.ru' "$WORK_DIR/uci.log" ||
+grep -Fq 'set forkop.settings.mirror_base_url=https://mirror.51343.ru' "$WORK_DIR/uci.log" ||
   fail "mirror base URL was not configured"
 
 printf 'PASS: full APK mirror migration\n'
@@ -106,15 +106,15 @@ if grep -Eq 'archive\.openwrt\.org|downloads\.openwrt\.org' \
   "$WORK_DIR/opkg-root/etc/opkg/distfeeds.conf"; then
   fail "official OpenWrt 24 feeds were not fully redirected"
 fi
-grep -Fq 'https://fold8.ru/openwrt/releases/24.10.5/targets/mediatek/filogic/packages' \
+grep -Fq 'https://mirror.51343.ru/openwrt/releases/24.10.5/targets/mediatek/filogic/packages' \
   "$WORK_DIR/opkg-root/etc/opkg/distfeeds.conf" ||
   fail "mirrored OpenWrt 24 target feed is missing"
-grep -Fq 'https://fold8.ru/openwrt/releases/24.10.5/packages/aarch64_cortex-a53/base' \
+grep -Fq 'https://mirror.51343.ru/openwrt/releases/24.10.5/packages/aarch64_cortex-a53/base' \
   "$WORK_DIR/opkg-root/etc/opkg/distfeeds.conf" ||
   fail "mirrored OpenWrt 24 architecture feed is missing"
 [ ! -e "$WORK_DIR/opkg-root/etc/apk/keys/forkop-mirror.pem" ] ||
   fail "OPKG migration must not install an APK key"
-grep -Fq 'set forkop.settings.mirror_base_url=https://fold8.ru' "$WORK_DIR/opkg-uci.log" ||
+grep -Fq 'set forkop.settings.mirror_base_url=https://mirror.51343.ru' "$WORK_DIR/opkg-uci.log" ||
   fail "OPKG migration did not configure the runtime mirror URL"
 
 printf 'PASS: full OPKG mirror migration\n'

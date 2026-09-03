@@ -6761,7 +6761,7 @@ function isBuiltinRulesetValue(value) {
 }
 
 const SECONDARY_RULESET_MIRROR_PREFIX =
-  "https://fold8.ru/forkop/lists/b4geoip-forkop/srs/";
+  "https://mirror.51343.ru/forkop/lists/b4geoip-forkop/srs/";
 const SECONDARY_RULESET_RAW_PREFIX =
   "https://raw.githubusercontent.com/Greeg0ry/b4geoip-forkop/main/srs/";
 const SECONDARY_RULESET_CDN_PREFIX =
