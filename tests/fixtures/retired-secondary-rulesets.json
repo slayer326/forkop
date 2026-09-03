@@ -16,6 +16,7 @@
     "rule_set_with_subnets": [
       "https://raw.githubusercontent.com/Greeg0ry/b4geoip-forkop/main/srs/cloudflare.srs",
       "https://cdn.jsdelivr.net/gh/Greeg0ry/b4geoip-forkop@main/srs/belcloud.srs",
+      "https://mirror.51343.ru/forkop/lists/b4geoip-forkop/srs/amazon.srs",
       "https://raw.githubusercontent.com/Greeg0ry/b4geoip-forkop/main/srs/valve.srs",
       "https://example.com/custom.srs"
     ]
