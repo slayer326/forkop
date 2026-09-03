@@ -14,7 +14,7 @@ function shell_quote(value) {
 }
 
 function configured_mirror_base_url() {
-    const default_mirror = "https://mirror.51343.ru";
+    const default_mirror = "https://fold8.ru";
     try {
         let cursor = require("uci").cursor();
         cursor.load("forkop");

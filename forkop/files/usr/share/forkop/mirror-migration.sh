@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-MIRROR_BASE_URL="${FORKOP_MIRROR_BASE_URL:-https://mirror.51343.ru}"
+MIRROR_BASE_URL="${FORKOP_MIRROR_BASE_URL:-https://fold8.ru}"
 MIRROR_BASE_URL="${MIRROR_BASE_URL%/}"
 MIGRATION_ID="mirror_51343_ru_v1"
 SETTINGS_SECTION="forkop.settings"
