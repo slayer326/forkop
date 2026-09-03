@@ -51,7 +51,7 @@ assert_file "$WORK_DIR/custom.txt" "Custom/1.0"
 cache_ucode user-agent-matches-config "" "$default_ua" "$default_ua" >/dev/null ||
   fail "default UA should match automatic config"
 if cache_ucode user-agent-matches-config "" Mihomo "$default_ua" >/dev/null 2>&1; then
-  fail "retired fallback UA should not match automatic config"
+  fail "removed fallback UA should not match automatic config"
 fi
 cache_ucode user-agent-matches-config "" Happ/2.8.0 "$default_ua" >/dev/null ||
   fail "legacy Happ compatibility UA should keep existing caches usable"

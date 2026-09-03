@@ -54,27 +54,34 @@ done
 FORKOP_RELEASE_VERSION="$VERSION" \
 FORKOP_RELEASE_PUBLIC_URL="$RELEASE_BASE_URL" \
 FORKOP_RELEASE_PACKAGES="$(printf '%s\n' "${packages[@]}")" \
-"$PYTHON_BIN" - "$METADATA_DIR/latest.json" <<'PY'
+"$PYTHON_BIN" - "$METADATA_DIR/latest.json" "$RELEASE_DIR" <<'PY'
+import hashlib
 import json
 import os
 import sys
+from pathlib import Path
 
 version = os.environ["FORKOP_RELEASE_VERSION"]
 base_url = os.environ["FORKOP_RELEASE_PUBLIC_URL"].rstrip("/")
 packages = os.environ["FORKOP_RELEASE_PACKAGES"].splitlines()
+release_dir = Path(sys.argv[2])
+
+def release_asset(name):
+    digest = hashlib.sha256((release_dir / name).read_bytes()).hexdigest()
+    return {
+        "name": name,
+        "browser_download_url": f"{base_url}/releases/{version}/{name}",
+        "sha256": digest,
+        "digest": f"sha256:{digest}",
+    }
+
 document = {
     "tag_name": version,
     "name": version,
     "html_url": f"{base_url}/releases/{version}/",
     "draft": False,
     "prerelease": False,
-    "assets": [
-        {
-            "name": name,
-            "browser_download_url": f"{base_url}/releases/{version}/{name}",
-        }
-        for name in packages
-    ],
+    "assets": [release_asset(name) for name in packages],
 }
 with open(sys.argv[1], "w", encoding="utf-8") as output:
     json.dump(document, output, ensure_ascii=False, indent=2)

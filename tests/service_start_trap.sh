@@ -58,6 +58,10 @@ require_pattern 'module_background(UPDATES_UC, [ "list-update" ])' \
   "startup list_update background job must be owned by service/lifecycle.uc"
 require_pattern 'module_background(DIAGNOSTICS_UC, [ "get-system-info" ])' \
   "startup system-info background job must be owned by service/lifecycle.uc"
+reject_pattern 'retry_sing_box_with_ruleset_fallback' \
+  "sing-box failures must not be misclassified as remote rule-set failures after cache materialization"
+reject_pattern 'Automatic startup retries are disabled until the next manual start.' \
+  "rule-set download failures must degrade to the persistent local cache instead of suppressing startup retries"
 require_pattern 'startup_config_fingerprint = external_config_fingerprint();' \
   "startup must snapshot runtime-relevant config after validation"
 require_pattern 'mark_pending_reload_if_config_changed(startup_config_fingerprint, "config_changed_during_start")' \

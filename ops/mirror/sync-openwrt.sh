@@ -14,7 +14,7 @@ FORMATS="${OPENWRT_FORMATS:-ipk apk}"
 # remain pinned to the exact OpenWrt release and kernel ABI they were built for.
 RELEASES_TO_KEEP="${OPENWRT_RELEASES_TO_KEEP:-all}"
 LOCK_FILE="${OPENWRT_LOCK_FILE:-/run/lock/openwrt-mirror.lock}"
-DOWNLOAD_JOBS="${OPENWRT_DOWNLOAD_JOBS:-12}"
+DOWNLOAD_JOBS="${OPENWRT_DOWNLOAD_JOBS:-8}"
 
 exec 9>"$LOCK_FILE"
 flock -n 9 || {
@@ -50,6 +50,23 @@ validate_download_jobs() {
     }
 }
 
+mirror_download_file() {
+    local source_url="$1"
+    local destination="$2"
+    local filename="$3"
+
+    wget --quiet --timestamping --no-directories \
+        --directory-prefix="$destination" \
+        --timeout=30 --tries=5 --waitretry=5 --retry-connrefused \
+        --retry-on-http-error=429,500,502,503,504 \
+        "${source_url}${filename}" || {
+            echo "Failed to mirror ${source_url}${filename} after 5 attempts" >&2
+            return 1
+        }
+}
+
+export -f mirror_download_file
+
 mirror_flat_directory() {
     local source_url="${1%/}/"
     local destination="$2"
@@ -62,9 +79,8 @@ mirror_flat_directory() {
         sed '/^$/d; /^\//d; /^[a-zA-Z][a-zA-Z0-9+.-]*:/d; /\/$/d; /^\.\.$/d; /^index\.html/d' |
         sort -u |
         xargs -r -P "$DOWNLOAD_JOBS" -I '{}' \
-            wget --quiet --timestamping --no-directories \
-                --directory-prefix="$destination" \
-                --timeout=30 --tries=3 "${source_url}{}"
+            bash -c 'mirror_download_file "$@"' _ \
+                "$source_url" "$destination" '{}'
 }
 
 mirror_directory_tree() {

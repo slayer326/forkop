@@ -112,6 +112,14 @@ start_retry_file="$WORK_DIR/start.retry"
 if initd_ucode start-retry-pending "$start_retry_file" >/dev/null 2>&1; then
   fail "missing start retry marker should not be pending"
 fi
+
+start_failure_file="$WORK_DIR/start.failure"
+if initd_ucode start-failure-blocks-retry "$start_failure_file" >/dev/null 2>&1; then
+  fail "missing startup failure marker should not block retry"
+fi
+printf '%s\n' 'code=ruleset_download_failed' >"$start_failure_file"
+initd_ucode start-failure-blocks-retry "$start_failure_file" >/dev/null ||
+  fail "rule-set startup failure marker should block retry"
 initd_ucode mark-start-retry "$start_retry_file" start_failed >/dev/null ||
   fail "failed start should create WAN retry marker"
 initd_ucode start-retry-pending "$start_retry_file" >/dev/null ||
@@ -246,6 +254,8 @@ grep -Fq 'mode == "retry-start-on-wan-up-action"' "$INITD_UC" ||
   fail "service/initd.uc must expose the WAN retry decision fixture"
 grep -Fq 'schedule_start_retry(START_RETRY_PID_FILE, START_RETRY_DELAY_SECONDS)' "$INITD_UC" ||
   fail "failed service start must schedule a retry even if WAN is already up"
+grep -Fq 'start_failure_blocks_retry(START_FAILURE_FILE)' "$INITD_UC" ||
+  fail "terminal rule-set source failure must suppress automatic start retry"
 grep -Fq 'start_retry_pending(START_RETRY_FILE)' "$INITD_UC" ||
   fail "WAN retry must be gated by a failed-start marker"
 service_enabled_line="$(grep -nF 'function service_is_enabled()' "$INITD_UC" | head -n1 | cut -d: -f1)"

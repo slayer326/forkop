@@ -228,7 +228,7 @@ cat >"$WORK_DIR/cache-maintenance.json" <<'JSON'
       "enabled": "1",
       "action": "proxy",
       "subscription_urls": [
-        "https://example.com/one.txt",
+        "https://aes2215.vs2112.51343.ru/one.txt",
         "https://example.com/two.txt"
       ]
     },
@@ -332,10 +332,10 @@ cat >"$WORK_DIR/cache-current.json" <<'JSON'
     {
       ".name": "proxy",
       "subscription_urls": [
-        "https://example.com/one.txt",
-        "https://example.com/two.txt"
+        "https://aes2215.vs2112.51343.ru/one.txt",
+        "https://aes2215.vs2112.51343.ru/two.txt"
       ],
-      "subscription_url_settings": "{\"https://example.com/one.txt\":{\"user_agent\":\"v2rayN\"}}"
+      "subscription_url_settings": "{}"
     },
     {
       ".name": "manual",
@@ -348,8 +348,8 @@ JSON
 cat >"$WORK_DIR/runtime-cache/proxy-subscription-1.json" <<'JSON'
 {"outbounds":[{"type":"direct","tag":"one"}]}
 JSON
-printf '%s' 'https://example.com/one.txt' >"$WORK_DIR/runtime-cache/proxy-subscription-1.url"
-printf '%s' 'Happ/2.8.0' >"$WORK_DIR/runtime-cache/proxy-subscription-1.user_agent"
+printf '%s' 'https://aes2215.vs2112.51343.ru/one.txt' >"$WORK_DIR/runtime-cache/proxy-subscription-1.url"
+printf '%s' 'sing-box/default' >"$WORK_DIR/runtime-cache/proxy-subscription-1.user_agent"
 
 cache_ucode section-current-usable-cache-fixture \
   "$WORK_DIR/cache-current.json" proxy "$WORK_DIR/runtime-cache" "$WORK_DIR/persistent-cache" "sing-box/default" >/dev/null ||
@@ -365,7 +365,7 @@ if grep -Fq "left-hand side is not a function" "$WORK_DIR/hwid.err"; then
 fi
 rm -f "$WORK_DIR/runtime-cache/proxy-subscription-1.hwid"
 
-printf '%s' 'https://example.com/stale.txt' >"$WORK_DIR/runtime-cache/proxy-subscription-1.url"
+printf '%s' 'https://aes2215.vs2112.51343.ru/stale.txt' >"$WORK_DIR/runtime-cache/proxy-subscription-1.url"
 if cache_ucode section-current-usable-cache-fixture \
   "$WORK_DIR/cache-current.json" proxy "$WORK_DIR/runtime-cache" "$WORK_DIR/persistent-cache" "sing-box/default" >/dev/null 2>&1; then
   fail "stale runtime cache URL should not be current"
@@ -375,7 +375,7 @@ rm -f "$WORK_DIR/runtime-cache/proxy-subscription-1.json" "$WORK_DIR/runtime-cac
 cat >"$WORK_DIR/persistent-cache/proxy-subscription-2.json" <<'JSON'
 {"outbounds":[{"type":"direct","tag":"two"}]}
 JSON
-printf '%s' 'https://example.com/two.txt' >"$WORK_DIR/persistent-cache/proxy-subscription-2.url"
+printf '%s' 'https://aes2215.vs2112.51343.ru/two.txt' >"$WORK_DIR/persistent-cache/proxy-subscription-2.url"
 printf '%s' 'sing-box/default' >"$WORK_DIR/persistent-cache/proxy-subscription-2.user_agent"
 
 cache_ucode section-current-usable-cache-fixture \
@@ -383,7 +383,7 @@ cache_ucode section-current-usable-cache-fixture \
   fail "persistent cache should restore and satisfy current cache"
 test -s "$WORK_DIR/runtime-cache/proxy-subscription-2.json" ||
   fail "persistent cache restore should write runtime json"
-assert_eq 'https://example.com/two.txt' \
+assert_eq 'https://aes2215.vs2112.51343.ru/two.txt' \
   "$(cat "$WORK_DIR/runtime-cache/proxy-subscription-2.url")" \
   "restored subscription URL"
 

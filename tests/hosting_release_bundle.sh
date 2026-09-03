@@ -50,7 +50,9 @@ done
 
 "$PYTHON_BIN" - "$WORK_DIR/output/forkop/updates/latest.json" "$VERSION" "$BASE_URL" <<'PY'
 import json
+import hashlib
 import sys
+from pathlib import Path
 
 path, version, base_url = sys.argv[1:]
 with open(path, encoding="utf-8") as source:
@@ -60,9 +62,13 @@ assert document["draft"] is False
 assert document["prerelease"] is False
 assert len(document["assets"]) == 6
 for asset in document["assets"]:
+    package_path = Path(path).parent.parent / "releases" / version / asset["name"]
+    digest = hashlib.sha256(package_path.read_bytes()).hexdigest()
     assert asset["browser_download_url"] == (
         f"{base_url}/releases/{version}/{asset['name']}"
     )
+    assert asset["sha256"] == digest
+    assert asset["digest"] == f"sha256:{digest}"
 PY
 
 tar -tzf "$WORK_DIR/output/forkop-timeweb-$VERSION.tar.gz" |

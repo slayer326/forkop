@@ -110,13 +110,22 @@ grep -Fxq 'stop-with-route-table' "$WORK_DIR/stop-order.log" ||
 
 printf '%s\n' "config settings 'settings'" >"$WORK_DIR/default-forkop"
 printf '%s\n' 'forkop.settings=settings' >"$WORK_DIR/config.state"
+mkdir -p "$WORK_DIR/component-update-checks"
+touch "$WORK_DIR/component-update-checks/forkop.json"
+touch "$WORK_DIR/component-update-check.timestamp"
 FORKOP_PACKAGE_TEST_MODE=1 \
 FORKOP_CONFIG_PATH="$WORK_DIR/config-forkop" \
 FORKOP_DEFAULT_CONFIG_PATH="$WORK_DIR/default-forkop" \
 FORKOP_UCI_STATE_FILE="$WORK_DIR/config.state" \
+FORKOP_COMPONENT_UPDATE_CHECK_CACHE_DIR="$WORK_DIR/component-update-checks" \
+FORKOP_COMPONENT_UPDATE_CHECK_STATE_FILE="$WORK_DIR/component-update-check.timestamp" \
   ucode -L "$FORKOP_LIB" "$PACKAGE_UC" postinst
 cmp -s "$WORK_DIR/default-forkop" "$WORK_DIR/config-forkop" ||
   fail "package postinst must restore a missing Forkop configuration from packaged defaults"
+[ ! -e "$WORK_DIR/component-update-checks/forkop.json" ] ||
+  fail "package postinst must remove cached component update results"
+[ ! -e "$WORK_DIR/component-update-check.timestamp" ] ||
+  fail "package postinst must remove the component update check timestamp"
 
 printf '%s\n' "config settings 'custom'" >"$WORK_DIR/config-forkop"
 cp "$WORK_DIR/config-forkop" "$WORK_DIR/config-forkop.expected"

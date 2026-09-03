@@ -90,6 +90,13 @@ if grep -Fq 'coreutils-sort' "$FORKOP_MAKEFILE" "$BUILD_SCRIPT"; then
   fail "unused coreutils-sort runtime dependency must not be packaged"
 fi
 
+require_package_dependency "nftables-json"
+if grep -Eq '(^|[[:space:],+])nftables([[:space:],]|$)' "$FORKOP_MAKEFILE" "$BUILD_SCRIPT"; then
+  fail "Forkop must depend on the concrete nftables-json provider, not the nftables virtual package"
+fi
+grep -Fq "command_exists(\"nft\")" "$ROOT_DIR/forkop/files/usr/lib/config/validator.uc" ||
+  fail "runtime validation must reject a missing nft executable before applying rules"
+
 grep -Fq "must use x.y.z format" "$FORKOP_MAKEFILE" ||
   fail "forkop/Makefile must enforce the three-part release version contract"
 grep -Fq 'APK_INTERNAL_VERSION="$RELEASE_VERSION"' "$BUILD_SCRIPT" ||
@@ -106,6 +113,10 @@ grep -Fq "list applied_migrations 'http_connection_urls'" "$FORKOP_CONFIG" ||
   fail "new installations must mark the HTTP connection URL migration as applied"
 grep -Fq "list applied_migrations 'flintnet_urltest_default'" "$FORKOP_CONFIG" ||
   fail "new installations must mark the Flintnet URLTest migration as applied"
+grep -Fq "list applied_migrations 'retired_secondary_rulesets'" "$FORKOP_CONFIG" ||
+  fail "new installations must mark the retired secondary rule set migration as applied"
+grep -Fq "list applied_migrations 'secondary_rulesets_mirror_v1'" "$FORKOP_CONFIG" ||
+  fail "new installations must mark the secondary rule set mirror migration as applied"
 grep -Fq '/usr/lib/forkop/config/migration.uc migrate' "$FORKOP_MAKEFILE" ||
   fail "OpenWrt package postinst must run configuration migrations"
 [ "$(grep -Fc '/usr/lib/forkop/config/migration.uc migrate' "$BUILD_SCRIPT")" -ge 3 ] ||

@@ -188,14 +188,14 @@ awk '
   END {
     if (detect > 0 && i18n > detect && select_sing_box > i18n &&
         update > select_sing_box && ensure > update && resolve > ensure &&
-        download > resolve && space > download && confirm > space &&
-        backend > confirm && migration > backend && cleanup > confirm &&
+        download > resolve && confirm > download && space > confirm &&
+        backend > space && migration > backend && cleanup > space &&
         ui > migration && ui > cleanup &&
         sing_box > ui && validation > sing_box)
       exit 0
     exit 1
   }
-' "$INSTALLER" || fail "install.sh must download and preflight before destructive migration, then finish installation in order"
+' "$INSTALLER" || fail "install.sh must download, back up legacy config, and preflight before destructive migration"
 
 helper="$WORK_DIR/install-json.uc"
 awk '
@@ -222,6 +222,13 @@ printf '%s\n' '{"tag_name":"0.0.1"}' | ucode "$helper" release-tag | grep -Fxq '
 release_json='{"tag_name":"0.0.1","assets":[{"name":"forkop_0.0.1.ipk","browser_download_url":"https://example.com/forkop.ipk"}]}'
 printf '%s' "$release_json" | ucode "$helper" release-asset-url backend ipk | grep -Fxq 'https://example.com/forkop.ipk' ||
   fail "embedded helper must resolve the exact three-part Forkop package name"
+release_hash='0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+printf '%s' "{\"tag_name\":\"0.0.1\",\"assets\":[{\"name\":\"forkop_0.0.1.ipk\",\"browser_download_url\":\"https://example.com/forkop.ipk\",\"sha256\":\"$release_hash\"}]}" |
+  ucode "$helper" release-asset-sha256 backend ipk | grep -Fxq "$release_hash" ||
+  fail "embedded helper must resolve release package SHA-256"
+printf '%s' "{\"tag_name\":\"0.0.1\",\"assets\":[{\"name\":\"forkop_0.0.1.ipk\",\"browser_download_url\":\"https://example.com/forkop.ipk\",\"digest\":\"sha256:$release_hash\"}]}" |
+  ucode "$helper" release-asset-sha256 backend ipk | grep -Fxq "$release_hash" ||
+  fail "embedded helper must accept the GitHub release digest field"
 if printf '%s' '{"tag_name":"0.0.1","assets":[{"name":"forkop_0.0.1_all.ipk","browser_download_url":"https://example.com/old.ipk"}]}' |
   ucode "$helper" release-asset-url backend ipk | grep -q .; then
   fail "embedded helper must reject package names outside the Forkop release format"

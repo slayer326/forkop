@@ -22,6 +22,8 @@ EOF
 cat >"$WORK_DIR/root/etc/apk/repositories.d/distfeeds.list" <<'EOF'
 https://ftp.snt.utwente.nl/pub/software/openwrt/releases/25.12.4/packages/aarch64_cortex-a53/base/packages.adb
 https://downloads.openwrt.org/releases/25.12.4/packages/aarch64_cortex-a53/luci/packages.adb
+https://downloads.openwrt.org/releases/v25.x/v25.12.5/mediatek/filogic/packages/packages.adb
+https://downloads.openwrt.org/releases/v25.x/v25.12.5/aarch64_cortex-a53/video/packages.adb
 EOF
 
 cat >"$WORK_DIR/bin/apk" <<'EOF'
@@ -62,6 +64,12 @@ fi
 grep -Fq 'https://mirror.51343.ru/openwrt/releases/25.12.4/' \
   "$WORK_DIR/root/etc/apk/repositories.d/distfeeds.list" ||
   fail "mirror release URL is missing"
+grep -Fxq 'https://mirror.51343.ru/openwrt/releases/25.12.5/targets/mediatek/filogic/packages/packages.adb' \
+  "$WORK_DIR/root/etc/apk/repositories.d/distfeeds.list" ||
+  fail "version-series APK target feed was not normalized"
+grep -Fxq 'https://mirror.51343.ru/openwrt/releases/25.12.5/packages/aarch64_cortex-a53/video/packages.adb' \
+  "$WORK_DIR/root/etc/apk/repositories.d/distfeeds.list" ||
+  fail "version-series APK package feed was not normalized"
 grep -Fxq 'https://mirror.51343.ru/forkop/mirror/current/packages.adb' \
   "$WORK_DIR/root/etc/apk/repositories.d/forkop.list" ||
   fail "Forkop current feed is missing"

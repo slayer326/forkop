@@ -51,11 +51,20 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "commitish=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          if [ -n "$INPUT_RELEASE_NOTES" ]; then
+            RAW_RELEASE_NOTES="$INPUT_RELEASE_NOTES"
+          else
+            RAW_RELEASE_NOTES="$(git tag -l --format='%(contents)' "$VERSION")"
+            if [ -z "$RAW_RELEASE_NOTES" ]; then
+              RAW_RELEASE_NOTES="$(git log -1 --pretty=%B)"
+            fi
+          fi
+          export RAW_RELEASE_NOTES
           python3 - <<'PY'
           import os
           import uuid
 
-          notes = os.environ['INPUT_RELEASE_NOTES']
+          notes = os.environ['RAW_RELEASE_NOTES']
           notes = notes.replace('\r\n', '\n').replace('\r', '\n').replace('\\n', '\n')
           delimiter = f'ghadelimiter_{uuid.uuid4().hex}'
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
