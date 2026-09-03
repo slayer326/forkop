@@ -149,6 +149,16 @@ function command_status(command) {
     return status > 255 ? int(status / 256) : status;
 }
 
+function command_capture(command) {
+    let pipe = fs.popen(command, "r");
+    if (!pipe)
+        return { status: 1, output: "" };
+
+    let data = pipe.read("all");
+    let status = int(pipe.close());
+    return { status: status > 255 ? int(status / 256) : status, output: data == null ? "" : as_string(data) };
+}
+
 function command_success(command) {
     return command_status(command + " >/dev/null 2>&1") == 0;
 }
@@ -387,12 +397,26 @@ function module_status(args) {
     return command_status(module_command(args));
 }
 
+function module_capture(args) {
+    return command_capture(module_command(args));
+}
+
 function module_success(args) {
     return module_status(args) == 0;
 }
 
 function module_output(args) {
     return command_output(module_command(args));
+}
+
+function validation_failure_message(result) {
+    for (let line in split(as_string(result.output), "\n")) {
+        line = trim(line);
+        if (line != "")
+            return line;
+    }
+
+    return "The configuration could not be validated. Aborted.";
 }
 
 function nft_module_success(args) {
@@ -1962,6 +1986,9 @@ function github_raw_fallback_url(url) {
     let mirror_prefix = FORKOP_MIRROR_BASE_URL != "" ?
         FORKOP_MIRROR_BASE_URL + "/forkop/lists/allow-domains/" : "";
     let jsdelivr_prefix = "https://cdn.jsdelivr.net/gh/itdoginfo/allow-domains@main/";
+    let b4geoip_mirror_prefix = FORKOP_MIRROR_BASE_URL != "" ?
+        FORKOP_MIRROR_BASE_URL + "/forkop/lists/b4geoip-forkop/" : "";
+    let b4geoip_jsdelivr_prefix = "https://cdn.jsdelivr.net/gh/Greeg0ry/b4geoip-forkop@main/";
 
     if (mirror_prefix != "" && substr(url, 0, length(mirror_prefix)) == mirror_prefix)
         return "https://raw.githubusercontent.com/itdoginfo/allow-domains/main/" +
@@ -1969,6 +1996,12 @@ function github_raw_fallback_url(url) {
     if (substr(url, 0, length(jsdelivr_prefix)) == jsdelivr_prefix)
         return "https://raw.githubusercontent.com/itdoginfo/allow-domains/main/" +
             substr(url, length(jsdelivr_prefix));
+    if (b4geoip_mirror_prefix != "" && substr(url, 0, length(b4geoip_mirror_prefix)) == b4geoip_mirror_prefix)
+        return "https://raw.githubusercontent.com/Greeg0ry/b4geoip-forkop/main/" +
+            substr(url, length(b4geoip_mirror_prefix));
+    if (substr(url, 0, length(b4geoip_jsdelivr_prefix)) == b4geoip_jsdelivr_prefix)
+        return "https://raw.githubusercontent.com/Greeg0ry/b4geoip-forkop/main/" +
+            substr(url, length(b4geoip_jsdelivr_prefix));
     return "";
 }
 
@@ -2804,8 +2837,9 @@ function subscription_update_common_locked(force, target_section, target_source_
     }
 
     log_message("Reloading sing-box to apply updated subscriptions", "info");
-    if (!module_success([ LIB_DIR + "/config/validator.uc", "validate-runtime" ])) {
-        log_message("Runtime config validation failed. Aborted.", "fatal");
+    let validation = module_capture([ LIB_DIR + "/config/validator.uc", "validate-runtime" ]);
+    if (validation.status != 0) {
+        log_message("Forkop configuration is invalid: " + validation_failure_message(validation), "fatal");
         return false;
     }
 
