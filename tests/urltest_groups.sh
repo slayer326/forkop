@@ -400,8 +400,13 @@ if (length(candidates) != length(builtin.outbounds || []))
 for (let child in builtin.outbounds || [])
     if (!contains(candidates, child))
         die("section cache URLTest candidates are missing a matched xray leaf outbound\n");
-if (!reveal_selector || length(reveal_selector.outbounds || []) != 2)
-    die("xray URLTest children must remain hidden even if a legacy setting disables hiding\n");
+if (!reveal_selector || length(reveal_selector.outbounds || []) != 3 ||
+    !contains(reveal_selector.outbounds, "proxy-urltest-out") ||
+    contains(reveal_selector.outbounds, "Latvia group"))
+    die("dashboard must contain matched xray leaves and the configured URLTest group\n");
+for (let child in builtin.outbounds || [])
+    if (!contains(reveal_selector.outbounds, child))
+        die("dashboard must expose each configured URLTest member\n");
 ' "$xray_config" "$xray_config.section-cache/proxy.json" "$xray_reveal_urltest_config" "$xray_group_name_filter_config" || fail "xray generated URLTest behavior"
 
 xray_metadata="$WORK_DIR/xray-ui-outbound-metadata.json"
@@ -686,18 +691,19 @@ if (!imported || imported.url != "https://native.example/ping" || imported.inter
     die("generated native URLTest did not preserve subscription params\n");
 if (!builtin || length(builtin.outbounds || []) != 1 || builtin.outbounds[0] != "Native A")
     die("built-in URLTest regex filter should expand Native Group to Native A only\n");
-for (let tag in selector.outbounds || [])
-    if (tag == "Native A")
-        die("native URLTest child must not be visible in selector by default\n");
+if (!selector || length(selector.outbounds || []) != 2 ||
+    !contains(selector.outbounds, "Native A") ||
+    !contains(selector.outbounds, "proxy-urltest-out"))
+    die("dashboard must show the matched native leaf and configured group\n");
 for (let tag in selector.outbounds || [])
     if (tag == "Detour Only")
         die("detour-only outbound must not be visible in selector\n");
-if (contains(reveal_urltest_selector ? reveal_urltest_selector.outbounds : [], "Native A"))
-    die("native URLTest child must remain hidden even if a legacy setting disables hiding\n");
+if (!contains(reveal_urltest_selector ? reveal_urltest_selector.outbounds : [], "Native A"))
+    die("configured group members must be visible regardless of legacy hiding options\n");
 if (contains(reveal_urltest_selector ? reveal_urltest_selector.outbounds : [], "Detour Only"))
     die("detour outbound should stay hidden when only URLTest hiding is disabled\n");
-if (contains(reveal_detour_selector ? reveal_detour_selector.outbounds : [], "Native A"))
-    die("native URLTest child should stay hidden when only detour hiding is disabled\n");
+if (!contains(reveal_detour_selector ? reveal_detour_selector.outbounds : [], "Native A"))
+    die("legacy detour hiding options must not hide matched group members\n");
 if (contains(reveal_detour_selector ? reveal_detour_selector.outbounds : [], "Detour Only"))
     die("detour outbound must remain hidden even if a legacy setting disables hiding\n");
 if (length(object_or_empty(cache.urltestGroups)["Native Group"].outbounds || []) != 1)
