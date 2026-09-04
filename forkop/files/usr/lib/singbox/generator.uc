@@ -1261,7 +1261,10 @@ function dashboard_filtered_outbounds(section, selector_tags, state, group_outbo
         for (let tag_name in array_or_empty(group_outbounds[group_name]))
             push(selected, tag_name);
 
-    return unique_string_array(selected);
+    // An empty group (e.g. a renamed/missing filtered node) must not make
+    // an otherwise usable subscription prevent the whole service from starting.
+    // Retain the existing server selector fallback; never inject a direct route.
+    return length(selected) > 0 ? unique_string_array(selected) : selector_tags;
 }
 
 function priority_levels_with_outbounds(group_id, urltest_candidate_tags, state) {

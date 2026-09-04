@@ -2981,3 +2981,6 @@ msgstr ""
 
 msgid "Remove Forkop X completely"
 msgstr ""
+
+msgid "Advanced settings"
+msgstr ""

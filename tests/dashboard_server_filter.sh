@@ -140,9 +140,14 @@ fs.writeFileSync(path.join(outputDir, 'invalid-group.json'), JSON.stringify(inva
 const invalidMode = structuredClone(source);
 invalidMode.section[0].dashboard_filter_mode = 'unknown';
 fs.writeFileSync(path.join(outputDir, 'invalid-mode.json'), JSON.stringify(invalidMode));
+const noGroups = structuredClone(source);
+noGroups.urltest = [];
+noGroups.priority_group = [];
+noGroups.priority_level = [];
+fs.writeFileSync(path.join(outputDir, 'no-groups.json'), JSON.stringify(noGroups));
 JS
 
-for mode in disabled include exclude mixed invalid-group invalid-mode; do
+for mode in disabled include exclude mixed invalid-group invalid-mode no-groups; do
   validate_fixture "$WORK_DIR/$mode.json" >/dev/null || fail "$mode dashboard filter validation"
   generate_config "$WORK_DIR/$mode.json" "$WORK_DIR/$mode-config.json"
 done
@@ -174,10 +179,17 @@ assert_array(disabled.outbounds, [ "Alpha", "Beta", "Gamma", "proxy-urltest-ut_m
 assert_array(include.outbounds, [ "Alpha", "Beta", "Gamma", "proxy-urltest-ut_main-out", "proxy-priority-pg_shared-out", "proxy-priority-pg_main-out" ], "same-name URLTest and Priority groups");
 assert_array(exclude.outbounds, include.outbounds, "legacy exclude options ignored");
 assert_array(mixed.outbounds, include.outbounds, "legacy mixed options ignored");
+for (let path in [ ARGV[4], ARGV[5] ])
+    assert_array(outbound_by_tag(json(fs.readfile(path)), "proxy-out").outbounds,
+        include.outbounds, "invalid legacy dashboard options ignored");
+assert_array(outbound_by_tag(json(fs.readfile(ARGV[6])), "proxy-out").outbounds,
+    [ "Alpha", "Beta", "Gamma", "Delta", "Echo" ], "without groups all servers remain visible");
 if (mixed.default != "proxy-urltest-ut_main-out")
     fail("section selector should still default to the first URLTest group");
 ' "$WORK_DIR/disabled-config.json" "$WORK_DIR/include-config.json" \
-  "$WORK_DIR/exclude-config.json" "$WORK_DIR/mixed-config.json" ||
+  "$WORK_DIR/exclude-config.json" "$WORK_DIR/mixed-config.json" \
+  "$WORK_DIR/invalid-group-config.json" "$WORK_DIR/invalid-mode-config.json" \
+  "$WORK_DIR/no-groups-config.json" ||
   fail "dashboard server filter regression"
 
 printf 'dashboard server filter checks passed\n'
