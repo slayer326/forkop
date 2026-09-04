@@ -44,3 +44,22 @@ if grep -Fq 'urltest_override' "$WORK_DIR/config.state"; then
 fi
 
 printf 'URLTest override checks passed\n'
+
+cat >"$WORK_DIR/source.state" <<'EOF'
+forkop.ut_main=urltest
+forkop.ut_main.section=main
+forkop.ut_main.name=Fastest
+forkop.old=urltest_override
+forkop.old.rule=main
+forkop.old.tag=main-urltest-ut_main-out
+EOF
+FORKOP_UCI_STATE_FILE="$WORK_DIR/source.state" \
+  ucode -L "$FORKOP_LIB" "$OVERRIDE_UC" save main main-urltest-ut_main-out \
+  https://example.com/check 90s 80 15m 0
+grep -Fxq 'forkop.ut_main.testing_url=https://example.com/check' "$WORK_DIR/source.state" ||
+  fail "configured URLTest settings must be updated at their source"
+grep -Fxq 'forkop.ut_main.interrupt_exist_connections=0' "$WORK_DIR/source.state" ||
+  fail "configured URLTest settings must preserve the interrupt option"
+if grep -Fq 'urltest_override' "$WORK_DIR/source.state"; then
+  fail "saving a configured group must remove its obsolete runtime override"
+fi
