@@ -19,7 +19,8 @@ fail() {
 [ -r "$FORKOP_INIT" ] || fail "forkop init.d entrypoint is missing"
 [ -r "$LUCI_UCI_DEFAULTS" ] || fail "LuCI uci-defaults entrypoint is missing"
 
-runtime_shell_files="$(find "$FORKOP_LIB" -type f -name '*.sh' -print)"
+# The staged uninstaller must survive removal of ucode and Forkop itself.
+runtime_shell_files="$(find "$FORKOP_LIB" -type f -name '*.sh' ! -name 'full-uninstall.sh' -print)"
 [ -z "$runtime_shell_files" ] ||
   fail "runtime library must not contain shell owners: $runtime_shell_files"
 
@@ -45,6 +46,7 @@ expected_shell_scripts="$(
   printf '%s\n' \
     'luci-app-forkop/root/etc/uci-defaults/50_luci-forkop' \
     'forkop/files/etc/init.d/forkop' \
+    'forkop/files/usr/lib/full-uninstall.sh' \
     'forkop/files/usr/share/forkop/mirror-migration.sh' |
     LC_ALL=C sort
 )"

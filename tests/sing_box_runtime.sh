@@ -149,10 +149,11 @@ generate_config() {
   local fixture="$1"
   local output="$2"
   local mwan3_active="${3:-0}"
+  local sing_box_version="${4:-}"
 
   mkdir -p "$output.section-cache" "$output.rulesets"
   ucode -L "$FORKOP_LIB" "$FORKOP_LIB/singbox/generator.uc" generate-config-fixture \
-    "$fixture" "$output" "127.0.0.1" "$mwan3_active"
+    "$fixture" "$output" "127.0.0.1" "$mwan3_active" "1" "" "$sing_box_version"
 }
 
 generate_config_with_subscription_cache() {
@@ -1037,6 +1038,15 @@ printf '%s' 'Happ' >"$WORK_DIR/subscriptions/only_xhttp-subscription-1.user_agen
 
 generate_config "$WORK_DIR/disabled-updates-fixture.json" "$WORK_DIR/disabled.json"
 generate_config "$WORK_DIR/default-updates-fixture.json" "$WORK_DIR/default.json"
+for version in 1.13.0 1.14.0-alpha.1 v1.14.0 2.0.0; do
+  generate_config "$WORK_DIR/default-updates-fixture.json" "$WORK_DIR/dns-$version.json" 0 "$version"
+  ucode -e '
+    let config = json(require("fs").readfile(ARGV[0]));
+    let expected = ARGV[1] == "1.13.0";
+    if ((config.dns.independent_cache == true) != expected)
+        die("independent_cache version compatibility failed: " + ARGV[1] + "\n");
+  ' "$WORK_DIR/dns-$version.json" "$version"
+done
 generate_config "$WORK_DIR/runtime-matchers-fixture.json" "$WORK_DIR/matchers.json"
 generate_config "$WORK_DIR/dns-action-fixture.json" "$WORK_DIR/dns-action.json"
 generate_config "$WORK_DIR/urltest-filter-fixture.json" "$WORK_DIR/urltest.json"

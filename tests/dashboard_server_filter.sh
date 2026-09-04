@@ -142,18 +142,12 @@ invalidMode.section[0].dashboard_filter_mode = 'unknown';
 fs.writeFileSync(path.join(outputDir, 'invalid-mode.json'), JSON.stringify(invalidMode));
 JS
 
-for mode in disabled include exclude mixed; do
+for mode in disabled include exclude mixed invalid-group invalid-mode; do
   validate_fixture "$WORK_DIR/$mode.json" >/dev/null || fail "$mode dashboard filter validation"
   generate_config "$WORK_DIR/$mode.json" "$WORK_DIR/$mode-config.json"
 done
 
-if validate_fixture "$WORK_DIR/invalid-group.json" >/dev/null 2>&1; then
-  fail "unknown dashboard group should be rejected"
-fi
-
-if validate_fixture "$WORK_DIR/invalid-mode.json" >/dev/null 2>&1; then
-  fail "unknown dashboard filter mode should be rejected"
-fi
+# Legacy dashboard options are ignored. Group filters now own membership.
 
 ucode -e '
 let fs = require("fs");
@@ -176,10 +170,10 @@ let disabled = outbound_by_tag(json(fs.readfile(ARGV[0])), "proxy-out");
 let include = outbound_by_tag(json(fs.readfile(ARGV[1])), "proxy-out");
 let exclude = outbound_by_tag(json(fs.readfile(ARGV[2])), "proxy-out");
 let mixed = outbound_by_tag(json(fs.readfile(ARGV[3])), "proxy-out");
-assert_array(disabled.outbounds, [ "Alpha", "Beta", "Gamma", "Delta", "Echo", "proxy-urltest-ut_main-out", "proxy-priority-pg_shared-out", "proxy-priority-pg_main-out" ], "all dashboard servers");
+assert_array(disabled.outbounds, [ "Alpha", "Beta", "Gamma", "proxy-urltest-ut_main-out", "proxy-priority-pg_shared-out", "proxy-priority-pg_main-out" ], "group members on dashboard");
 assert_array(include.outbounds, [ "Alpha", "Beta", "Gamma", "proxy-urltest-ut_main-out", "proxy-priority-pg_shared-out", "proxy-priority-pg_main-out" ], "same-name URLTest and Priority groups");
-assert_array(exclude.outbounds, [ "Alpha", "Delta", "Echo", "proxy-urltest-ut_main-out", "proxy-priority-pg_shared-out", "proxy-priority-pg_main-out" ], "excluded Priority group");
-assert_array(mixed.outbounds, [ "Alpha", "Echo", "proxy-urltest-ut_main-out", "proxy-priority-pg_shared-out", "proxy-priority-pg_main-out" ], "mixed group and proxy filters");
+assert_array(exclude.outbounds, include.outbounds, "legacy exclude options ignored");
+assert_array(mixed.outbounds, include.outbounds, "legacy mixed options ignored");
 if (mixed.default != "proxy-urltest-ut_main-out")
     fail("section selector should still default to the first URLTest group");
 ' "$WORK_DIR/disabled-config.json" "$WORK_DIR/include-config.json" \

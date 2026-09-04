@@ -58,7 +58,12 @@ jobs:
       - name: Run backend tests
         shell: bash
         run: |
+          failed=0
           for test_file in tests/*.sh; do
             printf 'Running %s\n' "$test_file"
-            bash "$test_file"
+            if ! bash "$test_file"; then
+              echo "::error file=$test_file::Backend regression failed"
+              failed=1
+            fi
           done
+          exit "$failed"
