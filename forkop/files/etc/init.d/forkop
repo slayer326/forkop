@@ -30,6 +30,17 @@ sync_service_triggers_payload() {
 }
 
 start_service() {
+    # rcS/procd keeps its service transaction on fd 1000. Forkop starts and
+    # verifies the separate sing-box procd service, so doing the full workflow
+    # inside that transaction deadlocks nested service control until procd's
+    # timeout. Detach the tracked worker and let rcS continue; LuCI reports the
+    # action as "starting" until service/initd.uc completes it.
+    if [ -e "/proc/$$/fd/1000" ]; then
+        initd_ucode start-service "$1" "$$" </dev/null >/dev/null 2>&1 1000>&- &
+        FORKOP_LAST_START_STATUS=0
+        return 0
+    fi
+
     initd_ucode start-service "$1" "$$"
     FORKOP_LAST_START_STATUS="$?"
     return "$FORKOP_LAST_START_STATUS"
@@ -37,6 +48,17 @@ start_service() {
 
 service_started() {
     return "${FORKOP_LAST_START_STATUS:-0}"
+}
+
+disable() {
+    # A failed start schedules a delayed retry.  Removing only the rc.d link
+    # leaves that worker alive, so an explicit disable must cancel it first.
+    [ -n "${IPKG_INSTROOT:-}" ] || initd_ucode cancel-scheduled-start-retry >/dev/null 2>&1 || true
+
+    local name
+    name="$(basename "$initscript")"
+    rm -f "$IPKG_INSTROOT"/etc/rc.d/S??"$name"
+    rm -f "$IPKG_INSTROOT"/etc/rc.d/K??"$name"
 }
 
 stop_service() {

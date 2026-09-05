@@ -161,3 +161,10 @@ printf '%s' "$verification" | grep -Eq '"main"[[:space:]]*:[[:space:]]*false' ||
 printf '%s' "$verification" | grep -Eq '"bootstrap"[[:space:]]*:[[:space:]]*true' || fail "bootstrap-only switch must verify the selected bootstrap DNS"
 
 printf 'DNS failover checks passed\n'
+
+confirmation="$(ucode -L "$FORKOP_LIB" "$FAILOVER" confirmation-fixture 3 4)"
+printf '%s' "$confirmation" | ucode -e '
+  let actual = json(require("fs").readfile("/dev/stdin"));
+  if (sprintf("%J", actual) != sprintf("%J", [false, false, true, true]))
+    die("DNS failover must wait for three failures\n");
+'

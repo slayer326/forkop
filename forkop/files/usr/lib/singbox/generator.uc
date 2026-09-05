@@ -21,6 +21,7 @@ let fixture_uci_data = null;
 let runtime_settings_cache = null;
 let runtime_ruleset_folder = runtime_constants.TMP_RULESET_FOLDER;
 let runtime_supports_xhttp = true;
+let runtime_supports_dns_response_matching = false;
 
 let as_string = common.as_string;
 let read_json_file = common.read_json_file;
@@ -2492,9 +2493,11 @@ function push_dns_matcher_rule(config, rule) {
 }
 
 function section_dns_server(section) {
-    return option(section, "action", "") == "bypass"
-        ? runtime_constants.DNS_SERVER_TAG
-        : runtime_constants.FAKEIP_DNS_SERVER_TAG;
+    // Domain-only bypass still needs to enter sing-box so its direct route is
+    // visible in the connection monitor. Source-aware bypass is handled by
+    // add_source_aware_bypass_dns_rules() and fully-routed devices keep their
+    // real-address DNS path in add_fully_routed_ips_rules().
+    return runtime_constants.FAKEIP_DNS_SERVER_TAG;
 }
 
 function single_or_array(values) {
@@ -2517,15 +2520,29 @@ function add_source_dns_matchers(rule, source_ip_cidr) {
 }
 
 function add_source_aware_bypass_dns_rules(config, matchers, rewrite_ttl) {
+    if (runtime_supports_dns_response_matching) {
+        // sing-box 1.14 requires response matching to follow a top-level
+        // evaluate action. Evaluate the normal resolver, then preserve the
+        // existing address-filter behavior when choosing dnsmasq.
+        let evaluate = copy_dns_matchers(matchers);
+        evaluate.action = "evaluate";
+        evaluate.server = runtime_constants.DNS_SERVER_TAG;
+        push_dns_matcher_rule(config, evaluate);
+    }
+
+    let fakeip_matcher = {
+        ip_cidr: [ runtime_constants.FAKEIP_INET4_RANGE, runtime_constants.FAKEIP_INET6_RANGE ],
+        invert: true
+    };
+    if (runtime_supports_dns_response_matching)
+        fakeip_matcher.match_response = true;
+
     push_dns_matcher_rule(config, {
         type: "logical",
         mode: "and",
         rules: [
             copy_dns_matchers(matchers),
-            {
-                ip_cidr: [ runtime_constants.FAKEIP_INET4_RANGE, runtime_constants.FAKEIP_INET6_RANGE ],
-                invert: true
-            }
+            fakeip_matcher
         ],
         action: "route",
         server: runtime_constants.DNSMASQ_DNS_SERVER_TAG,
@@ -2768,6 +2785,15 @@ function add_fully_routed_ips_rules(config, section) {
     push(config.route.rules, route_rule);
 }
 
+function push_section_route_rule(config, section, route_rule) {
+    let resolve = runtime_route.resolve_rule_for_section(section, route_rule);
+    if (type(resolve) == "object" && resolve.warning)
+        warn(resolve.warning, "\n");
+    else if (type(resolve) == "object" && resolve.rule)
+        push(config.route.rules, resolve.rule);
+    push(config.route.rules, route_rule);
+}
+
 function add_combined_route_for_section(config, section) {
     let domains = domain_conditions(section);
     let domain = domains.domain;
@@ -2826,20 +2852,30 @@ function add_combined_route_for_section(config, section) {
     if (length(source_ip_cidr) > 0)
         route_rule.source_ip_cidr = source_ip_cidr;
     add_port_matchers(route_rule, section);
-    if (length(rule_set_tags) > 0)
-        route_rule.rule_set = single_or_array(rule_set_tags);
-
     let has_route_matchers = route_rule.domain != null || route_rule.domain_suffix != null ||
         route_rule.domain_keyword != null || route_rule.domain_regex != null ||
-        route_rule.ip_cidr != null || route_rule.port != null || route_rule.port_range != null ||
-        route_rule.rule_set != null;
-    if (has_route_matchers) {
-        let resolve = runtime_route.resolve_rule_for_section(section, route_rule);
-        if (type(resolve) == "object" && resolve.warning)
-            warn(resolve.warning, "\n");
-        else if (type(resolve) == "object" && resolve.rule)
-            push(config.route.rules, resolve.rule);
-        push(config.route.rules, route_rule);
+        route_rule.ip_cidr != null || (length(rule_set_tags) == 0 &&
+        (route_rule.port != null || route_rule.port_range != null));
+    if (has_route_matchers)
+        push_section_route_rule(config, section, route_rule);
+
+    if (length(rule_set_tags) > 0) {
+        // Since sing-box 1.14 a rule-set containing more than one rule is an
+        // independent matcher.  Combining it with inline domain fields makes
+        // the two matchers an AND expression, while Forkop sections define
+        // inline domains and lists as alternatives.  Keep shared device and
+        // port filters, but emit the rule-set alternative as its own rule.
+        let rule_set_rule = {
+            action: target.action,
+            inbound: tproxy_inbound_matcher(),
+            rule_set: single_or_array(rule_set_tags)
+        };
+        if (target.outbound)
+            rule_set_rule.outbound = target.outbound;
+        if (length(source_ip_cidr) > 0)
+            rule_set_rule.source_ip_cidr = source_ip_cidr;
+        add_port_matchers(rule_set_rule, section);
+        push_section_route_rule(config, section, rule_set_rule);
     }
 
     let rewrite_ttl = int_option(runtime_settings(), "dns_rewrite_ttl", "60");
@@ -2998,6 +3034,8 @@ function generate_config(output_path, service_address, mwan3_active, supports_xh
         source_aware_dns: length(source_aware_dns) > 0
     });
     let version_parts = match(as_string(sing_box_version), /^v?([0-9]+)\.([0-9]+)\./);
+    runtime_supports_dns_response_matching = version_parts != null &&
+        (int(version_parts[1]) > 1 || (int(version_parts[1]) == 1 && int(version_parts[2]) >= 14));
     if (version_parts != null && (int(version_parts[1]) > 1 ||
         (int(version_parts[1]) == 1 && int(version_parts[2]) >= 14)))
         delete config.dns.independent_cache;

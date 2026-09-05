@@ -189,8 +189,38 @@ function command_output_from_args(args) {
     return command_output(command_from_args(args));
 }
 
+function bounded_command_output_from_args(args, timeout_seconds) {
+    timeout_seconds = int(timeout_seconds || 5);
+    if (timeout_seconds < 1)
+        timeout_seconds = 5;
+    let script = "tmp=/tmp/forkop-validator-version.$$; " + command_from_args(args) +
+        " >\"$tmp\" 2>/dev/null & child=$!; " +
+        "elapsed=0; while kill -0 \"$child\" 2>/dev/null && [ \"$elapsed\" -lt " + as_string(timeout_seconds) + " ]; do sleep 1; elapsed=$((elapsed + 1)); done; " +
+        "if kill -0 \"$child\" 2>/dev/null; then kill -KILL \"$child\" 2>/dev/null; fi; " +
+        "wait \"$child\"; rc=$?; " +
+        "if [ \"$rc\" -eq 0 ]; then cat \"$tmp\"; fi; rm -f \"$tmp\"; exit \"$rc\"";
+    return command_output_from_args([ "sh", "-c", script ]);
+}
+
 function command_exists(name) {
     return system("command -v " + shell_quote(name) + " >/dev/null 2>&1") == 0;
+}
+
+function installed_sing_box_version() {
+    if (command_exists("apk")) {
+        let output = command_output_from_args([ "apk", "list", "--installed" ]);
+        for (let line in split(output, "\n")) {
+            let matched = match(line, /^sing-box-([^ \r\n]+)-r[0-9]+:/);
+            if (matched == null)
+                matched = match(line, /^sing-box-tiny-([^ \r\n]+)-r[0-9]+:/);
+            if (matched != null)
+                return replace(as_string(matched[1]), /_/, "-");
+        }
+    }
+
+    let output = command_output_from_args([ "opkg", "list-installed", "sing-box" ]);
+    let matched = match(output, /^sing-box[ \t]+-[ \t]+([^ \r\n]+)/);
+    return matched == null ? "" : as_string(matched[1]);
 }
 
 function log_message(message, level) {
@@ -922,6 +952,8 @@ function validate_dns_settings(settings, sections, context) {
         validate_required_duration_option(option(settings, "dns_check_interval", "10s"), "settings.dns_check_interval");
         validate_required_duration_option(option(settings, "dns_recovery_check_interval", "60s"), "settings.dns_recovery_check_interval");
         validate_required_duration_option(option(settings, "dns_check_timeout", "2s"), "settings.dns_check_timeout");
+        if (match(option(settings, "dns_failover_failure_threshold", "3"), /^[1-9][0-9]*$/) == null)
+            fail_validation("DNS failover failure threshold must be a positive integer. Aborted.");
     }
 
     if (!bool_option(settings, "dns_detour_enabled", false))
@@ -2035,8 +2067,10 @@ function check_runtime_requirements() {
     if (!command_exists("nft"))
         fail_requirement("Required nftables executable 'nft' is missing. Install package 'nftables-json' and start Forkop again. Aborted.", "error");
 
-    let sing_box_version_output = command_exists("sing-box") ? command_output_from_args([ "sing-box", "version" ]) : "";
+    let sing_box_version_output = command_exists("sing-box") ? bounded_command_output_from_args([ "sing-box", "version" ], 5) : "";
     let sing_box_version = sing_box_compressed_marker_set(ctx) ? sing_box_version_state(ctx) : first_line_last_field(sing_box_version_output);
+    if (sing_box_version == "")
+        sing_box_version = installed_sing_box_version();
     let coreutils_base64_version = first_line_field_from_text(command_output("base64 --version 2>/dev/null"), 4);
 
     if (sing_box_version == "") {
