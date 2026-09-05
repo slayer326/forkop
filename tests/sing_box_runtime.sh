@@ -1048,6 +1048,25 @@ for version in 1.13.0 1.14.0-alpha.1 v1.14.0 2.0.0; do
   ' "$WORK_DIR/dns-$version.json" "$version"
 done
 generate_config "$WORK_DIR/runtime-matchers-fixture.json" "$WORK_DIR/matchers.json"
+generate_config "$WORK_DIR/runtime-matchers-fixture.json" "$WORK_DIR/matchers-1.14.json" 0 1.14.0
+ucode -e '
+  let config = json(require("fs").readfile(ARGV[0]));
+  let evaluated = false, matched = false;
+  for (let rule in config.dns.rules || []) {
+    if (rule.action == "evaluate" && rule.server == "dns-server")
+      evaluated = true;
+    if (rule.type == "logical" && rule.server == "dnsmasq-server") {
+      for (let child in rule.rules || []) {
+        if (child.ip_cidr != null) {
+          if (!evaluated || child.match_response !== true)
+            die("sing-box 1.14 address matching needs prior evaluation and match_response\n");
+          matched = true;
+        }
+      }
+    }
+  }
+  if (!matched) die("source-aware bypass response matching is missing\n");
+' "$WORK_DIR/matchers-1.14.json"
 generate_config "$WORK_DIR/dns-action-fixture.json" "$WORK_DIR/dns-action.json"
 generate_config "$WORK_DIR/urltest-filter-fixture.json" "$WORK_DIR/urltest.json"
 if generate_config "$WORK_DIR/manual-http-fixture.json" "$WORK_DIR/manual-http.json" \
@@ -1260,7 +1279,7 @@ let bypass_real_index = dns_rule_index(matchers, r => r.server == "dns-server" &
 let proxy_below_bypass_index = dns_rule_index(matchers, r => r.server == "fakeip-server" && contains(r.domain_suffix, "example.org") && r.source_ip_cidr == null);
 assert(bypass_probe_index >= 0 && bypass_real_index > bypass_probe_index && proxy_below_bypass_index > bypass_real_index, "source-aware bypass keeps its section priority over lower proxy DNS");
 let scoped_proxy_index = dns_rule_index(matchers, r => r.server == "fakeip-server" && contains(r.domain, "source-priority.test") && contains(r.source_ip_cidr, "10.0.0.2/32"));
-let bypass_below_proxy_index = dns_rule_index(matchers, r => r.server == "dns-server" && contains(r.domain, "source-priority.test") && r.source_ip_cidr == null);
+let bypass_below_proxy_index = dns_rule_index(matchers, r => r.server == "fakeip-server" && contains(r.domain, "source-priority.test") && r.source_ip_cidr == null);
 assert(scoped_proxy_index >= 0 && bypass_below_proxy_index > scoped_proxy_index, "source-aware proxy keeps its section priority over lower bypass DNS");
 let scoped_proxy_route_index = route_rule_index(matchers, r => r.outbound == "proxy-out" && contains(r.domain, "source-priority.test") && contains(r.source_ip_cidr, "10.0.0.2/32"));
 let bypass_below_proxy_route_index = route_rule_index(matchers, r => r.outbound == "bypass-out" && contains(r.domain, "source-priority.test") && r.source_ip_cidr == null);

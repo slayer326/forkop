@@ -99,8 +99,14 @@ grep -Fq "command_exists(\"nft\")" "$ROOT_DIR/forkop/files/usr/lib/config/valida
 
 grep -Fq "must use x.y.z format" "$FORKOP_MAKEFILE" ||
   fail "forkop/Makefile must enforce the three-part release version contract"
-grep -Fq 'APK_INTERNAL_VERSION="$RELEASE_VERSION"' "$BUILD_SCRIPT" ||
-  fail "build.sh must use the exact three-part release version for APK metadata"
+apk_version_expression="$(sed -n '/^APK_INTERNAL_VERSION=/p' "$BUILD_SCRIPT")"
+for release_version in 1.0.6 1.0.6-2; do
+  actual_version="$(RELEASE_VERSION="$release_version" bash -c "$apk_version_expression; printf '%s' \"\$APK_INTERNAL_VERSION\"")"
+  expected_version="$release_version"
+  [ "$release_version" != 1.0.6-2 ] || expected_version=1.0.6-r2
+  [ "$actual_version" = "$expected_version" ] ||
+    fail "APK version normalization: expected $expected_version, got $actual_version"
+done
 grep -Fq "option component_update_check_enabled '1'" "$FORKOP_CONFIG" ||
   fail "new installations must enable component update checks by default"
 grep -Fq "option config_version '1.0.5'" "$FORKOP_CONFIG" ||

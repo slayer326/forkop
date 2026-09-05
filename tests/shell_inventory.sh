@@ -77,7 +77,7 @@ grep -Fq 'initd_ucode reload-service' "$FORKOP_INIT" ||
 grep -Fq 'initd_ucode trigger-plan' "$FORKOP_INIT" ||
   fail "init.d trigger decisions must be produced by ucode"
 
-if grep -n -E '(^|[^[:alnum:]_])(uci|config_load|config_get|config_foreach|jsonfilter|nft|iptables|ip6?tables|sing-box|dnsmasq|curl|wget|opkg|apk)([[:space:]]|$)' "$FORKOP_INIT" >/dev/null 2>&1; then
+if sed '/^[[:space:]]*#/d' "$FORKOP_INIT" | grep -n -E '(^|[^[:alnum:]_])(uci|config_load|config_get|config_foreach|jsonfilter|nft|iptables|ip6?tables|sing-box|dnsmasq|curl|wget|opkg|apk)([[:space:]]|$)' >/dev/null 2>&1; then
   fail "init.d must not own UCI, routing, download, package, dnsmasq, nft, or sing-box decisions"
 fi
 if grep -n -E 'FORKOP_RELOAD_LOCK|FORKOP_URLTEST_SELECTOR_SWITCHES|capture_reload_state|populate_nft_runtime_sets|rebuild_nft_runtime|apply_pending_urltest_selector_switches' "$FORKOP_INIT" >/dev/null 2>&1; then
