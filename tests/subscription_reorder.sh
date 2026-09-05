@@ -3,7 +3,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
-FORKOP_REORDER_TEST_DIR="$WORK_DIR" ucode -L "$ROOT_DIR/forkop/files/usr/lib" -e '
+cat >"$WORK_DIR/reorder.uc" <<'UCODE'
 let fs = require("fs");
 let parser = require("subscription.parser");
 let folder = getenv("FORKOP_REORDER_TEST_DIR");
@@ -32,4 +32,5 @@ expect(false, "changed duplicate counts must remain significant");
 write(right, [group, a]);
 expect(false, "removed servers must request a reload");
 print("subscription reorder checks passed\n");
-'
+UCODE
+FORKOP_REORDER_TEST_DIR="$WORK_DIR" ucode -L "$ROOT_DIR/forkop/files/usr/lib" "$WORK_DIR/reorder.uc"
