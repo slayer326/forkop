@@ -1,15 +1,15 @@
 # RU translations for FORKOP package.
 # Copyright (C) 2026 THE FORKOP COPYRIGHT HOLDER
 # This file is distributed under the same license as the FORKOP package.
-# Screamshow, 2026.
+# slayer, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-06 17:10+0300\n"
-"PO-Revision-Date: 2026-09-06 17:10+0300\n"
-"Last-Translator: Screamshow\n"
+"POT-Creation-Date: 2026-09-06 21:50+0300\n"
+"PO-Revision-Date: 2026-09-06 21:50+0300\n"
+"Last-Translator: slayer\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -689,9 +689,6 @@ msgstr "Принудительная маршрутизация устройст
 msgid "Forkop Error"
 msgstr "Ошибка Forkop"
 
-msgid "Forkop logs could not be collected."
-msgstr "Не удалось собрать журналы Forkop."
-
 msgid "Forkop manages ciadpi pid files itself, so pidfile options are not allowed here."
 msgstr "Forkop сам управляет pid-файлами ciadpi, поэтому параметры pidfile здесь запрещены."
 
@@ -760,9 +757,6 @@ msgstr "Получить глобальную проверку"
 
 msgid "Global check"
 msgstr "Глобальная проверка"
-
-msgid "Global check could not be collected."
-msgstr "Не удалось собрать общую проверку."
 
 msgid "Hide values"
 msgstr "Скрывать значения"
@@ -1736,8 +1730,6 @@ msgstr "Этой опции требуется значение."
 msgid "This permanently deletes saved sections and subscriptions. Other components remain installed."
 msgstr "Сохранённые секции и подписки будут удалены безвозвратно. Остальные компоненты останутся установленными."
 
-msgid "This subscription provider is not supported"
-msgstr "Этот провайдер подписок не поддерживается"
 msgid "Time"
 msgstr "Время"
 

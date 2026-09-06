@@ -2539,36 +2539,34 @@ function exclude_sources_from_matchers(matchers, section) {
     if (length(excluded) == 0)
         return matchers;
 
-    return {
+    // Actions belong to the outer rule, never to a nested match condition.
+    let conditions = {};
+    let result = {};
+    for (let key, value in matchers) {
+        if (key == "action" || key == "outbound" || key == "server" ||
+            key == "rewrite_ttl" || key == "strategy")
+            result[key] = value;
+        else
+            conditions[key] = value;
+    }
+    let wrapped = {
         type: "logical",
         mode: "and",
         rules: [
-            matchers,
+            conditions,
             {
                 source_ip_cidr: single_or_array(excluded),
                 invert: true
             }
         ]
     };
-}
-
-function exclude_sources_from_route_rule(rule, section) {
-    let excluded = excluded_source_ip_cidr(section);
-    if (length(excluded) == 0)
-        return rule;
-
-    let matchers = {};
-    let result = {};
-    for (let key, value in rule) {
-        if (key == "action" || key == "outbound")
-            result[key] = value;
-        else
-            matchers[key] = value;
-    }
-    let wrapped = exclude_sources_from_matchers(matchers, section);
     for (let key, value in wrapped)
         result[key] = value;
     return result;
+}
+
+function exclude_sources_from_route_rule(rule, section) {
+    return exclude_sources_from_matchers(rule, section);
 }
 
 function add_source_dns_matchers(rule, source_ip_cidr) {
@@ -2612,7 +2610,10 @@ function add_source_aware_bypass_dns_rules(config, matchers, rewrite_ttl) {
     let fallback = copy_dns_matchers(matchers);
     fallback.action = "route";
     fallback.server = runtime_constants.DNS_SERVER_TAG;
-    fallback.query_type = [ "A", "AAAA" ];
+    if (fallback.type == "logical")
+        fallback.rules = [ ...fallback.rules, { query_type: [ "A", "AAAA" ] } ];
+    else
+        fallback.query_type = [ "A", "AAAA" ];
     fallback.rewrite_ttl = rewrite_ttl;
     push_dns_matcher_rule(config, fallback);
 }
@@ -2831,6 +2832,7 @@ function add_fully_routed_ips_rules(config, section) {
     if (option(section, "action", "") == "bypass") {
         let dns_matchers = {};
         add_source_dns_matchers(dns_matchers, source_ip_cidr);
+        dns_matchers = exclude_sources_from_matchers(dns_matchers, section);
         add_source_aware_bypass_dns_rules(
             config,
             dns_matchers,

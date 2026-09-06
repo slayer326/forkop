@@ -70,8 +70,7 @@ function rule_output_active(output, info) {
     if (!info.available) return false;
     let path = substr(info.cgroup, 1);
     let parts = split(path, "/");
-    let level = length(parts) > 2 ? 2 : length(parts);
-    if (level == 2) path = parts[0] + "/" + parts[1];
+    let level = length(parts);
     return (index(output, "type route hook output priority mangle - 1") >= 0 ||
             index(output, "type route hook output priority -151") >= 0) &&
         index(output, "socket cgroupv2 level " + level + " \"" + path + "\"") >= 0 &&
@@ -87,9 +86,8 @@ function apply_rule(info) {
     if (!info.available) return false;
     let path = substr(info.cgroup, 1);
     let parts = split(path, "/");
-    let level = length(parts) > 2 ? 2 : length(parts);
-    if (level == 2)
-        path = parts[0] + "/" + parts[1];
+    // Match the exact dedicated group, not a shared parent of nested services.
+    let level = length(parts);
     remove_rule();
     let ruleset_path = "/tmp/forkop-torrserver-direct.nft";
     let ruleset = "add table inet " + TABLE + "\n" +
