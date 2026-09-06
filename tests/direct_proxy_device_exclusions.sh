@@ -95,7 +95,7 @@ for version in 1.13.0 1.14.0; do
         check(excluded(rule), "all custom DNS variants must exclude the selected device");
         check(rule.action == "route" && rule.rewrite_ttl != null, "DNS action must stay at the root");
       }
-      if (rule.server == "dnsmasq-dns" && index(sprintf("%J", rule), "192.0.2.0/24") >= 0)
+      if (rule.server == "dnsmasq-server" && index(sprintf("%J", rule), "192.0.2.0/24") >= 0)
         check(excluded(rule), "fully routed bypass DNS must also honor exclusions");
     }
     check(direct_index >= 0 && section_index > direct_index, "Direct Proxy must precede section rules");
