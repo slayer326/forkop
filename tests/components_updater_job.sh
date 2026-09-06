@@ -180,6 +180,7 @@ grep -Fq 'if (!move_file_portable(backup_binary, "/usr/bin/sing-box"))' "$ACTION
 package_runtime_lib="$WORK_DIR/package-runtime-lib"
 package_runtime_bin="$WORK_DIR/package-runtime-bin"
 mkdir -p "$package_runtime_lib/components" "$package_runtime_lib/core" "$package_runtime_lib/singbox" "$package_runtime_bin"
+cp "$FORKOP_LIB/core/netstat.uc" "$package_runtime_lib/core/netstat.uc"
 cp "$UPDATER" "$package_runtime_lib/components/updater.uc"
 cat >"$package_runtime_lib/core/constants.uc" <<'UCODE'
 function module_exports() {

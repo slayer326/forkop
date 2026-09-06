@@ -69,6 +69,22 @@ function fail(message) {
 const retiredMissingCurrent = new Set([
   "urltest_hide_filtered_outbounds",
   "_protocol_display",
+  // Upstream 1.3.7 removes the previously disabled UCI server feature.
+  // Keep this explicit: missing client/routing options must still fail below.
+  "client_fingerprint", "hysteria2_down_mbps", "hysteria2_obfs_password",
+  "hysteria2_obfs_type", "hysteria2_up_mbps", "listen", "listen_port",
+  "mtproto_allow_fallback_on_unknown_dc", "mtproto_auto_update", "mtproto_concurrency",
+  "mtproto_domain_fronting_ip", "mtproto_domain_fronting_port", "mtproto_domain_fronting_proxy_protocol",
+  "mtproto_faketls", "mtproto_handshake_timeout", "mtproto_idle_timeout", "mtproto_padding",
+  "mtproto_prefer_ip", "mtproto_secret", "mtproto_tolerate_time_skewness",
+  "protocol", "public_host", "reality_handshake_server", "reality_handshake_server_port",
+  "reality_max_time_difference", "reality_private_key", "reality_public_key", "reality_short_id",
+  "routing_mode", "routing_section", "security", "server_password", "server_username",
+  "server_users", "server_uuid", "shadowsocks_method", "tailscale_accept_routes",
+  "tailscale_advertise_exit_node", "tailscale_advertise_routes", "tailscale_auth_key",
+  "tailscale_control_url", "tailscale_hostname", "tls_alpn", "tls_certificate_path",
+  "tls_key_path", "tls_server_name", "transport", "transport_host", "transport_hosts",
+  "transport_path", "transport_service_name", "transport_xhttp_mode", "vless_flow", "vmess_alter_id",
 ]);
 const missing = matrix.fields.filter((field) => field.status === "missing_current" && !retiredMissingCurrent.has(field.name));
 if (missing.length) {
@@ -83,7 +99,8 @@ for (const name of ["dns_type", "subscription_urls", "selector_proxy_links", "ac
   }
 }
 
-if ((matrix.summary.supported || 0) < 140) {
+const explicitlyRetired = matrix.fields.filter((field) => field.status === "missing_current" && retiredMissingCurrent.has(field.name)).length;
+if ((matrix.summary.supported || 0) + explicitlyRetired < 140) {
   fail(`unexpectedly small supported config surface: ${matrix.summary.supported || 0}`);
 }
 

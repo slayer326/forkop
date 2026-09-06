@@ -25,6 +25,8 @@ distfeeds="$WORK_DIR/etc/opkg/distfeeds.conf"
 cat > "$distfeeds" <<'EOF'
 src/gz openwrt_core https://downloads.openwrt.org/releases/24.10.7/targets/mediatek/filogic/packages
 src/gz openwrt_base https://archive.openwrt.org/releases/24.10.7/packages/aarch64_cortex-a53/base
+src/gz glinet_core https://firmware.example/openwrt/releases/v24.x/v24.10.7/mediatek/filogic
+src/gz glinet_plain https://firmware.example/openwrt/releases/v24.x/24.10.7/mediatek/filogic/
 https://downloads.openwrt.org/releases/v25.x/v25.12.5/mediatek/filogic/packages/packages.adb
 https://downloads.openwrt.org/releases/v25.x/v25.12.5/aarch64_cortex-a53/video/packages.adb
 EOF
@@ -32,6 +34,11 @@ cp "$distfeeds" "$WORK_DIR/original"
 
 begin_package_mirror_transaction
 rewrite_package_repository_file "$distfeeds"
+
+for feed in glinet_core glinet_plain; do
+  grep -Fxq "src/gz $feed https://mirror.51343.ru/openwrt/releases/24.10.7/targets/mediatek/filogic/packages" "$distfeeds" ||
+    fail_test "transaction did not normalize GL.iNet feed $feed"
+done
 grep -Fq 'https://mirror.51343.ru/openwrt/releases/24.10.7/' "$distfeeds" ||
   fail_test "transaction did not rewrite OpenWrt 24 feeds"
 grep -Fxq 'https://mirror.51343.ru/openwrt/releases/25.12.5/targets/mediatek/filogic/packages/packages.adb' "$distfeeds" ||
