@@ -75,8 +75,8 @@ if (!source.slice(sourceIpOption, fullyRoutedOption).includes("dependsOnRuleCond
 if (!source.slice(fullyRoutedOption, portsOption).includes('fullyRoutedOption.depends("action", "dns")')) {
   fail("DNS action must expose forced device routing");
 }
-if (!source.slice(fullyRoutedOption, portsOption).includes("makeDeviceOptionsExclusive(sourceIpOption, fullyRoutedOption)")) {
-  fail("device filter and forced routing must be mutually exclusive");
+if (!/makeDeviceOptionsExclusive\(\s*sourceIpOption,\s*fullyRoutedOption,\s*excludedSourcesOption,?\s*\)/.test(source.slice(fullyRoutedOption, portsOption))) {
+  fail("device filter, forced routing and exclusions must be mutually exclusive");
 }
 
 const conditionDependencies = source.slice(
@@ -141,9 +141,11 @@ function deviceOption(values) {
 
 const filtered = deviceOption(["192.0.2.1/32"]);
 const forced = deviceOption(["192.0.2.1/32", "192.0.2.2/32"]);
-makeDeviceOptionsExclusive(filtered, forced);
+const excluded = deviceOption(["192.0.2.1/32", "192.0.2.3/32"]);
+makeDeviceOptionsExclusive(filtered, forced, excluded);
 filtered.onDeviceWidgetReady("section", filtered.widget);
 forced.onDeviceWidgetReady("section", forced.widget);
+excluded.onDeviceWidgetReady("section", excluded.widget);
 filtered.onDeviceListChange("section", filtered.widget.values);
 if (JSON.stringify(forced.widget.values) !== JSON.stringify(["192.0.2.2/32"])) {
   fail("adding a filtered device must remove it from forced routing");
@@ -152,6 +154,14 @@ forced.widget.values = ["192.0.2.1/32", "192.0.2.2/32"];
 forced.onDeviceListChange("section", forced.widget.values);
 if (filtered.widget.values.length !== 0) {
   fail("adding a forced device must remove it from the device filter");
+}
+if (JSON.stringify(excluded.widget.values) !== JSON.stringify(["192.0.2.3/32"])) {
+  fail("adding a filtered or forced device must remove it from exclusions");
+}
+excluded.widget.values = ["192.0.2.1/32", "192.0.2.3/32"];
+excluded.onDeviceListChange("section", excluded.widget.values);
+if (JSON.stringify(forced.widget.values) !== JSON.stringify(["192.0.2.2/32"])) {
+  fail("adding an excluded device must remove it from forced routing");
 }
 NODE
 

@@ -1222,34 +1222,14 @@ function priority_level_filtered_outbounds(group_id, level_id, urltest_candidate
     );
 }
 
-function dashboard_country_metadata(section, state) {
-    let metadata = object_or_empty(object_or_empty(state.outboundMetadata).countries);
-    if (connections.dashboard_detect_server_country(section) == "flag_emoji")
-        return runtime_urltest.countries_from_flag_names(object_or_empty(object_or_empty(state.outboundMetadata).names));
-    return metadata;
-}
-
-function selected_group_outbounds(group_names, group_outbounds) {
-    group_outbounds = object_or_empty(group_outbounds);
-    let result = [];
-    for (let group_name in array_or_empty(group_names))
-        for (let tag_name in array_or_empty(group_outbounds[group_name]))
-            push(result, tag_name);
-    return unique_string_array(result);
-}
-
-function remember_dashboard_group_outbounds(group_outbounds, group_name, outbounds) {
-    group_name = as_string(group_name);
-    if (group_name == "")
-        return;
-
+function remember_group_outbounds(group_outbounds, group_name, outbounds) {
     let combined = array_or_empty(group_outbounds[group_name]);
     for (let tag_name in array_or_empty(outbounds))
         push(combined, tag_name);
     group_outbounds[group_name] = unique_string_array(combined);
 }
 
-function dashboard_filtered_outbounds(section, selector_tags, state, group_outbounds) {
+function grouped_selector_outbounds(section, selector_tags, group_outbounds) {
     let configured_groups = [
         ...connections.urltests(section),
         ...connections.priority_groups(section)
@@ -1421,7 +1401,7 @@ function add_proxy_selector(config, section, selector_tags, urltest_candidate_ta
 
     for (let urltest_id in connections.urltests(section)) {
         let urltest = add_urltest_outbound(config, section, urltest_id, urltest_candidate_tags, state);
-        remember_dashboard_group_outbounds(
+        remember_group_outbounds(
             group_outbounds,
             connections.urltest_display_name(section, urltest_id),
             urltest.outbounds
@@ -1434,7 +1414,7 @@ function add_proxy_selector(config, section, selector_tags, urltest_candidate_ta
 
     for (let group_id in connections.priority_groups(section)) {
         let priority = add_priority_group_outbound(config, section, group_id, urltest_candidate_tags, state);
-        remember_dashboard_group_outbounds(
+        remember_group_outbounds(
             group_outbounds,
             connections.priority_group_display_name(section, group_id),
             priority.outbounds
@@ -1445,7 +1425,7 @@ function add_proxy_selector(config, section, selector_tags, urltest_candidate_ta
         push(priority_tags, priority.tag);
     }
 
-    selector_outbounds = dashboard_filtered_outbounds(section, selector_tags, state, group_outbounds);
+    selector_outbounds = grouped_selector_outbounds(section, selector_tags, group_outbounds);
     selector_default = selector_outbounds[0];
     if (length(urltest_tags) > 0 || length(priority_tags) > 0) {
         for (let tag in urltest_tags)
@@ -1456,7 +1436,7 @@ function add_proxy_selector(config, section, selector_tags, urltest_candidate_ta
     }
 
     if (length(selector_outbounds) == 0)
-        runtime_generate_unsupported("dashboard server filtering produced no usable outbounds");
+        runtime_generate_unsupported("configured URLTest and Priority groups produced no usable outbounds");
 
     push(config.outbounds, {
         type: "selector",
@@ -1609,6 +1589,45 @@ function add_service_mixed_proxy(config, settings, sections) {
         runtime_generate_unsupported("download lists via proxy section is not set");
     if (download_via_proxy_enabled(settings, "components") && download_detour_tag(settings, "components") == "")
         runtime_generate_unsupported("download components via proxy section is not set");
+}
+
+/*
+ * This proxy is intentionally routed only by its inbound tag. Destination
+ * domains, IP ranges and rule sets must never be able to move its traffic to a
+ * VPN outbound. Keep the compact 1.14-compatible route rule shape used by the
+ * other service inbounds.
+ */
+function add_direct_proxy(config, settings, service_address) {
+    if (!bool_option(settings, "direct_proxy_enabled", false))
+        return;
+
+    let listen = as_string(service_address || "");
+    if (listen == "")
+        runtime_generate_unsupported("direct proxy listen address is not set");
+
+    let port_value = option(settings, "direct_proxy_port", as_string(runtime_constants.DIRECT_PROXY_DEFAULT_PORT));
+    if (match(port_value, /^[0-9]+$/) == null)
+        runtime_generate_unsupported("direct proxy port is invalid");
+    let listen_port = int(port_value, 10);
+    if (listen_port < 1 || listen_port > 65535)
+        runtime_generate_unsupported("direct proxy port is invalid");
+
+    push(config.inbounds, {
+        type: "mixed",
+        tag: runtime_constants.DIRECT_PROXY_INBOUND_TAG,
+        listen,
+        listen_port
+    });
+    push(config.outbounds, {
+        type: "direct",
+        tag: runtime_constants.DIRECT_PROXY_OUTBOUND_TAG,
+        routing_mark: runtime_constants.OUTBOUND_MARK
+    });
+    push(config.route.rules, {
+        action: "route",
+        inbound: runtime_constants.DIRECT_PROXY_INBOUND_TAG,
+        outbound: runtime_constants.DIRECT_PROXY_OUTBOUND_TAG
+    });
 }
 
 function parse_port(value) {
@@ -2511,6 +2530,45 @@ function copy_dns_matchers(matchers) {
     return copy;
 }
 
+function excluded_source_ip_cidr(section) {
+    return legacy_condition_values(section, "excluded_source_ip_cidr");
+}
+
+function exclude_sources_from_matchers(matchers, section) {
+    let excluded = excluded_source_ip_cidr(section);
+    if (length(excluded) == 0)
+        return matchers;
+
+    // Actions belong to the outer rule, never to a nested match condition.
+    let conditions = {};
+    let result = {};
+    for (let key, value in matchers) {
+        if (key == "action" || key == "outbound" || key == "server" ||
+            key == "rewrite_ttl" || key == "strategy")
+            result[key] = value;
+        else
+            conditions[key] = value;
+    }
+    let wrapped = {
+        type: "logical",
+        mode: "and",
+        rules: [
+            conditions,
+            {
+                source_ip_cidr: single_or_array(excluded),
+                invert: true
+            }
+        ]
+    };
+    for (let key, value in wrapped)
+        result[key] = value;
+    return result;
+}
+
+function exclude_sources_from_route_rule(rule, section) {
+    return exclude_sources_from_matchers(rule, section);
+}
+
 function add_source_dns_matchers(rule, source_ip_cidr) {
     if (length(source_ip_cidr) == 0)
         return;
@@ -2552,7 +2610,10 @@ function add_source_aware_bypass_dns_rules(config, matchers, rewrite_ttl) {
     let fallback = copy_dns_matchers(matchers);
     fallback.action = "route";
     fallback.server = runtime_constants.DNS_SERVER_TAG;
-    fallback.query_type = [ "A", "AAAA" ];
+    if (fallback.type == "logical")
+        fallback.rules = [ ...fallback.rules, { query_type: [ "A", "AAAA" ] } ];
+    else
+        fallback.query_type = [ "A", "AAAA" ];
     fallback.rewrite_ttl = rewrite_ttl;
     push_dns_matcher_rule(config, fallback);
 }
@@ -2560,6 +2621,7 @@ function add_source_aware_bypass_dns_rules(config, matchers, rewrite_ttl) {
 function add_section_dns_matcher_rule(config, section, matchers, rewrite_ttl) {
     let source_ip_cidr = legacy_condition_values(section, "source_ip_cidr");
     add_source_dns_matchers(matchers, source_ip_cidr);
+    matchers = exclude_sources_from_matchers(matchers, section);
 
     if (option(section, "action", "") == "bypass" && length(source_ip_cidr) > 0) {
         add_source_aware_bypass_dns_rules(config, matchers, rewrite_ttl);
@@ -2581,6 +2643,9 @@ function source_aware_dns_sources(sections) {
         let candidates = [];
         if (connections.has_dns_matchers(section))
             for (let value in legacy_condition_values(section, "source_ip_cidr"))
+                push(candidates, value);
+        if (connections.has_dns_matchers(section) || length(list_option(section, "fully_routed_ips")) > 0)
+            for (let value in excluded_source_ip_cidr(section))
                 push(candidates, value);
         if (action == "bypass" || action == "dns")
             for (let value in list_option(section, "fully_routed_ips"))
@@ -2687,6 +2752,7 @@ function add_dns_action_rules_for_section(config, section) {
             rewrite_ttl
         };
         add_source_dns_matchers(dns_rule, fully_routed_ips);
+        dns_rule = exclude_sources_from_matchers(dns_rule, section);
         push_dns_matcher_rule(config, dns_rule);
     }
     if (has_inline_domains) {
@@ -2700,6 +2766,7 @@ function add_dns_action_rules_for_section(config, section) {
         add_domain_array(dns_rule, "domain_keyword", domain_keyword);
         add_domain_array(dns_rule, "domain_regex", domain_regex);
         add_source_dns_matchers(dns_rule, source_ip_cidr);
+        dns_rule = exclude_sources_from_matchers(dns_rule, section);
         push_dns_matcher_rule(config, dns_rule);
     }
     if (length(rule_set_tags) > 0) {
@@ -2710,6 +2777,7 @@ function add_dns_action_rules_for_section(config, section) {
             rule_set: single_or_array(rule_set_tags)
         };
         add_source_dns_matchers(dns_rule, source_ip_cidr);
+        dns_rule = exclude_sources_from_matchers(dns_rule, section);
         push_dns_matcher_rule(config, dns_rule);
     }
     if (!has_inline_domains && length(rule_set_tags) == 0 && length(fully_routed_ips) == 0)
@@ -2764,6 +2832,7 @@ function add_fully_routed_ips_rules(config, section) {
     if (option(section, "action", "") == "bypass") {
         let dns_matchers = {};
         add_source_dns_matchers(dns_matchers, source_ip_cidr);
+        dns_matchers = exclude_sources_from_matchers(dns_matchers, section);
         add_source_aware_bypass_dns_rules(
             config,
             dns_matchers,
@@ -2782,7 +2851,7 @@ function add_fully_routed_ips_rules(config, section) {
     if (target.outbound)
         route_rule.outbound = target.outbound;
     route_rule.source_ip_cidr = single_or_array(source_ip_cidr);
-    push(config.route.rules, route_rule);
+    push(config.route.rules, exclude_sources_from_route_rule(route_rule, section));
 }
 
 function push_section_route_rule(config, section, route_rule) {
@@ -2790,8 +2859,8 @@ function push_section_route_rule(config, section, route_rule) {
     if (type(resolve) == "object" && resolve.warning)
         warn(resolve.warning, "\n");
     else if (type(resolve) == "object" && resolve.rule)
-        push(config.route.rules, resolve.rule);
-    push(config.route.rules, route_rule);
+        push(config.route.rules, exclude_sources_from_route_rule(resolve.rule, section));
+    push(config.route.rules, exclude_sources_from_route_rule(route_rule, section));
 }
 
 function add_combined_route_for_section(config, section) {
@@ -3044,6 +3113,7 @@ function generate_config(output_path, service_address, mwan3_active, supports_xh
     reserve_section_outbound_tags(sections, taken);
     for (let section in sections)
         add_outbound_for_section(config, section, taken, sections);
+    add_direct_proxy(config, settings, service_address);
     add_service_route_rules(config, sections);
     for (let section in sections)
         add_route_for_section(config, section);

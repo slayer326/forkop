@@ -34,7 +34,7 @@ expected_required=$((4 * PACKAGE_ARCHIVE_SPACE_FACTOR + PACKAGE_INSTALL_OVERHEAD
 
 pkg_is_installed() { return 1; }
 missing_dependency_required="$(forkop_install_required_space_kb)"
-[ "$missing_dependency_required" -eq "$((expected_required + 15 * MISSING_DEPENDENCY_ALLOWANCE_KB))" ] ||
+[ "$missing_dependency_required" -eq "$((expected_required + 14 * MISSING_DEPENDENCY_ALLOWANCE_KB))" ] ||
   fail_test "space plan must include an allowance only for missing direct dependencies"
 pkg_is_installed() { return 0; }
 
