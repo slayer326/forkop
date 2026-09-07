@@ -182,6 +182,8 @@ done
 # This test exercises API dispatch, not host process discovery. Model one
 # ready managed sing-box instance; real lock ownership is covered separately.
 mkdir -p "$WORK_DIR/latency-lib/service"
+ln -s "$FORKOP_LIB/core" "$WORK_DIR/latency-lib/core"
+ln -s "$FORKOP_LIB/diagnostics" "$WORK_DIR/latency-lib/diagnostics"
 cat >"$WORK_DIR/latency-lib/service/state.uc" <<'UC'
 if (ARGV[0] == "sing-box-service-runtime-pid") {
     print("4242\n");

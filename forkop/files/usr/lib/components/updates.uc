@@ -2922,14 +2922,16 @@ function begin_list_ruleset_snapshot() {
         remove_file(list_ruleset_snapshot_dir);
     if (list_ruleset_snapshot_dir == "" || !ensure_dir(list_ruleset_snapshot_dir)) {
         list_ruleset_snapshot_dir = "";
-        return;
+        return false;
     }
 
     ensure_dir(TMP_RULESET_FOLDER);
     if (!command_success_from_args([ "cp", "-R", "-p", TMP_RULESET_FOLDER + "/.", list_ruleset_snapshot_dir ])) {
         command_success_from_args([ "rm", "-rf", list_ruleset_snapshot_dir ]);
         list_ruleset_snapshot_dir = "";
+        return false;
     }
+    return true;
 }
 
 function begin_list_nft_snapshot() {
@@ -3165,7 +3167,10 @@ function list_update() {
     let sections = uci_sections("section");
     if (!prepare_list_downloads(sections, proxy_address))
         finish_list_update(1, false);
-    begin_list_ruleset_snapshot();
+    if (!begin_list_ruleset_snapshot()) {
+        log_message("Could not snapshot the active rule sets; aborting the list transaction", "error");
+        finish_list_update(1, false);
+    }
     if (!begin_list_nft_snapshot()) {
         log_message("Could not snapshot the active nftables table; aborting the list transaction", "error");
         finish_list_update(1, false);
