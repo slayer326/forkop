@@ -568,6 +568,16 @@ function sing_box_service_running() {
     return pid > 0 && pid_is_sing_box(pid);
 }
 
+function sing_box_process_count() {
+    let count = 0;
+    for (let exe_path in fs.glob("/proc/[0-9]*/exe")) {
+        let parts = split(as_string(exe_path), "/");
+        if (length(parts) >= 4 && pid_is_sing_box(parts[2]))
+            count++;
+    }
+    return count;
+}
+
 function sing_box_service_stable(min_age) {
     min_age = int(min_age || 2);
 
@@ -591,6 +601,11 @@ function sing_box_runtime_ports_ready() {
         SB_TPROXY_INBOUND_PORT,
         SB_TPROXY_INBOUND6_ADDRESS
     );
+}
+
+function single_ready_sing_box_runtime() {
+    return sing_box_process_count() == 1 &&
+        sing_box_service_running() && sing_box_runtime_ports_ready();
 }
 
 function forkop_running(rt_table, nft_table, mark) {
@@ -1083,17 +1098,14 @@ function append_list_update_signature_body(body, section) {
     if (name == "" || !bool_option(section, "enabled", true))
         return body;
 
-    let action = option(section, "action", "");
-    body = signature_add_value(body, "lists." + name + ".action", action);
-    if (action == "dns") {
-        body = signature_add_value(body, "lists." + name + ".domain_ip_lists", option(section, "domain_ip_lists", ""));
-        return body;
-    }
-
-    body = signature_add_value(body, "lists." + name + ".ports", section_rule_ports_csv(section));
-    body = signature_add_value(body, "lists." + name + ".community_subnet_lists", rule_config.filter_community_subnet_lists_value(connections.community_lists_value(section)));
+    // This signature deliberately describes only the identity and composition
+    // of list sources.  Local routing conditions (action, ports, interfaces,
+    // source/excluded addresses and section order) are handled by the sing-box
+    // and nft signatures and must not cause network list updates.
+    body = signature_add_value(body, "lists." + name + ".community_lists", connections.community_lists_value(section));
     body = signature_add_value(body, "lists." + name + ".remote_domain_lists", option(section, "remote_domain_lists", ""));
     body = signature_add_value(body, "lists." + name + ".remote_subnet_lists", option(section, "remote_subnet_lists", ""));
+    body = signature_add_value(body, "lists." + name + ".rule_set", connections.rule_sets_value(section));
     body = signature_add_value(body, "lists." + name + ".rule_set_with_subnets", connections.rule_sets_with_subnets_value(section));
     body = signature_add_value(body, "lists." + name + ".domain_ip_lists", option(section, "domain_ip_lists", ""));
 
@@ -1102,9 +1114,18 @@ function append_list_update_signature_body(body, section) {
 
 function list_update_signature_body(sections) {
     let body = "";
+    let by_name = {};
 
-    for (let section in sections)
-        body = append_list_update_signature_body(body, object_or_empty(section));
+    // UCI section order affects rule priority, but not which remote objects
+    // have to be downloaded. Keep source detection stable across reordering.
+    for (let section in sections) {
+        section = object_or_empty(section);
+        let name = section_name(section);
+        if (name != "")
+            by_name[name] = section;
+    }
+    for (let name in sort(keys(by_name)))
+        body = append_list_update_signature_body(body, by_name[name]);
 
     return body;
 }
@@ -1703,6 +1724,8 @@ else if (mode == "reload-sing-box-runtime")
     reload_sing_box_runtime(ARGV[1], ARGV[2], ARGV[3], ARGV[4]);
 else if (mode == "hup-sing-box-runtime")
     hup_sing_box_runtime();
+else if (mode == "single-ready-sing-box-runtime")
+    exit(single_ready_sing_box_runtime() ? 0 : 1);
 else if (mode == "clear-reload-state")
     clear_reload_state(ARGV[1], ARGV[2]);
 else if (mode == "remove-file")
