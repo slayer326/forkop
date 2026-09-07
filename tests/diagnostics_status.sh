@@ -179,9 +179,24 @@ for index in "${!expected_latency_paths[@]}"; do
     fail "bulk latency must test ordinary proxies before URLTest groups"
 done
 
+# This test exercises API dispatch, not host process discovery. Model one
+# ready managed sing-box instance; real lock ownership is covered separately.
+mkdir -p "$WORK_DIR/latency-lib/service"
+cat >"$WORK_DIR/latency-lib/service/state.uc" <<'UC'
+if (ARGV[0] == "sing-box-service-runtime-pid") {
+    print("4242\n");
+    exit(0);
+}
+if (ARGV[0] == "single-ready-sing-box-runtime" ||
+    ARGV[0] == "acquire-runtime-dir-lock" ||
+    ARGV[0] == "acquire-runtime-dir-lock-wait" ||
+    ARGV[0] == "release-runtime-dir-lock")
+    exit(0);
+exit(64);
+UC
 FAKE_CURL_LOG="$WORK_DIR/fake-curl-automatic-latencies.log" \
 FORKOP_UCI_STATE_FILE="$uci_state" \
-FORKOP_LIB="$FORKOP_LIB" \
+FORKOP_LIB="$WORK_DIR/latency-lib" \
 FORKOP_AUTOMATIC_LATENCY_TEST_LOCK_DIR="$WORK_DIR/automatic-latency-test.lock" \
 PATH="$fake_bin:$PATH" \
   ucode -L "$FORKOP_LIB" "$DIAGNOSTICS_RUNTIME" automatic-latency-test >/dev/null ||

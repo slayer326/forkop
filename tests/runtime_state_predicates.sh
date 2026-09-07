@@ -1112,66 +1112,66 @@ cat >"$WORK_DIR/reload-state-signatures.json" <<'JSON'
 JSON
 
 cat >"$WORK_DIR/list-signature.expected" <<'EOF_LIST_SIG'
-[lists.list_proxy.action]
-proxy
-[lists.list_proxy.ports]
-443,80,443-444
-[lists.list_proxy.community_subnet_lists]
-meta telegram discord
-[lists.list_proxy.remote_domain_lists]
-https://example.com/domains.lst local-domains
-[lists.list_proxy.remote_subnet_lists]
-https://example.com/subnets.lst
-[lists.list_proxy.rule_set_with_subnets]
-https://example.com/subnets.srs
-[lists.list_proxy.domain_ip_lists]
-local.lst https://example.com/mixed.lst
-[lists.sub_paused.action]
-proxy
-[lists.sub_paused.ports]
+[lists.dns_only.community_lists]
+telegram
+[lists.dns_only.remote_domain_lists]
 
-[lists.sub_paused.community_subnet_lists]
+[lists.dns_only.remote_subnet_lists]
+https://example.com/ignored-subnets.lst
+[lists.dns_only.rule_set]
 
-[lists.sub_paused.remote_domain_lists]
-
-[lists.sub_paused.remote_subnet_lists]
-
-[lists.sub_paused.rule_set_with_subnets]
-
-[lists.sub_paused.domain_ip_lists]
-
-[lists.implicit_action.action]
-
-[lists.implicit_action.ports]
-
-[lists.implicit_action.community_subnet_lists]
+[lists.dns_only.rule_set_with_subnets]
+https://example.com/ignored-subnets.srs
+[lists.dns_only.domain_ip_lists]
+https://example.com/dns-domains.lst
+[lists.implicit_action.community_lists]
 
 [lists.implicit_action.remote_domain_lists]
 
 [lists.implicit_action.remote_subnet_lists]
 
+[lists.implicit_action.rule_set]
+
 [lists.implicit_action.rule_set_with_subnets]
 
 [lists.implicit_action.domain_ip_lists]
 
-[lists.urltest_custom.action]
-proxy
-[lists.urltest_custom.ports]
+[lists.list_proxy.community_lists]
+geoblock meta telegram youtube discord
+[lists.list_proxy.remote_domain_lists]
+https://example.com/domains.lst local-domains
+[lists.list_proxy.remote_subnet_lists]
+https://example.com/subnets.lst
+[lists.list_proxy.rule_set]
 
-[lists.urltest_custom.community_subnet_lists]
+[lists.list_proxy.rule_set_with_subnets]
+https://example.com/subnets.srs
+[lists.list_proxy.domain_ip_lists]
+local.lst https://example.com/mixed.lst
+[lists.sub_paused.community_lists]
+
+[lists.sub_paused.remote_domain_lists]
+
+[lists.sub_paused.remote_subnet_lists]
+
+[lists.sub_paused.rule_set]
+
+[lists.sub_paused.rule_set_with_subnets]
+
+[lists.sub_paused.domain_ip_lists]
+
+[lists.urltest_custom.community_lists]
 
 [lists.urltest_custom.remote_domain_lists]
 
 [lists.urltest_custom.remote_subnet_lists]
 
+[lists.urltest_custom.rule_set]
+
 [lists.urltest_custom.rule_set_with_subnets]
 
 [lists.urltest_custom.domain_ip_lists]
 
-[lists.dns_only.action]
-dns
-[lists.dns_only.domain_ip_lists]
-https://example.com/dns-domains.lst
 EOF_LIST_SIG
 
 cat >"$WORK_DIR/cron-signature.expected" <<'EOF_CRON_SIG'
@@ -1179,64 +1179,64 @@ cat >"$WORK_DIR/cron-signature.expected" <<'EOF_CRON_SIG'
 6h
 [settings.component_update_check_interval]
 2h
-[lists.list_proxy.action]
-proxy
-[lists.list_proxy.ports]
-443,80,443-444
-[lists.list_proxy.community_subnet_lists]
-meta telegram discord
+[lists.list_proxy.community_lists]
+geoblock meta telegram youtube discord
 [lists.list_proxy.remote_domain_lists]
 https://example.com/domains.lst local-domains
 [lists.list_proxy.remote_subnet_lists]
 https://example.com/subnets.lst
+[lists.list_proxy.rule_set]
+
 [lists.list_proxy.rule_set_with_subnets]
 https://example.com/subnets.srs
 [lists.list_proxy.domain_ip_lists]
 local.lst https://example.com/mixed.lst
-[lists.sub_paused.action]
-proxy
-[lists.sub_paused.ports]
-
-[lists.sub_paused.community_subnet_lists]
+[lists.sub_paused.community_lists]
 
 [lists.sub_paused.remote_domain_lists]
 
 [lists.sub_paused.remote_subnet_lists]
 
+[lists.sub_paused.rule_set]
+
 [lists.sub_paused.rule_set_with_subnets]
 
 [lists.sub_paused.domain_ip_lists]
 
-[lists.implicit_action.action]
-
-[lists.implicit_action.ports]
-
-[lists.implicit_action.community_subnet_lists]
+[lists.implicit_action.community_lists]
 
 [lists.implicit_action.remote_domain_lists]
 
 [lists.implicit_action.remote_subnet_lists]
 
+[lists.implicit_action.rule_set]
+
 [lists.implicit_action.rule_set_with_subnets]
 
 [lists.implicit_action.domain_ip_lists]
 
-[lists.urltest_custom.action]
-proxy
-[lists.urltest_custom.ports]
-
-[lists.urltest_custom.community_subnet_lists]
+[lists.urltest_custom.community_lists]
 
 [lists.urltest_custom.remote_domain_lists]
 
 [lists.urltest_custom.remote_subnet_lists]
 
+[lists.urltest_custom.rule_set]
+
 [lists.urltest_custom.rule_set_with_subnets]
 
 [lists.urltest_custom.domain_ip_lists]
 
-[lists.dns_only.action]
-dns
+[lists.dns_only.community_lists]
+telegram
+[lists.dns_only.remote_domain_lists]
+
+[lists.dns_only.remote_subnet_lists]
+https://example.com/ignored-subnets.lst
+[lists.dns_only.rule_set]
+
+[lists.dns_only.rule_set_with_subnets]
+https://example.com/ignored-subnets.srs
 [lists.dns_only.domain_ip_lists]
 https://example.com/dns-domains.lst
 [subscription.list_proxy.subscription_urls]
