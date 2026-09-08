@@ -6553,6 +6553,8 @@ function isBuiltinRulesetValue(value) {
 }
 
 const SECONDARY_RULESET_MIRROR_PREFIX =
+  "https://mirror.infotechtg.ru/forkop/lists/b4geoip-forkop/srs/";
+const LEGACY_SECONDARY_RULESET_MIRROR_PREFIX =
   "https://mirror.51343.ru/forkop/lists/b4geoip-forkop/srs/";
 const SECONDARY_RULESET_RAW_PREFIX =
   "https://raw.githubusercontent.com/Greeg0ry/b4geoip-forkop/main/srs/";
@@ -6567,6 +6569,7 @@ function secondaryRulesetId(reference) {
   const value = `${reference || ""}`;
   const prefix = [
     SECONDARY_RULESET_MIRROR_PREFIX,
+    LEGACY_SECONDARY_RULESET_MIRROR_PREFIX,
     SECONDARY_RULESET_RAW_PREFIX,
     SECONDARY_RULESET_CDN_PREFIX,
   ].find((candidate) => value.startsWith(candidate));

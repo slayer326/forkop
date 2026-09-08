@@ -44,7 +44,9 @@ const CHILD_ITEM_TYPES = [
 ];
 const SECONDARY_RULESET_RAW_PREFIX = "https://raw.githubusercontent.com/Greeg0ry/b4geoip-forkop/main/srs/";
 const SECONDARY_RULESET_CDN_PREFIX = "https://cdn.jsdelivr.net/gh/Greeg0ry/b4geoip-forkop@main/srs/";
-const SECONDARY_RULESET_MIRROR_PREFIX = "https://mirror.51343.ru/forkop/lists/b4geoip-forkop/srs/";
+const OWN_MIRROR_BASE = "https://mirror.infotechtg.ru";
+const SECONDARY_RULESET_MIRROR_PREFIX = OWN_MIRROR_BASE + "/forkop/lists/b4geoip-forkop/srs/";
+const LEGACY_SECONDARY_RULESET_MIRROR_PREFIX = "https://mirror.51343.ru/forkop/lists/b4geoip-forkop/srs/";
 const CURRENT_SECONDARY_RULESET_IDS = {
     adobe: true, anthropic: true, apple: true, blizzard: true, bungie: true,
     ccp: true, electronicarts: true, epicgames: true, google: true,
@@ -1326,7 +1328,8 @@ function migrate_retired_secondary_rulesets(ctx) {
                     ? SECONDARY_RULESET_CDN_PREFIX
                     : (index(reference, SECONDARY_RULESET_MIRROR_PREFIX) == 0
                         ? SECONDARY_RULESET_MIRROR_PREFIX
-                        : ""));
+                        : (index(reference, LEGACY_SECONDARY_RULESET_MIRROR_PREFIX) == 0
+                            ? LEGACY_SECONDARY_RULESET_MIRROR_PREFIX : "")));
             let id = prefix != "" ? replace(reference, /^.*\//, "") : "";
             id = replace(id, /\.srs$/, "");
             if (prefix != "" && match(reference, /\.srs$/) != null && RETIRED_SECONDARY_RULESET_IDS[id]) {
@@ -1371,6 +1374,35 @@ function migrate_secondary_rulesets_to_mirror(ctx) {
     }
 }
 
+// Only the former built-in mirror paths are migrated. Subscription URLs,
+// local files and third-party list providers must stay untouched.
+function migrate_own_dependency_mirror(ctx) {
+    let configured = replace(option(ctx.model.settings, "mirror_base_url", ""), /\/+$/, "");
+    if (configured == "" || configured == "https://mirror.51343.ru" || configured == "http://mirror.51343.ru")
+        set_option(ctx, ctx.model.settings, "mirror_base_url", OWN_MIRROR_BASE);
+
+    for (let section in ctx.model.sections) {
+        for (let key in [ "rule_set", "rule_set_with_subnets", "remote_domain_lists", "remote_subnet_lists" ]) {
+            let changed = false;
+            let migrated = [];
+            for (let reference in list_option(section, key)) {
+                let value = as_string(reference);
+                for (let scheme in [ "https", "http" ]) {
+                    let prefix = scheme + "://mirror.51343.ru/forkop/lists/";
+                    if (index(value, prefix) == 0) {
+                        value = OWN_MIRROR_BASE + "/forkop/lists/" + substr(value, length(prefix));
+                        changed = true;
+                        break;
+                    }
+                }
+                push(migrated, value);
+            }
+            if (changed)
+                set_list_option(ctx, section, key, migrated);
+        }
+    }
+}
+
 const MIGRATIONS = [
     { id: "interface_sections", run: migrate_interface_sections },
     { id: "enable_component_checks", run: migrate_enable_component_checks },
@@ -1378,7 +1410,8 @@ const MIGRATIONS = [
     { id: "flintnet_urltest_default", run: migrate_flintnet_urltest_default },
     { id: "retired_secondary_rulesets", run: migrate_retired_secondary_rulesets },
     { id: "retired_secondary_rulesets_v2", run: migrate_retired_secondary_rulesets },
-    { id: "secondary_rulesets_mirror_v1", run: migrate_secondary_rulesets_to_mirror }
+    { id: "secondary_rulesets_mirror_v1", run: migrate_secondary_rulesets_to_mirror },
+    { id: "own_dependency_mirror_v1", run: migrate_own_dependency_mirror }
 ];
 
 function apply_migrations(ctx) {

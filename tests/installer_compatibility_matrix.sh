@@ -23,6 +23,33 @@ sed \
 
 FORKOP_TEST_RELEASE_FILE="$WORK_DIR/openwrt_release"
 touch "$FORKOP_TEST_RELEASE_FILE"
+TMP_DIR="$WORK_DIR/tmp"
+mkdir -p "$TMP_DIR"
+
+cat > "$WORK_DIR/forkop-platforms.tsv" <<'EOF'
+# target architecture release format
+mediatek/filogic aarch64_cortex-a53 24.10.0 ipk
+mediatek/filogic aarch64_cortex-a53 24.10.1 ipk
+mediatek/filogic aarch64_cortex-a53 24.10.4 ipk
+mediatek/filogic aarch64_cortex-a53 24.10.5 ipk
+mediatek/filogic aarch64_cortex-a53 24.10.7 ipk
+mediatek/filogic aarch64_cortex-a53 24.10.99 ipk
+mediatek/filogic aarch64_cortex-a53 25.12.5 apk
+rockchip/armv8 aarch64_generic 24.10.4 ipk
+rockchip/armv8 aarch64_generic 24.10.0 ipk
+rockchip/armv8 aarch64_generic 24.10.1 ipk
+rockchip/armv8 aarch64_generic 25.12.5 apk
+x86/64 x86_64 24.10.4 ipk
+x86/64 x86_64 25.12.5 apk
+ramips/mt7621 mipsel_24kc 24.10.4 ipk
+ramips/mt7621 mipsel_24kc 25.12.5 apk
+EOF
+
+PLATFORM_INDEX_UNAVAILABLE=0
+download_file_once() {
+  [ "$PLATFORM_INDEX_UNAVAILABLE" -eq 0 ] || return 1
+  cp "$WORK_DIR/forkop-platforms.tsv" "$2"
+}
 
 read_openwrt_release_value() {
   case "$1" in
@@ -51,10 +78,18 @@ expect_rejected() {
   fi
 }
 
-for release in 24.10.0 24.10.4 24.10.5 24.10.7 24.10.99; do
+for release in 24.10.0 24.10.1 24.10.4 24.10.5 24.10.7 24.10.99; do
   expect_supported "$release" 0
 done
 expect_supported 25.12.5 1
+expect_supported 24.10.4 0 rockchip/armv8 aarch64_generic
+expect_supported 24.10.0 0 rockchip/armv8 aarch64_generic
+expect_supported 24.10.1 0 rockchip/armv8 aarch64_generic
+expect_supported 25.12.5 1 rockchip/armv8 aarch64_generic
+expect_supported 24.10.4 0 x86/64 x86_64
+expect_supported 25.12.5 1 x86/64 x86_64
+expect_supported 24.10.4 0 ramips/mt7621 mipsel_24kc
+expect_supported 25.12.5 1 ramips/mt7621 mipsel_24kc
 
 expect_rejected 23.05.5 0
 expect_rejected 24.09.9 0
@@ -62,7 +97,17 @@ expect_rejected 24.10.4 1
 expect_rejected 25.12.5 0
 expect_rejected 24.10.4 0 ramips/mt7621
 expect_rejected 24.10.4 0 mediatek/filogic mipsel_24kc
-expect_rejected 25.12.5 1 x86/64 x86_64
+expect_rejected 25.12.5 1 rockchip/armv8 aarch64_cortex-a53
+expect_rejected 24.10.1 1
+expect_rejected 24.10.1 0 rockchip/armv8 aarch64_cortex-a53
+expect_rejected 24.10.2 0
+
+PLATFORM_INDEX_UNAVAILABLE=1
+expect_rejected 25.12.5 1 rockchip/armv8 aarch64_generic
+MIRROR_BASE_URL="https://custom-legacy-mirror.example"
+expect_supported 25.12.5 1 rockchip/armv8 aarch64_generic
+MIRROR_BASE_URL="https://mirror.infotechtg.ru"
+PLATFORM_INDEX_UNAVAILABLE=0
 
 interactive_terminal_available() { return 1; }
 SING_BOX_INSTALL_VARIANT=""

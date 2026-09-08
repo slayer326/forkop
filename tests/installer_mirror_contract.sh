@@ -7,7 +7,7 @@ CONFIG="$ROOT_DIR/forkop/files/etc/config/forkop"
 
 sh -n "$INSTALLER"
 
-grep -Fq 'MIRROR_BASE_URL="${FORKOP_MIRROR_BASE_URL:-https://mirror.51343.ru}"' "$INSTALLER" || {
+grep -Fq 'MIRROR_BASE_URL="${FORKOP_MIRROR_BASE_URL:-https://mirror.infotechtg.ru}"' "$INSTALLER" || {
     echo "installer does not default to the Forkop mirror" >&2
     exit 1
 }
@@ -19,8 +19,8 @@ grep -Fq 'configure_opkg_mirror' "$INSTALLER" || {
     echo "installer does not configure OpenWrt 24 OPKG feeds" >&2
     exit 1
 }
-grep -Fq 'packages\.routerich\.ru/' "$INSTALLER" || {
-    echo "installer does not recognize Routerich OPKG feeds" >&2
+grep -Fq 'vendor and custom feeds remain unchanged' "$INSTALLER" || {
+    echo "installer does not preserve vendor and custom OPKG feeds" >&2
     exit 1
 }
 grep -Fq 'MIRROR_TRANSACTION_ACTIVE=1' "$INSTALLER" || {
@@ -29,6 +29,10 @@ grep -Fq 'MIRROR_TRANSACTION_ACTIVE=1' "$INSTALLER" || {
 }
 grep -Fq 'rollback_package_mirror' "$INSTALLER" || {
     echo "installer cannot restore feeds after a failed mirror update" >&2
+    exit 1
+}
+grep -Fq '/openwrt/forkop-platforms.tsv' "$INSTALLER" || {
+    echo "installer does not consult the mirror platform index" >&2
     exit 1
 }
 grep -Fq 'verify_download_sha256' "$INSTALLER" || {
@@ -47,7 +51,7 @@ grep -Fq 'SING_BOX_INSTALL_VARIANT="tiny"' "$INSTALLER" || {
     echo "installer does not default to sing-box-tiny" >&2
     exit 1
 }
-grep -Fq "option mirror_base_url 'https://mirror.51343.ru'" "$CONFIG" || {
+grep -Fq "option mirror_base_url 'https://mirror.infotechtg.ru'" "$CONFIG" || {
     echo "packaged Forkop config does not enable the mirror" >&2
     exit 1
 }
