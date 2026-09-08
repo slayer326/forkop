@@ -133,8 +133,8 @@ grep -Fq 'Русский пакет интерфейса будет устано
   fail "Russian LuCI language must enable the Russian interface package without a prompt"
 grep -Fq 'SING_BOX_INSTALL_VARIANT="tiny"' "$INSTALLER" ||
   fail "fresh non-interactive installation must default to sing-box-tiny"
-grep -Fq 'printf '\''  1) %s\n'\'' "$(installer_text sing_box_tiny)"' "$INSTALLER" ||
-  fail "fresh interactive installation must offer sing-box-tiny first"
+grep -Fq 'sing-box is not installed; sing-box-tiny will be installed' "$INSTALLER" ||
+  fail "fresh installation must select tiny without an interactive build prompt"
 
 grep -Fq 'run_args([ bin_path, "restore_dnsmasq" ])' "$INSTALLER" ||
   fail "installer dnsmasq restore must prefer the active backend entrypoint"
