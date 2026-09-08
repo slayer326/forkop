@@ -19,8 +19,8 @@ grep -Fq 'configure_opkg_mirror' "$INSTALLER" || {
     echo "installer does not configure OpenWrt 24 OPKG feeds" >&2
     exit 1
 }
-grep -Fq 'packages\.routerich\.ru/' "$INSTALLER" || {
-    echo "installer does not recognize Routerich OPKG feeds" >&2
+grep -Fq 'vendor and custom feeds remain unchanged' "$INSTALLER" || {
+    echo "installer does not preserve vendor and custom OPKG feeds" >&2
     exit 1
 }
 grep -Fq 'MIRROR_TRANSACTION_ACTIVE=1' "$INSTALLER" || {
@@ -29,6 +29,10 @@ grep -Fq 'MIRROR_TRANSACTION_ACTIVE=1' "$INSTALLER" || {
 }
 grep -Fq 'rollback_package_mirror' "$INSTALLER" || {
     echo "installer cannot restore feeds after a failed mirror update" >&2
+    exit 1
+}
+grep -Fq '/openwrt/forkop-platforms.tsv' "$INSTALLER" || {
+    echo "installer does not consult the mirror platform index" >&2
     exit 1
 }
 grep -Fq 'verify_download_sha256' "$INSTALLER" || {

@@ -20,6 +20,9 @@ PKG_IS_APK=0
 MIRROR_TRANSACTION_ACTIVE=0
 MIRROR_BACKUP_COUNT=0
 MIRROR_BACKUP_MANIFEST=""
+OPENWRT_RELEASE=""
+OPENWRT_TARGET=""
+OPENWRT_ARCHITECTURE=""
 FETCHER=""
 TMP_DIR=""
 FORKOP_WAS_ENABLED=0
@@ -1588,12 +1591,29 @@ rollback_package_mirror() {
     [ "$MIRROR_TRANSACTION_ACTIVE" -eq 1 ] || return 0
     [ -n "$MIRROR_BACKUP_MANIFEST" ] && [ -f "$MIRROR_BACKUP_MANIFEST" ] || return 0
 
-    while IFS='|' read -r repository_file backup_file; do
-        [ -n "$repository_file" ] && [ -f "$backup_file" ] || continue
-        cp "$backup_file" "$repository_file" 2>/dev/null || true
+    while IFS='|' read -r repository_file backup_file original_state; do
+        [ -n "$repository_file" ] || continue
+        if [ "$original_state" = "absent" ]; then
+            rm -f "$repository_file" 2>/dev/null || true
+        elif [ -f "$backup_file" ]; then
+            cp "$backup_file" "$repository_file" 2>/dev/null || true
+        fi
     done < "$MIRROR_BACKUP_MANIFEST"
     MIRROR_TRANSACTION_ACTIVE=0
     warn "Package feed configuration was restored after an installation error"
+}
+
+backup_package_mirror_file() {
+    repository_file="$1"
+    backup_file="$TMP_DIR/repository.$MIRROR_BACKUP_COUNT.original"
+
+    if [ -e "$repository_file" ]; then
+        cp "$repository_file" "$backup_file" || fail "Failed to back up $repository_file"
+        printf '%s|%s|present\n' "$repository_file" "$backup_file" >> "$MIRROR_BACKUP_MANIFEST"
+    else
+        printf '%s||absent\n' "$repository_file" >> "$MIRROR_BACKUP_MANIFEST"
+    fi
+    MIRROR_BACKUP_COUNT=$((MIRROR_BACKUP_COUNT + 1))
 }
 
 begin_package_mirror_transaction() {
@@ -1609,14 +1629,15 @@ rewrite_package_repository_file() {
 
     rewritten="$TMP_DIR/repository.$MIRROR_BACKUP_COUNT.rewritten"
     sed -E \
-        -e "s#https?://[^/]+/(pub/software/openwrt/|openwrt/)?releases/#${MIRROR_BASE_URL}/openwrt/releases/#" \
-        -e "s#${MIRROR_BASE_URL}/openwrt/releases/v[0-9]+\\.x/v?([0-9]+\\.[0-9]+\\.[0-9]+)/mediatek/filogic/?([[:space:]]|$)#${MIRROR_BASE_URL}/openwrt/releases/\\1/targets/mediatek/filogic/packages\\2#" \
+        -e "s#https?://(downloads|archive)\\.openwrt\\.org/releases/#${MIRROR_BASE_URL}/openwrt/releases/#" \
+        -e "s#https?://[^/]+/pub/software/openwrt/releases/#${MIRROR_BASE_URL}/openwrt/releases/#" \
+        -e "s#${MIRROR_BASE_URL}/openwrt/releases/v[0-9]+\\.x/v?([0-9]+\\.[0-9]+\\.[0-9]+)/([^/]+)/([^/]+)/?([[:space:]]|$)#${MIRROR_BASE_URL}/openwrt/releases/\\1/targets/\\2/\\3/packages\\4#" \
         -e "s#${MIRROR_BASE_URL}/openwrt/releases/v[0-9]+\\.x/v([0-9]+\\.[0-9]+\\.[0-9]+)/([^/]+)/([^/]+)/packages/packages\\.adb#${MIRROR_BASE_URL}/openwrt/releases/\\1/targets/\\2/\\3/packages/packages.adb#" \
         -e "s#${MIRROR_BASE_URL}/openwrt/releases/v[0-9]+\\.x/v([0-9]+\\.[0-9]+\\.[0-9]+)/([^/]+)/([^/]+)/packages\\.adb#${MIRROR_BASE_URL}/openwrt/releases/\\1/packages/\\2/\\3/packages.adb#" \
         "$repository_file" > "$rewritten" || fail "Failed to prepare $repository_file"
 
-    if grep -E 'https?://[^/]+/(pub/software/openwrt/|openwrt/)?releases/' "$rewritten" |
-        grep -Fv "$MIRROR_BASE_URL/openwrt/releases/" >/dev/null; then
+    if grep -E 'https?://(downloads|archive)\.openwrt\.org/releases/|https?://[^/]+/pub/software/openwrt/releases/' \
+        "$rewritten" >/dev/null; then
         fail "Some OpenWrt feeds in $repository_file could not be redirected to $MIRROR_BASE_URL"
     fi
 
@@ -1624,14 +1645,11 @@ rewrite_package_repository_file() {
         return 0
     fi
 
-    backup_file="$TMP_DIR/repository.$MIRROR_BACKUP_COUNT.original"
-    cp "$repository_file" "$backup_file" || fail "Failed to back up $repository_file"
-    printf '%s|%s\n' "$repository_file" "$backup_file" >> "$MIRROR_BACKUP_MANIFEST"
+    backup_package_mirror_file "$repository_file"
     persistent_backup="${repository_file}.pre-forkop-mirror"
     [ -e "$persistent_backup" ] || cp "$repository_file" "$persistent_backup" ||
         fail "Failed to preserve the original $repository_file"
     cp "$rewritten" "$repository_file" || fail "Failed to update $repository_file"
-    MIRROR_BACKUP_COUNT=$((MIRROR_BACKUP_COUNT + 1))
 }
 
 commit_package_mirror_transaction() {
@@ -1651,22 +1669,23 @@ configure_apk_mirror() {
     esac
     MIRROR_BASE_URL="${MIRROR_BASE_URL%/}"
 
-    mkdir -p /etc/apk/keys || fail "Failed to create /etc/apk/keys"
+    mkdir -p /etc/apk/keys /etc/apk/repositories.d || fail "Failed to create APK repository directories"
     mirror_key_tmp="$TMP_DIR/forkop-mirror.pem"
     download_with_retry "$MIRROR_BASE_URL/forkop/forkop-apk.pem" "$mirror_key_tmp" "Forkop mirror APK key" ||
         fail "Unable to download the Forkop mirror APK key"
     grep -Fq 'BEGIN PUBLIC KEY' "$mirror_key_tmp" ||
         fail "The downloaded Forkop mirror APK key is invalid"
+    begin_package_mirror_transaction
+    backup_package_mirror_file "$mirror_key"
     cp "$mirror_key_tmp" "$mirror_key" || fail "Failed to install the Forkop mirror APK key"
     chmod 0644 "$mirror_key" || fail "Failed to set permissions on the Forkop mirror APK key"
-
-    begin_package_mirror_transaction
     for repository_file in /etc/apk/repositories "$distfeeds"; do
         rewrite_package_repository_file "$repository_file"
     done
-
-    grep -Fq "$MIRROR_BASE_URL/openwrt/releases/" "$distfeeds" ||
-        fail "No mirrored OpenWrt release feeds were written to $distfeeds"
+    forkop_repository="/etc/apk/repositories.d/forkop.list"
+    backup_package_mirror_file "$forkop_repository"
+    printf '%s\n' "$MIRROR_BASE_URL/forkop/mirror/current/packages.adb" > "$forkop_repository" ||
+        fail "Failed to configure the Forkop APK repository"
     pkg_list_update || {
         rollback_package_mirror
         fail "Failed to update APK package lists from $MIRROR_BASE_URL; original feeds were restored"
@@ -1682,11 +1701,6 @@ configure_opkg_mirror() {
     command_exists opkg || fail "OpenWrt opkg package manager is required"
     [ -s "$distfeeds" ] || fail "$distfeeds is missing or empty"
 
-    if grep -Eq '^[[:space:]]*src/gz[[:space:]]+routerich(_[[:alnum:]_-]+)?[[:space:]]+https?://packages\.routerich\.ru/' "$distfeeds"; then
-        msg "Routerich OPKG feeds remain unchanged; only Forkop release packages use $MIRROR_BASE_URL"
-        return 0
-    fi
-
     case "$MIRROR_BASE_URL" in
         https://*|http://*) ;;
         *) fail "Invalid Forkop mirror URL: $MIRROR_BASE_URL" ;;
@@ -1695,6 +1709,11 @@ configure_opkg_mirror() {
 
     begin_package_mirror_transaction
     rewrite_package_repository_file "$distfeeds"
+    if [ "$MIRROR_BACKUP_COUNT" -eq 0 ]; then
+        commit_package_mirror_transaction
+        msg "No official OpenWrt OPKG feeds were changed; vendor and custom feeds remain unchanged"
+        return 0
+    fi
     grep -Fq "$MIRROR_BASE_URL/openwrt/releases/" "$distfeeds" ||
         fail "No mirrored OpenWrt release feeds were written to $distfeeds"
     pkg_list_update || {
@@ -1790,6 +1809,35 @@ check_root() {
     fi
 }
 
+check_mirror_platform_support() {
+    platform_index="$TMP_DIR/forkop-platforms.tsv"
+    platform_format="ipk"
+    [ "$PKG_IS_APK" -eq 0 ] || platform_format="apk"
+
+    case "$MIRROR_BASE_URL" in
+        https://*|http://*) ;;
+        *) fail "Invalid Forkop mirror URL: $MIRROR_BASE_URL" ;;
+    esac
+    MIRROR_BASE_URL="${MIRROR_BASE_URL%/}"
+
+    if ! download_file_once "$MIRROR_BASE_URL/openwrt/forkop-platforms.tsv" "$platform_index"; then
+        rm -f "$platform_index"
+        warn "The mirror platform index is unavailable; package feeds will be verified before installation"
+        return 0
+    fi
+
+    if awk -v target="$OPENWRT_TARGET" -v architecture="$OPENWRT_ARCHITECTURE" \
+        -v release="$OPENWRT_RELEASE" -v format="$platform_format" '
+            /^[[:space:]]*(#|$)/ { next }
+            $1 == target && $2 == architecture && $3 == release && $4 == format { found = 1 }
+            END { exit(found ? 0 : 1) }
+        ' "$platform_index"; then
+        return 0
+    fi
+
+    fail "The mirror does not yet contain $OPENWRT_TARGET / $OPENWRT_ARCHITECTURE for OpenWrt $OPENWRT_RELEASE ($platform_format)"
+}
+
 check_system() {
     release=""
     major=""
@@ -1822,10 +1870,13 @@ check_system() {
             [ "$PKG_IS_APK" -eq 1 ] || fail "OpenWrt $release is expected to use apk packages"
             ;;
     esac
-    [ "$target" = "mediatek/filogic" ] ||
-        fail "The mirror currently supports only the mediatek/filogic target (detected: ${target:-unknown})"
-    [ "$architecture" = "aarch64_cortex-a53" ] ||
-        fail "The mirror currently supports only aarch64_cortex-a53 (detected: ${architecture:-unknown})"
+    [ -n "$target" ] || fail "Unable to detect the OpenWrt target"
+    [ -n "$architecture" ] || fail "Unable to detect the OpenWrt package architecture"
+
+    OPENWRT_RELEASE="$release"
+    OPENWRT_TARGET="$target"
+    OPENWRT_ARCHITECTURE="$architecture"
+    check_mirror_platform_support
 
     msg "OpenWrt $release, target $target, architecture $architecture"
 
@@ -1843,7 +1894,7 @@ available_flash_space_kb() {
 }
 
 file_size_kb() {
-    file_size_bytes="$(wc -c <"$1" 2>/dev/null || true)"
+    file_size_bytes="$(wc -c <"$1" 2>/dev/null | tr -d '[:space:]' || true)"
     case "$file_size_bytes" in
         ''|*[!0-9]*) return 1 ;;
     esac
