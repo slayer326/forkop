@@ -53,6 +53,8 @@ jobs:
           echo "commitish=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           if [ -n "$INPUT_RELEASE_NOTES" ]; then
             RAW_RELEASE_NOTES="$INPUT_RELEASE_NOTES"
+          elif [ -f "docs/releases/$VERSION.md" ]; then
+            RAW_RELEASE_NOTES="$(cat "docs/releases/$VERSION.md")"
           else
             RAW_RELEASE_NOTES="$(git tag -l --format='%(contents)' "$VERSION")"
             if [ -z "$RAW_RELEASE_NOTES" ]; then
