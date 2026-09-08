@@ -338,7 +338,12 @@ cat >"$WORK_DIR/xray-group-name-filter-fixture.json" <<'JSON'
 JSON
 
 xray_group_name_filter_config="$WORK_DIR/xray-group-name-filter-config.json"
-generate_config "$WORK_DIR/xray-group-name-filter-fixture.json" "$xray_group_name_filter_config"
+if generate_config "$WORK_DIR/xray-group-name-filter-fixture.json" "$xray_group_name_filter_config" \
+  >"$WORK_DIR/xray-group-name-filter.stdout" 2>"$WORK_DIR/xray-group-name-filter.stderr"; then
+  fail "a URLTest group with no usable leaf outbound must fail closed"
+fi
+grep -Fq "has no usable proxy outbounds after filtering" "$WORK_DIR/xray-group-name-filter.stdout" "$WORK_DIR/xray-group-name-filter.stderr" ||
+  fail "empty URLTest group must report its rule and fail-closed reason"
 
 ucode -e '
 let fs = require("fs");
@@ -346,11 +351,9 @@ function object_or_empty(value) { return type(value) == "object" ? value : {}; }
 let config = json(fs.readfile(ARGV[0]));
 let cache = json(fs.readfile(ARGV[1]));
 let reveal_config = json(fs.readfile(ARGV[2]));
-let group_name_filter_config = json(fs.readfile(ARGV[3]));
 let imported = null;
 let builtin = null;
 let reveal_selector = null;
-let group_name_builtin = null;
 function contains(values, needle) {
     for (let value in values || [])
         if (value == needle)
@@ -366,9 +369,6 @@ for (let outbound in config.outbounds || []) {
 for (let outbound in reveal_config.outbounds || [])
     if (outbound.type == "selector" && outbound.tag == "proxy-out")
         reveal_selector = outbound;
-for (let outbound in group_name_filter_config.outbounds || [])
-    if (outbound.type == "urltest" && outbound.tag == "proxy-urltest-out")
-        group_name_builtin = outbound;
 if (!imported || imported.url != "https://www.gstatic.com/generate_204" || imported.interval != "120s")
     die("generated xray imported URLTest did not preserve subscription params\n");
 if (imported.tolerance != 175 || imported.idle_timeout != "30m" || imported.interrupt_exist_connections !== true)
@@ -378,8 +378,6 @@ if (!builtin || length(builtin.outbounds || []) != 2)
 for (let child in builtin.outbounds || [])
     if (child == "Latvia group")
         die("built-in URLTest must not use the xray group tag as a child\n");
-if (group_name_builtin)
-    die("built-in URLTest must not match subscription URLTest group names as servers\n");
 for (let child in builtin.outbounds || [])
     if (substr(child, 0, 5) == "xray-")
         die("built-in URLTest must not use artificial xray child tag prefixes\n");
@@ -407,7 +405,7 @@ if (!reveal_selector || length(reveal_selector.outbounds || []) != 3 ||
 for (let child in builtin.outbounds || [])
     if (!contains(reveal_selector.outbounds, child))
         die("dashboard must expose each configured URLTest member\n");
-' "$xray_config" "$xray_config.section-cache/proxy.json" "$xray_reveal_urltest_config" "$xray_group_name_filter_config" || fail "xray generated URLTest behavior"
+' "$xray_config" "$xray_config.section-cache/proxy.json" "$xray_reveal_urltest_config" || fail "xray generated URLTest behavior"
 
 xray_metadata="$WORK_DIR/xray-ui-outbound-metadata.json"
 ucode -L "$FORKOP_LIB" "$CACHE_UC" get-outbound-metadata "$xray_config.section-cache" proxy "$WORK_DIR/missing-outbound-metadata.json" >"$xray_metadata"

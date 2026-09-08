@@ -19,10 +19,10 @@ fail() {
 [ -r "$FORKOP_INIT" ] || fail "forkop init.d entrypoint is missing"
 [ -r "$LUCI_UCI_DEFAULTS" ] || fail "LuCI uci-defaults entrypoint is missing"
 
-# The staged uninstaller must survive removal of ucode and Forkop itself.
-runtime_shell_files="$(find "$FORKOP_LIB" -type f -name '*.sh' ! -name 'full-uninstall.sh' -print)"
-[ -z "$runtime_shell_files" ] ||
-  fail "runtime library must not contain shell owners: $runtime_shell_files"
+runtime_shell_files="$(find "$FORKOP_LIB" -type f -name '*.sh' -print)"
+expected_runtime_shell_files="$FORKOP_LIB/full-uninstall.sh"
+[ "$runtime_shell_files" = "$expected_runtime_shell_files" ] ||
+  fail "runtime library may contain only the controlled full-uninstall helper: $runtime_shell_files"
 
 legacy_shell_owners='runtime_state\.sh|rules_nft_runtime\.sh|config_validation\.sh|sing_box_runtime\.sh|updates_runtime\.sh|updater\.sh|status_diagnostics\.sh|helpers\.sh|constants\.sh|subscription_runtime\.sh|byedpi\.sh|zapret\.sh|zapret2\.sh'
 if find "$FORKOP_FILES" -type f -print | grep -E "$legacy_shell_owners" >/dev/null 2>&1; then
@@ -78,7 +78,7 @@ grep -Fq 'initd_ucode reload-service' "$FORKOP_INIT" ||
 grep -Fq 'initd_ucode trigger-plan' "$FORKOP_INIT" ||
   fail "init.d trigger decisions must be produced by ucode"
 
-if sed '/^[[:space:]]*#/d' "$FORKOP_INIT" | grep -n -E '(^|[^[:alnum:]_])(uci|config_load|config_get|config_foreach|jsonfilter|nft|iptables|ip6?tables|sing-box|dnsmasq|curl|wget|opkg|apk)([[:space:]]|$)' >/dev/null 2>&1; then
+if awk '!/^[[:space:]]*#/' "$FORKOP_INIT" | grep -n -E '(^|[^[:alnum:]_])(uci|config_load|config_get|config_foreach|jsonfilter|nft|iptables|ip6?tables|sing-box|dnsmasq|curl|wget|opkg|apk)([[:space:]]|$)' >/dev/null 2>&1; then
   fail "init.d must not own UCI, routing, download, package, dnsmasq, nft, or sing-box decisions"
 fi
 if grep -n -E 'FORKOP_RELOAD_LOCK|FORKOP_URLTEST_SELECTOR_SWITCHES|capture_reload_state|populate_nft_runtime_sets|rebuild_nft_runtime|apply_pending_urltest_selector_switches' "$FORKOP_INIT" >/dev/null 2>&1; then

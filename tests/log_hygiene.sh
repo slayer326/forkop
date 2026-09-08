@@ -66,4 +66,11 @@ reject_runtime_regex 'log_message\("subscription/cache\.uc: ' \
 reject_runtime_regex 'log_message\("singbox/runtime\.uc: ' \
   "runtime logs must not expose singbox/runtime.uc as a user-facing prefix"
 
+reject_runtime_regex 'log_message\([^\n]*(as_string\()?url\)?' \
+  "runtime logs must not include remote URLs, which can contain query credentials"
+reject_runtime_regex 'log_message\([^\n]*entry\.url' \
+  "runtime logs must not include preflight source URLs"
+reject_runtime_regex 'log_message\([^\n]*\+ reference' \
+  "runtime logs must not include rule-set references, which can be URLs"
+
 printf 'log hygiene checks passed\n'
