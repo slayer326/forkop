@@ -166,6 +166,9 @@ cat "${SING_BOX_TEST_NETSTAT_FILE:?}"
 SH
 cat >"$WORK_DIR/stable-start-bin/ucode" <<'SH'
 #!/usr/bin/env bash
+if [ "$#" -ge 4 ] && [ "${3##*/}" = "runtime.uc" ] && [ "$4" = "clash-api-ready" ]; then
+  exit "${SING_BOX_TEST_CLASH_STATUS:-0}"
+fi
 if [ "$#" -ge 4 ] && [ "$1" = "-L" ] && [ "${3##*/}" = "apply.uc" ] && [ "$4" = "tproxy-route-rule-present" ]; then
   exit 0
 fi

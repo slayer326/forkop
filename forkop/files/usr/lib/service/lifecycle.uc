@@ -860,8 +860,12 @@ function start_main() {
     // silently turn protected IP traffic into final/direct traffic.
     let has_list_sources = module_success(STATE_UC, [ "has-list-update-sources" ]);
     if (has_list_sources && !module_success(UPDATES_UC, [ "restore-list-cache" ])) {
-        log_message("No valid active list generation is available. Aborted rather than starting a partial routing policy.", "fatal");
-        return 1;
+        log_message("Preparing the initial list generation before starting routing", "info");
+        if (!module_success(UPDATES_UC, [ "prepare-list-cache" ]) ||
+            !module_success(UPDATES_UC, [ "restore-list-cache" ])) {
+            log_message("No valid active list generation is available. Aborted rather than starting a partial routing policy.", "fatal");
+            return 1;
+        }
     }
 
     if (!nft_candidate_begin())

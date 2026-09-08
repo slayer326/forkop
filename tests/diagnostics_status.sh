@@ -196,7 +196,12 @@ if (ARGV[0] == "single-ready-sing-box-runtime" ||
     exit(0);
 exit(64);
 UC
+printf '%s\n' '{"outbounds":[{"type":"vless","tag":"proxy-a","server":"one.test"},{"type":"trojan","tag":"proxy-b","server":"two.test"}]}' >"$WORK_DIR/automatic-config.json"
+printf 'forkop.settings.config_path=%s\n' "$WORK_DIR/automatic-config.json" >>"$uci_state"
+automatic_signature="$(FORKOP_LIB="$FORKOP_LIB" ucode -L "$FORKOP_LIB" "$DIAGNOSTICS_RUNTIME" proxy-outbounds-signature "$WORK_DIR/automatic-config.json")"
+printf '{"format":"1","signature":"%s"}\n' "$automatic_signature" >"$WORK_DIR/automatic.pending"
 FAKE_CURL_LOG="$WORK_DIR/fake-curl-automatic-latencies.log" \
+FORKOP_AUTOMATIC_LATENCY_PENDING_FILE="$WORK_DIR/automatic.pending" \
 FORKOP_UCI_STATE_FILE="$uci_state" \
 FORKOP_LIB="$WORK_DIR/latency-lib" \
 FORKOP_AUTOMATIC_LATENCY_TEST_LOCK_DIR="$WORK_DIR/automatic-latency-test.lock" \

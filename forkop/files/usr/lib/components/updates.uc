@@ -107,6 +107,7 @@ let list_download_sequence = 0;
 let list_update_signature_at_start = "";
 let subscription_outbounds_changed = false;
 let runtime_generation_commit_changed = false;
+let list_update_prepare_only = false;
 
 function routing_rulesets_module() {
     if (routing_rulesets_module_value == null)
@@ -927,8 +928,10 @@ function commit_runtime_list_generation(signature) {
     let files = [];
     for (let path in fs.glob(TMP_RULESET_FOLDER + "/*")) {
         let name = substr(path, length(TMP_RULESET_FOLDER) + 1);
+        if (!managed_list_ruleset_name(name))
+            continue;
         let target = stage + "/" + name;
-        if (generation_phase_failed("runtime-file-write") || !managed_list_ruleset_name(name) || !valid_list_ruleset_file(path) || !cache_copy_file(path, target)) {
+        if (generation_phase_failed("runtime-file-write") || !valid_list_ruleset_file(path) || !cache_copy_file(path, target)) {
             command_success_from_args([ "rm", "-rf", stage ]);
             return false;
         }
@@ -3500,6 +3503,8 @@ function begin_list_ruleset_snapshot() {
 }
 
 function begin_list_nft_snapshot() {
+    if (generation_phase_failed("nft-candidate-create"))
+        return false;
     list_nft_candidate_file = temp_path();
     if (list_nft_candidate_file == "")
         return false;
@@ -3643,6 +3648,12 @@ function finish_list_update(status, applied, generation_changed) {
     let rulesets_changed = finish_list_ruleset_snapshot(applied);
     let nft_restored = finish_list_nft_snapshot(applied);
     cleanup_list_downloads();
+    // Startup owns the lifecycle lock. Prepare a complete generation without
+    // applying any live nft policy or recursively requesting a service reload.
+    if (list_update_prepare_only) {
+        list_update_pid_end();
+        exit(status == 0 ? 0 : 1);
+    }
     let reload_deferred = file_exists_value(LIST_UPDATE_RELOAD_FILE);
     let ruleset_request = trim(file_first_line_value(RULESET_REFRESH_AFTER_LIST_FILE));
     let ruleset_changed = false;
@@ -3701,7 +3712,10 @@ function finish_list_update(status, applied, generation_changed) {
         if (pending_reload != null)
             service_state_success([ "consume-pending-reload", PENDING_RELOAD_FILE ]);
 
-        let reload_result = command_capture(command_from_args([ SERVICE_INIT, "reload", "list-content" ]) + " 2>/dev/null 1000>&-");
+        // OpenWrt passes procd's lock on fd 1000. Avoid a multi-digit shell
+        // redirection when that descriptor is absent (dash treats it as argv).
+        let close_procd_lock = fs.stat("/proc/self/fd/1000") != null ? " 1000>&-" : "";
+        let reload_result = command_capture(command_from_args([ SERVICE_INIT, "reload", "list-content" ]) + " 2>/dev/null" + close_procd_lock);
         let reload_status = reload_result.status;
         if (reload_status != 0) {
             // The generation is valid and remains active. Retain an explicit
@@ -3757,7 +3771,7 @@ function list_update() {
     // a startup or config reload must settle before this worker opens requests
     // through the sing-box service proxy.  Conversely, init.d queues reloads
     // that arrive while this lock is held, and finish_list_update() runs them.
-    if (!acquire_runtime_lock(RELOAD_LOCK_DIR, true)) {
+    if (!list_update_prepare_only && !acquire_runtime_lock(RELOAD_LOCK_DIR, true)) {
         log_message("Lists update skipped because Forkop reload did not release the runtime lock", "warn");
         list_update_pid_end();
         exit(1);
@@ -4254,6 +4268,10 @@ else if (mode == "finish-list-update-fixture")
     finish_list_update(int(ARGV[1]), ARGV[2] == "1", ARGV[3] == null ? null : ARGV[3] == "1");
 else if (mode == "restore-list-cache")
     exit(restore_persistent_list_cache() ? 0 : 1);
+else if (mode == "prepare-list-cache") {
+    list_update_prepare_only = true;
+    list_update();
+}
 else if (mode == "list-cache-valid")
     exit(persistent_list_cache_valid() ? 0 : 1);
 else if (mode == "list-cache-capacity")

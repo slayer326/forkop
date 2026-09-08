@@ -237,7 +237,11 @@ quota_cmd() {
   FORKOP_LIB="$FORKOP_LIB" \
     ucode -L "$FORKOP_LIB" "$UPDATES_UC" "$@"
 }
+# Inline/custom rule sets share this directory but are not downloaded list data.
+printf 'not a downloaded list\n' >"$WORK_DIR/quota-runtime/inline-custom.json"
 quota_cmd commit-runtime-list-generation || fail "a runtime generation was not committed"
+[ -f "$WORK_DIR/quota-runtime/inline-custom.json" ] || fail "unrelated runtime file was removed"
+[ ! -e "$WORK_DIR/quota-generation/inline-custom.json" ] || fail "unrelated runtime file entered the list cache"
 unchanged_generation_manifest="$(md5sum "$WORK_DIR/quota-generation/manifest.json" | cut -d' ' -f1)"
 quota_cmd commit-runtime-list-generation || fail "an identical runtime generation was rejected"
 [ "$unchanged_generation_manifest" = "$(md5sum "$WORK_DIR/quota-generation/manifest.json" | cut -d' ' -f1)" ] ||
@@ -356,7 +360,7 @@ legacy_cmd() {
 }
 : >"$LIST_CACHE_WGET_LOG"
 legacy_cmd list-cache-valid || fail "valid 1.3.8 v1 cache was not migrated to v2"
-[ "$(jsonfilter -i "$WORK_DIR/legacy-v1/manifest.json" -e '@.format')" = 2 ] ||
+[ "$(ucode -e 'print(json(require("fs").readfile(ARGV[0])).format);' "$WORK_DIR/legacy-v1/manifest.json")" = 2 ] ||
   fail "v1 cache was not replaced by a v2 manifest"
 legacy_cmd restore-list-cache || fail "migrated v2 cache was not restored offline"
 [ ! -s "$LIST_CACHE_WGET_LOG" ] || fail "v1 to v2 migration attempted network I/O"
@@ -378,7 +382,7 @@ legacy_bad_cmd() {
   FORKOP_LIB="$FORKOP_LIB" ucode -L "$FORKOP_LIB" "$UPDATES_UC" "$@"
 }
 legacy_bad_cmd list-cache-valid && fail "corrupt v1 cache was migrated"
-[ "$(jsonfilter -i "$WORK_DIR/legacy-v1-invalid/manifest.json" -e '@.format')" = 1 ] ||
+[ "$(ucode -e 'print(json(require("fs").readfile(ARGV[0])).format);' "$WORK_DIR/legacy-v1-invalid/manifest.json")" = 1 ] ||
   fail "failed v1 migration destroyed its LKG"
 [ ! -e "$WORK_DIR/legacy-v1-invalid.stage" ] || fail "failed v1 migration retained a stage"
 

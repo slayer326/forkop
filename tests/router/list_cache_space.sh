@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 FORKOP_LIB="$ROOT_DIR/forkop/files/usr/lib"
 UPDATES_UC="$FORKOP_LIB/components/updates.uc"
 WORK_DIR="$(mktemp -d)"
