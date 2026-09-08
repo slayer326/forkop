@@ -178,7 +178,8 @@ args[16]=nft2
 args[29]=1
 plan="$(run_case nft_list_sources "${args[@]}")"
 assert_plan_value "$plan" needs_nft_rebuild 1
-assert_plan_value "$plan" needs_list_update 0
+assert_plan_value "$plan" needs_list_update 1
+assert_plan_value "$plan" changed_list 0
 
 args=("${base_args[@]}")
 args[30]=1

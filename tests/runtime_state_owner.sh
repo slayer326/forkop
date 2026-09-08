@@ -114,7 +114,7 @@ cold_start_refresh_line="$(grep -nF 'module_background(LIFECYCLE_UC, [ "refresh-
   fail "service/lifecycle.uc must defer cold-start rule-set refresh until reload state is saved"
 grep -Fq 'Rule-set cache changed; reloading Forkop' "$LIFECYCLE_UC" ||
   fail "service/lifecycle.uc must reload changed rule-sets after cold start"
-grep -Fq 'Reload verification failed after sing-box was reloaded; stopping Forkop runtime' "$LIFECYCLE_UC" ||
+grep -Fq 'Reload verification failed after sing-box was reloaded; restoring the previous coherent runtime' "$LIFECYCLE_UC" ||
   fail "service/lifecycle.uc must fail reload when sing-box does not stay stable"
 grep -Fq 'Reload runtime restart verification failed after Forkop was started; rolling back DNS changes' "$LIFECYCLE_UC" ||
   fail "service/lifecycle.uc must fail full runtime restart when sing-box does not stay stable"

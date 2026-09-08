@@ -67,7 +67,12 @@ forkop.alpha.action=connection
 forkop.alpha.remote_domain_lists=https://lists.test/domains.txt
 UCI
   status=0
+  generation_fail_phase=""
+  [ "$phase" != nft ] || generation_fail_phase=nft-candidate-create
   env PATH="$WORK_DIR/bin:$PATH" \
+    FORKOP_LIST_GENERATION_FAIL_PHASE="$generation_fail_phase" \
+    FORKOP_RUNTIME_LIST_GENERATION_DIR="$case_dir/generation" \
+    FORKOP_RULESET_CACHE_DIR="$case_dir/ruleset-cache" \
     CASE_DIR="$case_dir" FAIL_PHASE="$phase" \
     FORKOP_LIB="$FORKOP_LIB" \
     FORKOP_UCI_STATE_FILE="$case_dir/uci.state" \
@@ -90,11 +95,7 @@ UCI
   if [ "$phase" = ruleset ]; then
     [ -s "$case_dir/copy.log" ] || fail "snapshot failure was not exercised"
   fi
-  if [ "$phase" = nft ]; then
-    [ "$(cat "$case_dir/nft.log")" = '-j list table inet forkop' ] || fail "failed nft snapshot must not mutate the table"
-  else
-    [ ! -s "$case_dir/nft.log" ] || fail "$phase failure reached nftables"
-  fi
+  [ ! -s "$case_dir/nft.log" ] || fail "$phase preparation failure reached live nftables"
 done
 
 printf 'list transaction failure checks passed\n'

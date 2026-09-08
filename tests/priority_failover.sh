@@ -42,6 +42,14 @@ JS
     validate-runtime-fixture "$normalized" "{}"
 }
 
+assert_generation_rejects() {
+  if generate_config "$1" "$2" >"$WORK_DIR/generate.log" 2>&1; then
+    fail "empty configured group must reject the candidate config"
+  fi
+  grep -Fq 'has no usable proxy outbounds after filtering' "$WORK_DIR/generate.log" ||
+    fail "empty group did not report the filtering error"
+}
+
 assert_rejects() {
   local label="$1"
   local fixture="$2"
@@ -236,21 +244,7 @@ cat >"$WORK_DIR/group-no-levels.json" <<'JSON'
 JSON
 validate_fixture "$WORK_DIR/group-no-levels.json"
 group_no_levels_output="$WORK_DIR/group-no-levels-config.json"
-generate_config "$WORK_DIR/group-no-levels.json" "$group_no_levels_output"
-ucode -e '
-let fs = require("fs");
-let cfg = json(fs.readfile(ARGV[0]));
-let cache = json(fs.readfile(ARGV[1]));
-for (let outbound in cfg.outbounds || [])
-    if (outbound && outbound.tag == "proxy-priority-pg_empty-out")
-        die("empty priority group must not be added to sing-box config\n");
-let cached = (cache.priorityGroups || {})["proxy-priority-pg_empty-out"];
-if (!cached || cached.displayName != "Empty")
-    die("empty priority group should be cached for dashboard\n");
-if (length(cached.outbounds || []) != 0 || length(cached.levels || []) != 0)
-    die("empty priority group cache should have no outbounds or levels\n");
-' "$group_no_levels_output" "$group_no_levels_output.section-cache/proxy.json" ||
-  fail "empty priority group should be dashboard-only"
+assert_generation_rejects "$WORK_DIR/group-no-levels.json" "$group_no_levels_output"
 
 cat >"$WORK_DIR/level-no-criteria.json" <<'JSON'
 {
@@ -276,21 +270,7 @@ cat >"$WORK_DIR/level-no-criteria.json" <<'JSON'
 JSON
 validate_fixture "$WORK_DIR/level-no-criteria.json"
 level_no_criteria_output="$WORK_DIR/level-no-criteria-config.json"
-generate_config "$WORK_DIR/level-no-criteria.json" "$level_no_criteria_output"
-ucode -e '
-let fs = require("fs");
-let cfg = json(fs.readfile(ARGV[0]));
-let cache = json(fs.readfile(ARGV[1]));
-for (let outbound in cfg.outbounds || [])
-    if (outbound && outbound.tag == "proxy-priority-pg_main-out")
-        die("priority group with no matched outbounds must not be added to sing-box config\n");
-let cached = (cache.priorityGroups || {})["proxy-priority-pg_main-out"];
-if (!cached || length(cached.levels || []) != 1)
-    die("priority group with empty level should be cached for dashboard\n");
-if (length(cached.levels[0].outbounds || []) != 0)
-    die("priority level without criteria should have no matched outbounds\n");
-' "$level_no_criteria_output" "$level_no_criteria_output.section-cache/proxy.json" ||
-  fail "priority level without criteria should be dashboard-only"
+assert_generation_rejects "$WORK_DIR/level-no-criteria.json" "$level_no_criteria_output"
 
 cat >"$WORK_DIR/empty-urltest.json" <<'JSON'
 {
@@ -320,21 +300,7 @@ cat >"$WORK_DIR/empty-urltest.json" <<'JSON'
 JSON
 validate_fixture "$WORK_DIR/empty-urltest.json"
 empty_urltest_output="$WORK_DIR/empty-urltest-config.json"
-generate_config "$WORK_DIR/empty-urltest.json" "$empty_urltest_output"
-ucode -e '
-let fs = require("fs");
-let cfg = json(fs.readfile(ARGV[0]));
-let cache = json(fs.readfile(ARGV[1]));
-for (let outbound in cfg.outbounds || [])
-    if (outbound && outbound.tag == "proxy-urltest-cfg_empty-out")
-        die("empty URLTest group must not be added to sing-box config\n");
-let cached = (cache.urltestGroups || {})["proxy-urltest-cfg_empty-out"];
-if (!cached || cached.displayName != "Empty URLTest")
-    die("empty URLTest group should be cached for dashboard\n");
-if (length(cached.outbounds || []) != 0)
-    die("empty URLTest cache should have no outbounds\n");
-' "$empty_urltest_output" "$empty_urltest_output.section-cache/proxy.json" ||
-  fail "empty URLTest should be dashboard-only"
+assert_generation_rejects "$WORK_DIR/empty-urltest.json" "$empty_urltest_output"
 
 cat >"$WORK_DIR/bad-order.json" <<'JSON'
 {
@@ -624,16 +590,15 @@ else if (urltest || priority) {
 refresh_fixture="$WORK_DIR/refresh-fixture.json"
 refresh_output="$WORK_DIR/refresh-config.json"
 write_refresh_fixture "$refresh_fixture" '["vless://00000000-0000-4000-8000-000000000001@alpha.example:443?encryption=none&security=tls&sni=alpha.example#Alpha"]'
-generate_config "$refresh_fixture" "$refresh_output"
-assert_refresh_membership "$refresh_output" absent || fail "initial empty group refresh state"
+assert_generation_rejects "$refresh_fixture" "$refresh_output"
 
 write_refresh_fixture "$refresh_fixture" '["vless://00000000-0000-4000-8000-000000000001@alpha.example:443?encryption=none&security=tls&sni=alpha.example#Alpha","vless://00000000-0000-4000-8000-000000000002@beta.example:443?encryption=none&security=tls&sni=beta.example#Beta"]'
 generate_config "$refresh_fixture" "$refresh_output"
 assert_refresh_membership "$refresh_output" present || fail "added outbound group refresh state"
 
 write_refresh_fixture "$refresh_fixture" '["vless://00000000-0000-4000-8000-000000000003@gamma.example:443?encryption=none&security=tls&sni=gamma.example#Gamma"]'
-generate_config "$refresh_fixture" "$refresh_output"
-assert_refresh_membership "$refresh_output" absent || fail "removed outbound group refresh state"
+assert_generation_rejects "$refresh_fixture" "$WORK_DIR/removed-candidate.json"
+assert_refresh_membership "$refresh_output" present || fail "failed candidate changed previous generated config"
 
 cat >"$WORK_DIR/bad-filter-mode.json" <<'JSON'
 {

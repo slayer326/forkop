@@ -82,6 +82,19 @@ cat >"$WORK_DIR/bin/sing-box" <<'EOF_SING_BOX'
 echo 'sing-box version 1.12.25'
 EOF_SING_BOX
 chmod +x "$WORK_DIR/bin/sing-box"
+cat >"$WORK_DIR/bin/opkg" <<'EOF_OPKG'
+#!/bin/sh
+# Keep variant detection isolated from packages installed on the test host.
+[ "$1" = "list-installed" ] && exit 0
+exit 1
+EOF_OPKG
+chmod +x "$WORK_DIR/bin/opkg"
+cat >"$WORK_DIR/bin/apk" <<'EOF_APK'
+#!/bin/sh
+# Keep variant detection isolated from packages installed on the test host.
+exit 1
+EOF_APK
+chmod +x "$WORK_DIR/bin/apk"
 stable_variant="$({
   PATH="$WORK_DIR/bin:$PATH" \
     FORKOP_LIB="$FORKOP_LIB" \
@@ -98,6 +111,7 @@ mkdir -p "$WORK_DIR/check-bin"
 cat >"$WORK_DIR/check-bin/sing-box" <<'EOF_SING_BOX_CHECK'
 #!/bin/sh
 printf '\n' >&2
+printf '%s\n' 'WARN[0000] independent_cache is deprecated' >&2
 printf '%s\n' 'FATAL[0000] route: missing outbound tag' >&2
 exit 42
 EOF_SING_BOX_CHECK
@@ -109,8 +123,8 @@ if PATH="$WORK_DIR/check-bin:$PATH" \
   >"$WORK_DIR/sing-box-check.reason"; then
   fail "singbox/runtime.uc check fixture should preserve a failed sing-box status"
 fi
-[ "$(cat "$WORK_DIR/sing-box-check.reason")" = 'FATAL[0000] route: missing outbound tag' ] ||
-  fail "singbox/runtime.uc must return the first non-empty sing-box check diagnostic"
+grep -Fq 'FATAL[0000] route: missing outbound tag' "$WORK_DIR/sing-box-check.reason" ||
+  fail "singbox/runtime.uc must preserve the fatal diagnostic after warnings"
 grep -Fq 'Generated sing-box configuration is invalid: " + check_result.reason' "$SINGBOX_RUNTIME_UC" ||
   fail "generated config failure must include the captured sing-box check diagnostic"
 
@@ -153,7 +167,7 @@ generate_config() {
 
   mkdir -p "$output.section-cache" "$output.rulesets"
   ucode -L "$FORKOP_LIB" "$FORKOP_LIB/singbox/generator.uc" generate-config-fixture \
-    "$fixture" "$output" "127.0.0.1" "$mwan3_active" "1" "" "$sing_box_version"
+    "$fixture" "$output" "127.0.0.1" "$mwan3_active" "" "" "$sing_box_version"
 }
 
 generate_config_with_subscription_cache() {
@@ -243,6 +257,7 @@ grep -Fq '"example.org"' "$WORK_DIR/generated-from-uci.json" ||
 grep -Fq '"uci_proxy-out"' "$WORK_DIR/generated-from-uci.json" ||
   fail "singbox/generator.uc must read section names from core.uci"
 
+
 cat >"$WORK_DIR/disabled-updates-fixture.json" <<'JSON'
 {
   "settings": {
@@ -330,6 +345,7 @@ cat >"$WORK_DIR/runtime-matchers-fixture.json" <<'JSON'
       "ip_cidr": "77.111.247.0/24 #77.111.247.19\n198.51.100.0/24 //203.0.113.0/24",
       "source_ip_cidr": "10.0.0.2/32 #10.0.0.99\n2001:db8::2/128 //2001:db8::99/128",
       "ports_text": "80 # 443\n8080 // 8443",
+      "rule_set": [ "https://example.com/proxy-domains.srs" ],
       "outbound_detour_enabled": "1",
       "outbound_detour_section": "detour",
       "mixed_proxy_enabled": "1",
@@ -352,6 +368,37 @@ cat >"$WORK_DIR/runtime-matchers-fixture.json" <<'JSON'
       "enabled": "1",
       "action": "bypass",
       "domain": [ "source-priority.test" ]
+    }
+  ]
+}
+JSON
+
+cat >"$WORK_DIR/section-exclusion-fixture.json" <<'JSON'
+{
+  "settings": {
+    ".name": "settings",
+    ".type": "settings",
+    "config_path": "/tmp/sing-box/config.json",
+    "dns_server": "1.1.1.1",
+    "service_listen_address": "127.0.0.1"
+  },
+  "section": [
+    {
+      ".name": "d1",
+      ".type": "section",
+      "enabled": "1",
+      "action": "connection",
+      "outbound_jsons": [ "{\"type\":\"direct\",\"tag\":\"finland\"}" ],
+      "community_lists": [ "youtube" ],
+      "excluded_source_ip_cidr": [ "192.168.1.50/32", "2001:db8::50/128" ]
+    },
+    {
+      ".name": "d2",
+      ".type": "section",
+      "enabled": "1",
+      "action": "connection",
+      "outbound_jsons": [ "{\"type\":\"direct\",\"tag\":\"germany\"}" ],
+      "community_lists": [ "youtube" ]
     }
   ]
 }
@@ -1038,35 +1085,12 @@ printf '%s' 'Happ' >"$WORK_DIR/subscriptions/only_xhttp-subscription-1.user_agen
 
 generate_config "$WORK_DIR/disabled-updates-fixture.json" "$WORK_DIR/disabled.json"
 generate_config "$WORK_DIR/default-updates-fixture.json" "$WORK_DIR/default.json"
-for version in 1.13.0 1.14.0-alpha.1 v1.14.0 2.0.0; do
-  generate_config "$WORK_DIR/default-updates-fixture.json" "$WORK_DIR/dns-$version.json" 0 "$version"
-  ucode -e '
-    let config = json(require("fs").readfile(ARGV[0]));
-    let expected = ARGV[1] == "1.13.0";
-    if ((config.dns.independent_cache == true) != expected)
-        die("independent_cache version compatibility failed: " + ARGV[1] + "\n");
-  ' "$WORK_DIR/dns-$version.json" "$version"
-done
 generate_config "$WORK_DIR/runtime-matchers-fixture.json" "$WORK_DIR/matchers.json"
-generate_config "$WORK_DIR/runtime-matchers-fixture.json" "$WORK_DIR/matchers-1.14.json" 0 1.14.0
-ucode -e '
-  let config = json(require("fs").readfile(ARGV[0]));
-  let evaluated = false, matched = false;
-  for (let rule in config.dns.rules || []) {
-    if (rule.action == "evaluate" && rule.server == "dns-server")
-      evaluated = true;
-    if (rule.type == "logical" && rule.server == "dnsmasq-server") {
-      for (let child in rule.rules || []) {
-        if (child.ip_cidr != null) {
-          if (!evaluated || child.match_response !== true)
-            die("sing-box 1.14 address matching needs prior evaluation and match_response\n");
-          matched = true;
-        }
-      }
-    }
-  }
-  if (!matched) die("source-aware bypass response matching is missing\n");
-' "$WORK_DIR/matchers-1.14.json"
+generate_config "$WORK_DIR/runtime-matchers-fixture.json" "$WORK_DIR/matchers-112.json" 0 "1.12.25"
+generate_config "$WORK_DIR/runtime-matchers-fixture.json" "$WORK_DIR/matchers-113.json" 0 "1.13.18"
+generate_config "$WORK_DIR/runtime-matchers-fixture.json" "$WORK_DIR/matchers-114.json" 0 "1.14.0"
+generate_config "$WORK_DIR/section-exclusion-fixture.json" "$WORK_DIR/section-exclusion-pre114.json" 0 "1.13.4"
+generate_config "$WORK_DIR/section-exclusion-fixture.json" "$WORK_DIR/section-exclusion-114.json" 0 "1.14.0"
 generate_config "$WORK_DIR/dns-action-fixture.json" "$WORK_DIR/dns-action.json"
 generate_config "$WORK_DIR/urltest-filter-fixture.json" "$WORK_DIR/urltest.json"
 if generate_config "$WORK_DIR/manual-http-fixture.json" "$WORK_DIR/manual-http.json" \
@@ -1132,6 +1156,27 @@ function contains(values, needle) {
     for (let value in as_array(values))
         if (value == needle)
             return true;
+    return false;
+}
+
+function matcher_contains(rule, key, needle) {
+    if (rule == null)
+        return false;
+    if (contains(rule[key], needle))
+        return true;
+    for (let child in rule.rules || [])
+        if (matcher_contains(child, key, needle))
+            return true;
+    return false;
+}
+
+function excludes_source(rule, needle) {
+    for (let child in rule.rules || []) {
+        if (child.invert === true && contains(child.source_ip_cidr, needle))
+            return true;
+        if (excludes_source(child, needle))
+            return true;
+    }
     return false;
 }
 
@@ -1241,6 +1286,22 @@ assert(defaults.dns.strategy == "prefer_ipv4", "missing DNS strategy keeps the p
 assert(dns_server(defaults, r => r.tag == "dnsmasq-server") == null, "source-aware DNS server is omitted without device filters");
 
 let matchers = cfg("matchers");
+let matchers112 = cfg("matchers-112");
+let matchers113 = cfg("matchers-113");
+let matchers114 = cfg("matchers-114");
+for (let version_name in [ "section-exclusion-pre114", "section-exclusion-114" ]) {
+    let exclusion = cfg(version_name);
+    let d1_dns_index = dns_rule_index(exclusion, r => r.server == "fakeip-server" && matcher_contains(r, "rule_set", "d1-youtube-community-ruleset"));
+    let d2_dns_index = dns_rule_index(exclusion, r => r.server == "fakeip-server" && matcher_contains(r, "rule_set", "d2-youtube-community-ruleset"));
+    let d1_route_index = route_rule_index(exclusion, r => r.outbound == "d1-out" && matcher_contains(r, "rule_set", "d1-youtube-community-ruleset"));
+    let d2_route_index = route_rule_index(exclusion, r => r.outbound == "d2-out" && matcher_contains(r, "rule_set", "d2-youtube-community-ruleset"));
+    assert(d1_dns_index >= 0 && excludes_source(exclusion.dns.rules[d1_dns_index], "192.168.1.50/32"), version_name + " excludes the smartphone from d1 DNS");
+    assert(d2_dns_index > d1_dns_index && !excludes_source(exclusion.dns.rules[d2_dns_index], "192.168.1.50/32"), version_name + " lets the smartphone fall through to d2 DNS");
+    assert(d1_route_index >= 0 && excludes_source(exclusion.route.rules[d1_route_index], "192.168.1.50/32"), version_name + " excludes the smartphone from d1 route");
+    assert(d2_route_index > d1_route_index && !excludes_source(exclusion.route.rules[d2_route_index], "192.168.1.50/32"), version_name + " lets the smartphone fall through to d2 route");
+    let exclusion_fallback = dns_rule(exclusion, r => r.server == "dnsmasq-server" && r.type == null && r.domain == null && r.rule_set == null);
+    assert(exclusion_fallback && contains(exclusion_fallback.source_ip_cidr, "192.168.1.50/32"), version_name + " sends unmatched excluded-device DNS back to dnsmasq");
+}
 assert(matchers.dns.strategy == "prefer_ipv6", "configured DNS strategy is generated");
 assert(dns_server(matchers, r => r.tag == "fakeip-server" && r.inet6_range == "fc00::/18") != null, "FakeIP IPv6 range");
 assert(inbound(matchers, "tproxy6-in") != null, "IPv6 TProxy inbound");
@@ -1268,6 +1329,24 @@ let bypass_real = dns_rule(matchers, r =>
 assert(bypass_real != null && contains(bypass_real.query_type, "A") && contains(bypass_real.query_type, "AAAA"), "filtered bypass falls back to real address resolution");
 assert(dns_rule(matchers, r => r.server == "dns-server" && contains(r.domain_suffix, "example.org") && r.source_ip_cidr == null) == null, "filtered bypass no longer changes DNS for every device");
 assert(dns_rule(matchers, r => r.server == "fakeip-server" && contains(r.domain_suffix, "example.org") && r.source_ip_cidr == null) != null, "lower global proxy still gives FakeIP to other devices");
+let bypass_evaluate114 = dns_rule(matchers114, r =>
+    r.action == "evaluate" && r.server == "dnsmasq-server" &&
+    contains(r.domain_suffix, "example.org") && contains(r.source_ip_cidr, "10.0.0.3/32"));
+assert(bypass_evaluate114 != null, "sing-box 1.14 evaluates the dnsmasq answer for source-aware bypass");
+let bypass_respond114 = dns_rule(matchers114, r =>
+    r.type == "logical" && r.action == "respond" &&
+    length(r.rules || []) == 2 && contains(r.rules[0].domain_suffix, "example.org"));
+assert(bypass_respond114 != null && bypass_respond114.server == null, "sing-box 1.14 returns an accepted evaluated dnsmasq answer");
+assert(bypass_respond114.rules[1].match_response === true && bypass_respond114.rules[1].invert === true, "sing-box 1.14 checks the evaluated answer outside the FakeIP ranges");
+assert(dns_rule(matchers114, r => r.action == "evaluate" && r.server == "dns-server" && contains(r.domain_suffix, "example.org")) == null, "sing-box 1.14 does not evaluate the fallback resolver before the dnsmasq filter");
+for (let legacy in [ matchers112, matchers113 ]) {
+    let legacy_probe = dns_rule(legacy, r => r.type == "logical" && r.server == "dnsmasq-server" && length(r.rules || []) == 2 && contains(r.rules[0].domain_suffix, "example.org"));
+    let legacy_fallback = dns_rule(legacy, r => r.server == "dns-server" && contains(r.domain_suffix, "example.org") && contains(r.source_ip_cidr, "10.0.0.3/32"));
+    assert(legacy_probe != null && legacy_probe.action == "route" && legacy_probe.rules[1].match_response == null, "pre-1.14 keeps the legacy dnsmasq response-filter route");
+    assert(legacy_fallback != null && legacy_fallback.action == "route", "pre-1.14 keeps the real-resolver fallback route");
+    assert(dns_rule(legacy, r => r.action == "evaluate" && contains(r.domain_suffix, "example.org")) == null, "pre-1.14 does not emit unsupported evaluate actions");
+    assert(dns_rule(legacy, r => r.action == "respond" && contains(r.domain_suffix, "example.org")) == null, "pre-1.14 does not emit unsupported respond actions");
+}
 let scoped_proxy_dns = dns_rule(matchers, r => r.server == "fakeip-server" && contains(r.domain_suffix, "proxy.example.org"));
 assert(scoped_proxy_dns != null && contains(scoped_proxy_dns.source_ip_cidr, "10.0.0.2/32") && contains(scoped_proxy_dns.inbound, "source-dns-in"), "filtered proxy gives FakeIP only to its devices");
 let source_dns_fallback = dns_rule(matchers, r =>
@@ -1297,6 +1376,11 @@ assert(route_rule(matchers, r => r.outbound == "proxy-out" && contains(r.domain_
 assert(route_rule(matchers, r => r.outbound == "proxy-out" && contains(r.domain, "xn--e1afmkfd.xn--80akhbyknj4f")) != null, "IDN full domain converted for route rule");
 assert(route_rule(matchers, r => r.outbound == "proxy-out" && contains(r.domain_keyword, "xn--e1afmkfd")) != null, "IDN keyword converted for route rule");
 assert(route_rule(matchers, r => r.outbound == "proxy-out" && contains(r.domain_regex, "^xn--80aswg[.]xn--p1ai$")) != null, "IDN regex converted for route rule");
+let proxy_remote_ruleset = ruleset_url(matchers, "https://example.com/proxy-domains.srs");
+let proxy_ruleset_route = proxy_remote_ruleset && route_rule(matchers, r => r.outbound == "proxy-out" && contains(r.rule_set, proxy_remote_ruleset.tag));
+assert(proxy_ruleset_route != null && proxy_ruleset_route.domain == null && proxy_ruleset_route.domain_suffix == null && proxy_ruleset_route.ip_cidr == null, "rule-set route remains an alternative to inline matchers");
+assert(contains(proxy_ruleset_route.source_ip_cidr, "10.0.0.2/32") && contains(proxy_ruleset_route.port, 80), "rule-set route preserves shared source and port filters");
+assert(route_rule(matchers, r => r.outbound == "proxy-out" && contains(r.domain_suffix, "proxy.example.org") && r.rule_set == null) != null, "inline route is not ANDed with a rule-set");
 assert(route_rule(matchers, r => contains(r.inbound, "tproxy-in") && contains(r.inbound, "tproxy6-in") && r.outbound == "proxy-out") != null, "section route dual tproxy inbound");
 assert(route_rule(matchers, r => r.outbound == "direct-out" && contains(r.source_ip_cidr, "192.168.1.5/32")) == null, "routing excluded source removed");
 assert(route_rule(matchers, r => r.outbound == "proxy-out" && contains(r.source_ip_cidr, "10.0.0.2/32") && contains(r.source_ip_cidr, "2001:db8::2/128")) != null, "source_ip_cidr matcher");
