@@ -1,0 +1,44 @@
+[Unit]
+Description=Download and publish the latest signed Forkop release
+After=network-online.target local-fs.target
+Wants=network-online.target
+RequiresMountsFor=/mnt/storage/forkop-mirror
+
+[Service]
+Type=oneshot
+User=forkop-mirror
+Group=forkop-mirror
+WorkingDirectory=/mnt/storage/forkop-mirror/config
+Environment=PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+Environment=MIRROR_ROOT=/mnt/storage/forkop-mirror/data/public/forkop
+Environment=FORKOP_BUILD_ROOT=/mnt/storage/forkop-mirror/build/releases
+Environment=FORKOP_RELEASE_LOCK_FILE=/mnt/storage/forkop-mirror/data/.forkop-release-sync.lock
+Environment=FORKOP_PUBLISH_COMMAND=/usr/local/sbin/publish-forkop-feed
+Environment=FORKOP_APK_PRIVATE_KEY=/mnt/storage/forkop-mirror/keys/forkop-apk.pem
+Environment=APK_BIN=/mnt/storage/forkop-mirror/tools/apk-runtime/bin/apk
+ExecStart=/usr/bin/python3 /mnt/storage/forkop-mirror/config/sync-forkop-release.py
+Nice=15
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+CPUQuota=25%
+MemoryMax=256M
+MemorySwapMax=0
+TasksMax=16
+IOWeight=10
+IOReadBandwidthMax=/mnt/storage 4M
+IOWriteBandwidthMax=/mnt/storage 4M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/mnt/storage/forkop-mirror/data /mnt/storage/forkop-mirror/build /mnt/storage/forkop-mirror/keys
+UMask=0022
+TimeoutStartSec=15min

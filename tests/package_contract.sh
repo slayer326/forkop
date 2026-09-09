@@ -139,6 +139,10 @@ grep -Fq "list applied_migrations 'retired_secondary_rulesets_v2'" "$FORKOP_CONF
   fail "new installations must mark the updated retired secondary rule set migration as applied"
 grep -Fq "list applied_migrations 'secondary_rulesets_mirror_v1'" "$FORKOP_CONFIG" ||
   fail "new installations must mark the secondary rule set mirror migration as applied"
+grep -Fq "list applied_migrations 'own_dependency_mirror_v1'" "$FORKOP_CONFIG" ||
+  fail "new installations must mark the own dependency mirror migration as applied"
+grep -Fq "list applied_migrations 'mirror_infotechtg_ru_v1'" "$FORKOP_CONFIG" ||
+  fail "new installations must mark the own package mirror migration as applied"
 grep -Fq '/usr/lib/forkop/config/migration.uc migrate' "$FORKOP_MAKEFILE" ||
   fail "OpenWrt package postinst must run configuration migrations"
 [ "$(grep -Fc '/usr/lib/forkop/config/migration.uc migrate' "$BUILD_SCRIPT")" -ge 3 ] ||
