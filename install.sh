@@ -31,8 +31,11 @@ FORKOP_LEGACY_DETECTED=0
 LEGACY_CLEANUP_DONE=0
 LEGACY_CLEANUP_STARTED=0
 FORKOP_I18N_REQUESTED=0
-INSTALLER_LANG="en"
+INSTALLER_LANG="ru"
+INSTALLER_LANG_EXPLICIT=0
+INSTALLER_LANG_DETECTED=0
 SING_BOX_INSTALL_VARIANT=""
+SING_BOX_INSTALL_VARIANT_EXPLICIT=0
 SING_BOX_TINY_FILE=""
 SING_BOX_TINY_SWITCHED=0
 SING_BOX_CHANGE_STARTED=0
@@ -92,8 +95,17 @@ Installs or updates Forkop packages:
 
 sing-box policy:
   - preserve the currently installed sing-box variant
-  - install sing-box-tiny when sing-box is absent
-  - offer a switch to tiny only when the flash-space preflight requires it
+  - ask for tiny, stable, or extended when sing-box is absent
+  - install sing-box-tiny by default without an interactive terminal
+
+Interactive setup:
+  - choose Russian or English on a clean installation
+  - choose tiny, stable, or extended on a clean installation
+
+Selection options:
+  --language, --lang ru|en   Select the installer language without a prompt
+  --sing-box tiny|stable|extended
+                             Select sing-box without a prompt on a clean install
 
 Automation options (must be explicitly requested):
   --allow-low-space-tiny       Allow stable/extended sing-box to be replaced
@@ -115,6 +127,56 @@ parse_args() {
                 ;;
             --confirm-legacy-migration)
                 CONFIRM_LEGACY_MIGRATION=1
+                ;;
+            --language|--lang)
+                [ "$#" -ge 2 ] || fail "$1 requires ru or en"
+                case "$2" in
+                    ru|en)
+                        INSTALLER_LANG="$2"
+                        INSTALLER_LANG_EXPLICIT=1
+                        ;;
+                    *)
+                        fail "$1 requires ru or en"
+                        ;;
+                esac
+                shift
+                ;;
+            --language=*|--lang=*)
+                language_value="${1#*=}"
+                case "$language_value" in
+                    ru|en)
+                        INSTALLER_LANG="$language_value"
+                        INSTALLER_LANG_EXPLICIT=1
+                        ;;
+                    *)
+                        fail "$1 requires ru or en"
+                        ;;
+                esac
+                ;;
+            --sing-box)
+                [ "$#" -ge 2 ] || fail "$1 requires tiny, stable, or extended"
+                case "$2" in
+                    tiny|stable|extended)
+                        SING_BOX_INSTALL_VARIANT="$2"
+                        SING_BOX_INSTALL_VARIANT_EXPLICIT=1
+                        ;;
+                    *)
+                        fail "$1 requires tiny, stable, or extended"
+                        ;;
+                esac
+                shift
+                ;;
+            --sing-box=*)
+                sing_box_value="${1#*=}"
+                case "$sing_box_value" in
+                    tiny|stable|extended)
+                        SING_BOX_INSTALL_VARIANT="$sing_box_value"
+                        SING_BOX_INSTALL_VARIANT_EXPLICIT=1
+                        ;;
+                    *)
+                        fail "$1 requires tiny, stable, or extended"
+                        ;;
+                esac
                 ;;
             *)
                 fail "Unknown installer option: $1"
@@ -142,6 +204,11 @@ command_exists() {
 
 interactive_terminal_available() {
     [ -r /dev/tty ] && [ -w /dev/tty ] && (: </dev/tty) 2>/dev/null
+}
+
+read_installer_answer() {
+    # stdin may contain the installer itself when invoked via wget | sh.
+    read -r "$@" </dev/tty
 }
 
 init_tmp_dir() {
@@ -2183,6 +2250,9 @@ installer_text() {
             no) printf '%s\n' "Нет" ;;
             select) printf '%s\n' "Выберите номер" ;;
             invalid_choice) printf '%s\n' "Введите номер из списка." ;;
+            language_prompt) printf '%s\n' "Выберите язык установщика:" ;;
+            language_ru) printf '%s\n' "Русский" ;;
+            language_en) printf '%s\n' "English" ;;
             i18n_installed) printf '%s\n' "Русский пакет интерфейса уже установлен и будет обновлен." ;;
             i18n_prompt) printf '%s\n' "Установить русский пакет интерфейса?" ;;
             i18n_skip) printf '%s\n' "Продолжаю без русского пакета интерфейса." ;;
@@ -2208,6 +2278,9 @@ installer_text() {
         no) printf '%s\n' "No" ;;
         select) printf '%s\n' "Select a number" ;;
         invalid_choice) printf '%s\n' "Enter a number from the list." ;;
+        language_prompt) printf '%s\n' "Select the installer language:" ;;
+        language_ru) printf '%s\n' "Russian" ;;
+        language_en) printf '%s\n' "English" ;;
         i18n_installed) printf '%s\n' "The Russian interface package is already installed and will be updated." ;;
         i18n_prompt) printf '%s\n' "Install the Russian interface language package?" ;;
         i18n_skip) printf '%s\n' "Continuing without the Russian interface language package." ;;
@@ -2228,17 +2301,68 @@ installer_text() {
 }
 
 detect_installer_language() {
-    luci_lang="$(get_luci_main_lang)"
+    INSTALLER_LANG_DETECTED=0
+    if [ "$INSTALLER_LANG_EXPLICIT" -eq 1 ]; then
+        return 0
+    fi
 
-    INSTALLER_LANG="en"
+    luci_lang="$(get_luci_main_lang)"
+    if [ "$INSTALL_MODE" = "clean" ]; then
+        INSTALLER_LANG="ru"
+    else
+        INSTALLER_LANG="en"
+        INSTALLER_LANG_DETECTED=1
+    fi
     if pkg_is_installed "luci-i18n-forkop-ru"; then
         INSTALLER_LANG="ru"
+        INSTALLER_LANG_DETECTED=1
         return 0
     fi
 
     case "$luci_lang" in
-        ru|ru_*|ru-*) INSTALLER_LANG="ru" ;;
+        ru|ru_*|ru-*)
+            INSTALLER_LANG="ru"
+            INSTALLER_LANG_DETECTED=1
+            ;;
     esac
+}
+
+select_installer_language() {
+    answer=""
+    default_choice=1
+
+    if [ "$INSTALLER_LANG_EXPLICIT" -eq 1 ] ||
+        { [ "$INSTALL_MODE" != "clean" ] && [ "$INSTALLER_LANG_DETECTED" -eq 1 ]; }; then
+        return 0
+    fi
+
+    if ! interactive_terminal_available; then
+        msg "$(installer_text language_prompt) $default_choice ($(installer_text language_$INSTALLER_LANG), non-interactive; use --lang to override)"
+        return 0
+    fi
+
+    while :; do
+        printf '\n%s\n' "$(installer_text language_prompt)"
+        printf '  1) %s\n' "$(installer_text language_ru)"
+        printf '  2) %s\n' "$(installer_text language_en)"
+        printf '%s [%s]: ' "$(installer_text select)" "$default_choice"
+        read_installer_answer answer || return 1
+        [ -n "$answer" ] || answer="$default_choice"
+
+        case "$answer" in
+            1)
+                INSTALLER_LANG="ru"
+                return 0
+                ;;
+            2)
+                INSTALLER_LANG="en"
+                return 0
+                ;;
+            *)
+                warn "$(installer_text invalid_choice)"
+                ;;
+        esac
+    done
 }
 
 numbered_yes_no_prompt() {
@@ -2255,7 +2379,7 @@ numbered_yes_no_prompt() {
         printf '  1) %s\n' "$(installer_text yes)"
         printf '  2) %s\n' "$(installer_text no)"
         printf '%s [2]: ' "$(installer_text select)"
-        read -r answer </dev/tty || return 1
+        read_installer_answer answer || return 1
 
         case "$answer" in
             1)
@@ -2364,6 +2488,9 @@ sing_box_is_present() {
 }
 
 select_sing_box_installation() {
+    answer=""
+    default_choice=1
+
     if legacy_binary_managed_sing_box_present; then
         SING_BOX_INSTALL_VARIANT="extended-compressed"
         msg "The legacy binary-managed sing-box variant will be reinstalled for Forkop"
@@ -2375,8 +2502,44 @@ select_sing_box_installation() {
         return 0
     fi
 
-    SING_BOX_INSTALL_VARIANT="tiny"
-    msg "sing-box is not installed; sing-box-tiny will be installed"
+    if [ "$SING_BOX_INSTALL_VARIANT_EXPLICIT" -eq 1 ]; then
+        msg "$(installer_text sing_box_prompt): $(installer_text sing_box_$SING_BOX_INSTALL_VARIANT)"
+        return 0
+    fi
+
+    if ! interactive_terminal_available; then
+        SING_BOX_INSTALL_VARIANT="tiny"
+        msg "$(installer_text sing_box_prompt): $default_choice ($(installer_text sing_box_tiny), non-interactive)"
+        return 0
+    fi
+
+    while :; do
+        printf '\n%s\n' "$(installer_text sing_box_prompt)"
+        printf '  1) %s\n' "$(installer_text sing_box_tiny)"
+        printf '  2) %s\n' "$(installer_text sing_box_stable)"
+        printf '  3) %s\n' "$(installer_text sing_box_extended)"
+        printf '%s [%s]: ' "$(installer_text select)" "$default_choice"
+        read_installer_answer answer || return 1
+        [ -n "$answer" ] || answer="$default_choice"
+
+        case "$answer" in
+            1)
+                SING_BOX_INSTALL_VARIANT="tiny"
+                return 0
+                ;;
+            2)
+                SING_BOX_INSTALL_VARIANT="stable"
+                return 0
+                ;;
+            3)
+                SING_BOX_INSTALL_VARIANT="extended"
+                return 0
+                ;;
+            *)
+                warn "$(installer_text invalid_choice)"
+                ;;
+        esac
+    done
 }
 
 install_selected_sing_box() {
@@ -2543,16 +2706,23 @@ decide_i18n_installation() {
         return 0
     fi
 
-    case "$luci_lang" in
-        ru|ru_*|ru-*)
+    if [ "$INSTALL_MODE" != "clean" ] && [ "$INSTALLER_LANG_DETECTED" -eq 1 ]; then
+        if [ "$INSTALLER_LANG" = "ru" ]; then
             FORKOP_I18N_REQUESTED=1
-            INSTALLER_LANG="ru"
             msg "$(installer_text luci_ru)"
-            return 0
-            ;;
-    esac
+        else
+            msg "$(installer_text i18n_skip)"
+        fi
+        return 0
+    fi
 
-    msg "$(installer_text i18n_skip)"
+    select_installer_language || fail "Installer language selection was cancelled"
+    if [ "$INSTALLER_LANG" = "ru" ]; then
+        FORKOP_I18N_REQUESTED=1
+        msg "$(installer_text luci_ru)"
+    else
+        msg "$(installer_text i18n_skip)"
+    fi
 }
 
 download_forkop_packages() {
@@ -2654,7 +2824,7 @@ main() {
     detect_legacy_installation
     detect_install_mode
     decide_i18n_installation
-    select_sing_box_installation
+    select_sing_box_installation || fail "sing-box selection was cancelled"
 
     pkg_list_update || fail "Failed to update package lists"
     ensure_bootstrap_ucode_runtime

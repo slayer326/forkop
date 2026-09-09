@@ -7309,6 +7309,10 @@ function createSectionContent(section) {
   );
   o.default = "0";
   o.rmempty = false;
+  o.depends("action", "connection");
+  o.depends("action", "proxy");
+  o.depends("action", "outbound");
+  o.depends("action", "vpn");
   o.depends("action", "byedpi");
   o.depends("action", "zapret");
   o.depends("action", "zapret2");
@@ -7322,6 +7326,10 @@ function createSectionContent(section) {
     _("Port for the local mixed proxy of this section"),
   );
   o.rmempty = false;
+  o.depends({ action: "connection", mixed_proxy_enabled: "1" });
+  o.depends({ action: "proxy", mixed_proxy_enabled: "1" });
+  o.depends({ action: "outbound", mixed_proxy_enabled: "1" });
+  o.depends({ action: "vpn", mixed_proxy_enabled: "1" });
   o.depends({ action: "byedpi", mixed_proxy_enabled: "1" });
   o.depends({ action: "zapret", mixed_proxy_enabled: "1" });
   o.depends({ action: "zapret2", mixed_proxy_enabled: "1" });
@@ -7331,8 +7339,8 @@ function createSectionContent(section) {
       return _("Port cannot be empty");
     }
 
-    const parsed = parseInt(value, 10);
-    if (!isNaN(parsed) && parsed >= 1 && parsed <= 65535) {
+    const parsed = Number(value);
+    if (/^[0-9]+$/.test(value) && parsed >= 1 && parsed <= 65535) {
       return true;
     }
 
@@ -7348,6 +7356,10 @@ function createSectionContent(section) {
   );
   o.default = "0";
   o.rmempty = false;
+  o.depends({ action: "connection", mixed_proxy_enabled: "1" });
+  o.depends({ action: "proxy", mixed_proxy_enabled: "1" });
+  o.depends({ action: "outbound", mixed_proxy_enabled: "1" });
+  o.depends({ action: "vpn", mixed_proxy_enabled: "1" });
   o.depends({ action: "byedpi", mixed_proxy_enabled: "1" });
   o.depends({ action: "zapret", mixed_proxy_enabled: "1" });
   o.depends({ action: "zapret2", mixed_proxy_enabled: "1" });
@@ -7360,6 +7372,26 @@ function createSectionContent(section) {
     _("Mixed Proxy Username"),
   );
   o.rmempty = false;
+  o.depends({
+    action: "connection",
+    mixed_proxy_enabled: "1",
+    mixed_proxy_auth_enabled: "1",
+  });
+  o.depends({
+    action: "proxy",
+    mixed_proxy_enabled: "1",
+    mixed_proxy_auth_enabled: "1",
+  });
+  o.depends({
+    action: "outbound",
+    mixed_proxy_enabled: "1",
+    mixed_proxy_auth_enabled: "1",
+  });
+  o.depends({
+    action: "vpn",
+    mixed_proxy_enabled: "1",
+    mixed_proxy_auth_enabled: "1",
+  });
   o.depends({
     action: "byedpi",
     mixed_proxy_enabled: "1",
@@ -7390,7 +7422,28 @@ function createSectionContent(section) {
     "mixed_proxy_password",
     _("Mixed Proxy Password"),
   );
+  o.password = true;
   o.rmempty = false;
+  o.depends({
+    action: "connection",
+    mixed_proxy_enabled: "1",
+    mixed_proxy_auth_enabled: "1",
+  });
+  o.depends({
+    action: "proxy",
+    mixed_proxy_enabled: "1",
+    mixed_proxy_auth_enabled: "1",
+  });
+  o.depends({
+    action: "outbound",
+    mixed_proxy_enabled: "1",
+    mixed_proxy_auth_enabled: "1",
+  });
+  o.depends({
+    action: "vpn",
+    mixed_proxy_enabled: "1",
+    mixed_proxy_auth_enabled: "1",
+  });
   o.depends({
     action: "byedpi",
     mixed_proxy_enabled: "1",

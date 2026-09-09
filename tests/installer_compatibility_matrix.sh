@@ -118,15 +118,109 @@ select_sing_box_installation >/dev/null
 
 interactive_terminal_available() { return 0; }
 SING_BOX_INSTALL_VARIANT=""
+SING_BOX_INSTALL_VARIANT_EXPLICIT=1
+parse_args --sing-box extended
+[ "$SING_BOX_INSTALL_VARIANT" = "extended" ] ||
+  fail_test "explicit sing-box selection must be parsed"
+
+INSTALLER_LANG="en"
+INSTALLER_LANG_EXPLICIT=0
+parse_args --lang ru
+[ "$INSTALLER_LANG" = "ru" ] ||
+  fail_test "explicit installer language must be parsed"
+
+interactive_terminal_available() { return 1; }
+SING_BOX_INSTALL_VARIANT=""
+SING_BOX_INSTALL_VARIANT_EXPLICIT=0
 select_sing_box_installation >/dev/null
 [ "$SING_BOX_INSTALL_VARIANT" = "tiny" ] ||
-  fail_test "fresh interactive installation must also select tiny without prompting"
+  fail_test "fresh non-interactive installation must default to sing-box-tiny"
 
 SING_BOX_INSTALL_VARIANT="sentinel"
 sing_box_is_present() { return 0; }
 select_sing_box_installation >/dev/null
 [ -z "$SING_BOX_INSTALL_VARIANT" ] ||
   fail_test "upgrade must preserve the installed sing-box variant"
+
+# A clean interactive install defaults to Russian, but the menu can select
+# English and each sing-box option remains selectable.
+INSTALL_MODE="clean"
+INSTALLER_LANG="ru"
+INSTALLER_LANG_EXPLICIT=0
+INSTALLER_LANG_DETECTED=0
+pkg_is_installed() { return 1; }
+get_luci_main_lang() { printf '%s\n' en; }
+detect_installer_language
+[ "$INSTALLER_LANG" = "ru" ] ||
+  fail_test "clean installation must default to Russian when LuCI is English"
+
+interactive_terminal_available() { return 1; }
+select_installer_language >/dev/null
+[ "$INSTALLER_LANG" = "ru" ] ||
+  fail_test "non-interactive clean installation must default to Russian"
+
+interactive_terminal_available() { return 0; }
+read_installer_answer() { answer="2"; return 0; }
+select_installer_language >/dev/null
+[ "$INSTALLER_LANG" = "en" ] ||
+  fail_test "interactive language menu must allow selecting English"
+
+SING_BOX_INSTALL_VARIANT=""
+SING_BOX_INSTALL_VARIANT_EXPLICIT=0
+sing_box_is_present() { return 1; }
+read_installer_answer() { answer="$TEST_SING_BOX_ANSWER"; return 0; }
+for TEST_SING_BOX_ANSWER in 1 2 3; do
+  SING_BOX_INSTALL_VARIANT=""
+  select_sing_box_installation >/dev/null
+  case "$TEST_SING_BOX_ANSWER:$SING_BOX_INSTALL_VARIANT" in
+    1:tiny|2:stable|3:extended) ;;
+    *) fail_test "interactive sing-box menu selected an unexpected variant: $TEST_SING_BOX_ANSWER/$SING_BOX_INSTALL_VARIANT" ;;
+  esac
+done
+
+INSTALLER_LANG="ru"
+INSTALLER_LANG_EXPLICIT=0
+INSTALLER_LANG_DETECTED=0
+read_installer_answer() { answer=""; return 0; }
+select_installer_language >/dev/null
+[ "$INSTALLER_LANG" = "ru" ] ||
+  fail_test "clean interactive language menu must default to Russian"
+
+INSTALL_MODE="update"
+INSTALLER_LANG="ru"
+INSTALLER_LANG_EXPLICIT=0
+INSTALLER_LANG_DETECTED=0
+get_luci_main_lang() { printf '%s\n' en; }
+detect_installer_language
+[ "$INSTALLER_LANG" = "en" ] && [ "$INSTALLER_LANG_DETECTED" -eq 1 ] ||
+  fail_test "update must preserve the detected English installer language"
+interactive_terminal_available() { return 0; }
+read_installer_answer() { fail_test "update must not prompt for an already detected language"; }
+select_installer_language >/dev/null
+
+# The explicit options make pipe-based installation deterministic without
+# consuming stdin, while interactive sessions use the menus above.
+INSTALLER_LANG="en"
+INSTALLER_LANG_EXPLICIT=0
+SING_BOX_INSTALL_VARIANT=""
+SING_BOX_INSTALL_VARIANT_EXPLICIT=0
+parse_args --language=ru --sing-box stable
+[ "$INSTALLER_LANG" = "ru" ] && [ "$INSTALLER_LANG_EXPLICIT" -eq 1 ] ||
+  fail_test "explicit Russian language selection must be retained"
+[ "$SING_BOX_INSTALL_VARIANT" = "stable" ] && [ "$SING_BOX_INSTALL_VARIANT_EXPLICIT" -eq 1 ] ||
+  fail_test "explicit stable sing-box selection must be retained"
+
+INSTALL_MODE="clean"
+FORKOP_I18N_REQUESTED=0
+INSTALLER_LANG="en"
+INSTALLER_LANG_EXPLICIT=1
+INSTALLER_LANG_DETECTED=0
+pkg_is_installed() { return 1; }
+get_luci_main_lang() { printf '%s\n' ru; }
+select_installer_language() { INSTALLER_LANG="ru"; }
+decide_i18n_installation >/dev/null
+[ "$FORKOP_I18N_REQUESTED" -eq 1 ] ||
+  fail_test "Russian selection must request the Russian LuCI package"
 
 printf x >"$WORK_DIR/backend.ipk"
 printf xx >"$WORK_DIR/app.ipk"
