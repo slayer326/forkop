@@ -195,13 +195,21 @@ if [ "$PACKAGE_MANAGER" = "apk" ]; then
     fi
 
     forkop_repository="$repositories_dir/forkop.list"
-    backup_transaction_file "$forkop_repository"
-    printf '%s\n' "$MIRROR_BASE_URL/forkop/mirror/current/packages.adb" > "$forkop_repository"
+    forkop_repository_tmp="$TRANSACTION_DIR/forkop.list.new"
+    printf '%s\n' "$MIRROR_BASE_URL/forkop/mirror/current/packages.adb" > "$forkop_repository_tmp"
+    if ! cmp -s "$forkop_repository_tmp" "$forkop_repository"; then
+        backup_transaction_file "$forkop_repository"
+        cp "$forkop_repository_tmp" "$forkop_repository"
+    fi
 else
     rewrite_repository_file "$opkg_distfeeds"
 fi
 
-if [ "$TRANSACTION_COUNT" -gt 0 ]; then
+# Package managers hold their database lock while package post-install/upgrade
+# scripts run. Never invoke apk/opkg recursively from that context. The
+# platform readiness check above still validates that the selected mirror
+# contains the exact OpenWrt target before repository changes are committed.
+if [ "$TRANSACTION_COUNT" -gt 0 ] && [ "${FORKOP_PACKAGE_POSTINST:-0}" != "1" ]; then
     update_package_index
 fi
 

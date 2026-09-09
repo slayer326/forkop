@@ -53,7 +53,7 @@ define Package/forkop/postinst
 
 [ -n "$${IPKG_INSTROOT}" ] && exit 0
 FORKOP_LIB=/usr/lib/forkop ucode -L /usr/lib/forkop /usr/lib/forkop/config/migration.uc migrate || exit $$?
-/usr/share/forkop/mirror-migration.sh || exit $$?
+FORKOP_PACKAGE_POSTINST=1 /usr/share/forkop/mirror-migration.sh || exit $$?
 /usr/bin/forkop package_postinst
 endef
 

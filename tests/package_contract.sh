@@ -147,6 +147,10 @@ grep -Fq '/usr/lib/forkop/config/migration.uc migrate' "$FORKOP_MAKEFILE" ||
   fail "OpenWrt package postinst must run configuration migrations"
 [ "$(grep -Fc '/usr/lib/forkop/config/migration.uc migrate' "$BUILD_SCRIPT")" -ge 3 ] ||
   fail "manual IPK/APK package scripts must run configuration migrations after install and upgrade"
+grep -Fq 'FORKOP_PACKAGE_POSTINST=1 /usr/share/forkop/mirror-migration.sh' "$FORKOP_MAKEFILE" ||
+  fail "OpenWrt package postinst must prevent nested package-manager updates during mirror migration"
+[ "$(grep -Fc 'FORKOP_PACKAGE_POSTINST=1 /usr/share/forkop/mirror-migration.sh' "$BUILD_SCRIPT")" -eq 3 ] ||
+  fail "manual IPK/APK package lifecycle scripts must prevent nested package-manager updates"
 
 if grep -Rqs 'require("uci")' "$FORKOP_LIB"; then
   require_package_dependency "ucode-mod-uci"

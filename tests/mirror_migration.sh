@@ -128,6 +128,63 @@ apk_marker_line="$(grep -nF 'applied_migrations=mirror_infotechtg_ru_v1' "$WORK_
 
 printf 'PASS: transactional APK mirror migration\n'
 
+# A second migration with already-correct APK repositories must not force an
+# unnecessary package-index refresh.
+: > "$WORK_DIR/apk-idempotent-events.log"
+PATH="$WORK_DIR/bin:$PATH" \
+FORKOP_MIGRATION_ROOT="$WORK_DIR/apk-root" \
+FORKOP_MIGRATION_APK_BIN="$WORK_DIR/bin/apk" \
+FORKOP_MIGRATION_CURL_BIN="$WORK_DIR/bin/curl" \
+FORKOP_MIGRATION_UCI_BIN="$WORK_DIR/bin/uci" \
+MIGRATION_PLATFORM_INDEX="$WORK_DIR/platforms.tsv" \
+MIGRATION_EVENT_LOG="$WORK_DIR/apk-idempotent-events.log" \
+  sh "$MIGRATION"
+if grep -Fxq 'apk update' "$WORK_DIR/apk-idempotent-events.log"; then
+  fail "idempotent APK mirror migration performed an unnecessary package index update"
+fi
+printf 'PASS: idempotent APK mirror migration\n'
+
+# Package post-install/upgrade runs while apk owns its database lock. The
+# mirror migration may still rewrite feeds, rotate the key and commit UCI, but
+# it must never invoke apk recursively in that context.
+mkdir -p "$WORK_DIR/apk-postinst-root/etc/apk/repositories.d"
+cat > "$WORK_DIR/apk-postinst-root/etc/openwrt_release" <<'EOF'
+DISTRIB_RELEASE='25.12.4'
+DISTRIB_TARGET='rockchip/armv8'
+DISTRIB_ARCH='aarch64_generic'
+EOF
+cat > "$WORK_DIR/apk-postinst-root/etc/apk/repositories" <<'EOF'
+https://downloads.openwrt.org/releases/25.12.4/targets/rockchip/armv8/packages/packages.adb
+EOF
+cat > "$WORK_DIR/apk-postinst-root/etc/apk/repositories.d/distfeeds.list" <<'EOF'
+https://downloads.openwrt.org/releases/25.12.4/packages/aarch64_generic/base/packages.adb
+EOF
+: > "$WORK_DIR/apk-postinst-events.log"
+PATH="$WORK_DIR/bin:$PATH" \
+FORKOP_MIGRATION_ROOT="$WORK_DIR/apk-postinst-root" \
+FORKOP_MIGRATION_APK_BIN="$WORK_DIR/bin/apk" \
+FORKOP_MIGRATION_CURL_BIN="$WORK_DIR/bin/curl" \
+FORKOP_MIGRATION_UCI_BIN="$WORK_DIR/bin/uci" \
+FORKOP_PACKAGE_POSTINST=1 \
+MIGRATION_PACKAGE_UPDATE_FAIL=1 \
+MIGRATION_PLATFORM_INDEX="$WORK_DIR/platforms.tsv" \
+MIGRATION_EVENT_LOG="$WORK_DIR/apk-postinst-events.log" \
+  sh "$MIGRATION"
+if grep -Fxq 'apk update' "$WORK_DIR/apk-postinst-events.log"; then
+  fail "package postinst recursively invoked apk update while apk owns the database lock"
+fi
+grep -Fq 'https://mirror.infotechtg.ru/openwrt/releases/25.12.4/targets/rockchip/armv8/packages/packages.adb' \
+  "$WORK_DIR/apk-postinst-root/etc/apk/repositories" ||
+  fail "package postinst did not migrate the APK target feed"
+grep -Fxq 'https://mirror.infotechtg.ru/forkop/mirror/current/packages.adb' \
+  "$WORK_DIR/apk-postinst-root/etc/apk/repositories.d/forkop.list" ||
+  fail "package postinst did not configure the Forkop APK feed"
+grep -Fq 'BEGIN PUBLIC KEY' "$WORK_DIR/apk-postinst-root/etc/apk/keys/forkop-mirror.pem" ||
+  fail "package postinst did not install the Forkop mirror key"
+grep -Fq 'uci -q commit forkop' "$WORK_DIR/apk-postinst-events.log" ||
+  fail "package postinst did not commit Forkop mirror settings"
+printf 'PASS: APK package postinst avoids nested package-manager lock\n'
+
 mkdir -p "$WORK_DIR/opkg-root/etc/opkg"
 cat > "$WORK_DIR/opkg-root/etc/openwrt_release" <<'EOF'
 DISTRIB_RELEASE='24.10.5'
@@ -167,6 +224,40 @@ opkg_marker_line="$(grep -nF 'applied_migrations=mirror_infotechtg_ru_v1' "$WORK
   fail "migration marker was recorded before OPKG index validation"
 
 printf 'PASS: transactional OPKG mirror migration\n'
+
+# The same package-lifecycle rule applies to OpenWrt 24.x: opkg must not be
+# invoked recursively from the installed package's postinst script.
+mkdir -p "$WORK_DIR/opkg-postinst-root/etc/opkg"
+cat > "$WORK_DIR/opkg-postinst-root/etc/openwrt_release" <<'EOF'
+DISTRIB_RELEASE='24.10.5'
+DISTRIB_TARGET='mediatek/filogic'
+DISTRIB_ARCH='aarch64_cortex-a53'
+EOF
+cat > "$WORK_DIR/opkg-postinst-root/etc/opkg/distfeeds.conf" <<'EOF'
+src/gz openwrt_core https://downloads.openwrt.org/releases/24.10.5/targets/mediatek/filogic/packages
+src/gz openwrt_base https://downloads.openwrt.org/releases/24.10.5/packages/aarch64_cortex-a53/base
+EOF
+: > "$WORK_DIR/opkg-postinst-events.log"
+PATH="$WORK_DIR/bin:$PATH" \
+FORKOP_MIGRATION_ROOT="$WORK_DIR/opkg-postinst-root" \
+FORKOP_MIGRATION_APK_BIN="$WORK_DIR/bin/missing-apk" \
+FORKOP_MIGRATION_OPKG_BIN="$WORK_DIR/bin/opkg" \
+FORKOP_MIGRATION_CURL_BIN="$WORK_DIR/bin/curl" \
+FORKOP_MIGRATION_UCI_BIN="$WORK_DIR/bin/uci" \
+FORKOP_PACKAGE_POSTINST=1 \
+MIGRATION_PACKAGE_UPDATE_FAIL=1 \
+MIGRATION_PLATFORM_INDEX="$WORK_DIR/platforms.tsv" \
+MIGRATION_EVENT_LOG="$WORK_DIR/opkg-postinst-events.log" \
+  sh "$MIGRATION"
+if grep -Fxq 'opkg update' "$WORK_DIR/opkg-postinst-events.log"; then
+  fail "package postinst recursively invoked opkg update while opkg owns the database lock"
+fi
+grep -Fq 'https://mirror.infotechtg.ru/openwrt/releases/24.10.5/targets/mediatek/filogic/packages' \
+  "$WORK_DIR/opkg-postinst-root/etc/opkg/distfeeds.conf" ||
+  fail "package postinst did not migrate the OPKG target feed"
+grep -Fq 'uci -q commit forkop' "$WORK_DIR/opkg-postinst-events.log" ||
+  fail "OPKG package postinst did not commit Forkop mirror settings"
+printf 'PASS: OPKG package postinst avoids nested package-manager lock\n'
 
 mkdir -p "$WORK_DIR/failure-root/etc/apk/repositories.d"
 cat > "$WORK_DIR/failure-root/etc/openwrt_release" <<'EOF'
