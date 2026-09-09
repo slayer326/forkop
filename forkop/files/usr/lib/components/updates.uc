@@ -214,6 +214,25 @@ function log_message(message, level) {
     command_success_from_args([ "logger", "-t", "forkop", "[" + level + "] " + as_string(message) ]);
 }
 
+// Keep useful source context in runtime logs without exposing subscription
+// credentials, tokens, query parameters, or fragments.
+function safe_remote_source_identity(url, logical_name) {
+    let value = trim(as_string(url));
+    let label = trim(as_string(logical_name));
+    value = replace(value, /^[A-Za-z][A-Za-z0-9+.-]*:\/\//, "");
+    value = replace(value, /[?#].*$/, "");
+    value = replace(value, /^[^\/@]*@/, "");
+
+    let slash = index(value, "/");
+    let host = slash >= 0 ? substr(value, 0, slash) : value;
+    let path = slash >= 0 ? substr(value, slash) : "";
+    if (host == "" || index(host, " ") >= 0 || index(host, "\t") >= 0)
+        return label == "" ? "configured remote source" : "rule '" + label + "' remote source";
+
+    let identity = host + path;
+    return label == "" ? identity : "rule '" + label + "': " + identity;
+}
+
 function read_json_file(path) {
     let data = fs.readfile(path);
     if (data == null)
@@ -2837,7 +2856,7 @@ function download_to_file_once(url, filepath, proxy_address) {
     let fields = length(lines) >= 2 ? split(trim(lines[length(lines) - 1]), /[ \t]+/) : [];
     let available = length(fields) >= 4 ? int(fields[3]) * 1024 : -1;
     if (available < 0 || available <= LIST_DOWNLOAD_MIN_FREE_BYTES) {
-        log_message("Not enough temporary storage to download a remote source safely", "warn");
+        log_message("Not enough temporary storage to download " + safe_remote_source_identity(url) + " safely", "warn");
         return false;
     }
     // ash's file-size limit is enforced while bytes are written, including
@@ -2861,7 +2880,7 @@ function download_fallback(url, filepath, proxy_address) {
         if (download_to_file_once(url, filepath, proxy_address))
             return true;
 
-        log_message("Attempt " + attempt + "/3 to download a remote source failed", "warn");
+        log_message("Attempt " + attempt + "/3 to download " + safe_remote_source_identity(url) + " failed", "warn");
         if (attempt < 3)
             command_success_from_args([ "sleep", "2" ]);
         attempt++;
@@ -2874,7 +2893,7 @@ function download_to_file_network(url, filepath, proxy_address) {
     let fallbacks = fallback_urls(url);
     let mirror_state = mirror_download_state(url);
     if (mirror_state != null && mirror_state.fallback_active) {
-        log_message("Mirror source is unavailable; trying fallback sources", "info");
+        log_message("Mirror source " + safe_remote_source_identity(url) + " is unavailable; trying fallback sources", "info");
         for (let fallback in fallbacks)
             if (download_fallback(fallback, filepath, proxy_address))
                 return true;
@@ -2888,7 +2907,7 @@ function download_to_file_network(url, filepath, proxy_address) {
             return true;
         }
 
-        log_message("Attempt " + attempt + "/3 to download a remote source failed", "warn");
+        log_message("Attempt " + attempt + "/3 to download " + safe_remote_source_identity(url) + " failed", "warn");
         let mirror_fallback_activated = record_mirror_download_failure(mirror_state);
         if (mirror_fallback_activated)
             break;
@@ -2900,7 +2919,7 @@ function download_to_file_network(url, filepath, proxy_address) {
     if (length(fallbacks) == 0)
         return false;
 
-    log_message("Primary rule-set source is unavailable; trying fallback sources", "warn");
+    log_message("Primary rule-set source " + safe_remote_source_identity(url) + " is unavailable; trying fallback sources", "warn");
     for (let fallback in fallbacks)
         if (download_fallback(fallback, filepath, proxy_address))
             return true;
@@ -2970,7 +2989,7 @@ function prepare_list_downloads(sections, proxy_address) {
         let path = list_download_staging_dir + "/source-" + as_string(list_download_sequence);
         if (!download_to_file_network(entry.url, path, proxy_address) ||
             !validate_staged_list_download(path, entry.format)) {
-            log_message("Failed to preflight a list source; keeping the active generation", "error");
+            log_message("Failed to preflight list source " + safe_remote_source_identity(entry.url) + "; keeping the active generation", "error");
             command_success_from_args([ "rm", "-rf", list_download_staging_dir ]);
             list_download_staging_dir = "";
             list_download_cache = {};
@@ -3141,7 +3160,7 @@ function import_domain_ip_list_reference_into_rulesets(reference, section, setti
         ok = import_domain_ip_list_file_into_rulesets(tmpfile, section);
     }
     else {
-        log_message("Failed to download a remote domain/IP list; skipping it until the next successful update", "error");
+        log_message("Failed to download remote domain/IP list " + safe_remote_source_identity(reference, section_name(section)) + "; skipping it until the next successful update", "error");
         ok = false;
     }
 
@@ -3261,7 +3280,7 @@ function import_custom_ruleset_subnets_from_remote(url, format, section, label, 
     }
 
     if (!download_to_file(url, remote_tmpfile, service_proxy_address(settings, "lists")) || !file_nonempty(remote_tmpfile)) {
-        log_message("Failed to download a remote rule set; skipping it until the next successful update", "error");
+        log_message("Failed to download remote rule set " + safe_remote_source_identity(url, section_name(section)) + "; skipping it until the next successful update", "error");
         remove_files([ remote_tmpfile, json_tmpfile ]);
         return false;
     }
@@ -3269,12 +3288,12 @@ function import_custom_ruleset_subnets_from_remote(url, format, section, label, 
     let ok = true;
     if (as_string(format) == "binary") {
         if (!command_success_from_args([ "sing-box", "rule-set", "decompile", remote_tmpfile, "-o", json_tmpfile ])) {
-            log_message("Failed to decompile a remote rule set", "error");
+            log_message("Failed to decompile remote rule set " + safe_remote_source_identity(url, section_name(section)), "error");
             ok = false;
         }
     }
     else if (!copy_file(remote_tmpfile, json_tmpfile)) {
-        log_message("Failed to copy a downloaded remote rule set", "error");
+        log_message("Failed to copy downloaded remote rule set " + safe_remote_source_identity(url, section_name(section)), "error");
         ok = false;
     }
 
@@ -3300,7 +3319,7 @@ function import_rule_sets_with_subnets_from_rule(section, settings) {
 
     for (let reference in references) {
         reference = as_string(reference);
-        log_message("Importing subnets from a rule set reference for '" + section_name(section) + "' section", "info");
+        log_message("Importing subnets from rule set " + safe_remote_source_identity(reference, section_name(section)), "info");
 
         let extension = singbox_rulesets_module().file_extension(reference);
         if (match(reference, /^\/.*\.srs$/) != null) {
@@ -3317,7 +3336,7 @@ function import_rule_sets_with_subnets_from_rule(section, settings) {
                 ok = false;
         }
         else {
-            log_message("Unsupported rule set reference for subnet import", "error");
+            log_message("Unsupported rule set reference for subnet import: " + safe_remote_source_identity(reference, section_name(section)), "error");
             ok = false;
         }
     }
@@ -3331,7 +3350,7 @@ function import_domains_from_remote_plain_file(url, section, settings) {
         return false;
 
     if (!download_to_file(url, tmpfile, service_proxy_address(settings, "lists")) || !file_nonempty(tmpfile)) {
-        log_message("Failed to download a remote domain list; skipping it until the next successful update", "error");
+        log_message("Failed to download remote domain list " + safe_remote_source_identity(url, section_name(section)) + "; skipping it until the next successful update", "error");
         remove_file(tmpfile);
         return false;
     }
@@ -3355,7 +3374,7 @@ function import_domains_from_remote_domain_lists(section, settings) {
     log_message("Importing domains from remote domain lists for '" + section_name(section) + "' section", "info");
     let ok = true;
     for (let url in references) {
-        log_message("Importing domains from a configured remote source", "info");
+        log_message("Importing domains from " + safe_remote_source_identity(url, section_name(section)), "info");
         let extension = singbox_rulesets_module().file_extension(url);
         log_message("Detected file extension: '" + extension + "'", "debug");
         if (extension == "json" || extension == "srs") {
@@ -3375,14 +3394,14 @@ function import_subnets_from_remote_json_file(url, section, settings) {
         return false;
 
     if (!download_to_file(url, json_tmpfile, service_proxy_address(settings, "lists")) || !file_nonempty(json_tmpfile)) {
-        log_message("Failed to download a remote JSON subnet list; skipping it until the next successful update", "error");
+        log_message("Failed to download remote JSON subnet list " + safe_remote_source_identity(url, section_name(section)) + "; skipping it until the next successful update", "error");
         remove_file(json_tmpfile);
         return false;
     }
 
     let ok = add_json_ruleset_subnets_to_nft_for_section(section, json_tmpfile, "Remote JSON rule set " + as_string(url));
     if (!ok)
-        log_message("Failed to add subnets from a remote JSON list to nftables", "error");
+        log_message("Failed to add subnets from remote JSON list " + safe_remote_source_identity(url, section_name(section)) + " to nftables", "error");
     remove_file(json_tmpfile);
     return ok;
 }
@@ -3396,7 +3415,7 @@ function import_subnets_from_remote_srs_file(url, section, settings) {
     }
 
     if (!download_to_file(url, binary_tmpfile, service_proxy_address(settings, "lists")) || !file_nonempty(binary_tmpfile)) {
-        log_message("Failed to download a remote SRS subnet list; skipping it until the next successful update", "error");
+        log_message("Failed to download remote SRS subnet list " + safe_remote_source_identity(url, section_name(section)) + "; skipping it until the next successful update", "error");
         remove_files([ binary_tmpfile, json_tmpfile ]);
         return false;
     }
@@ -3405,7 +3424,7 @@ function import_subnets_from_remote_srs_file(url, section, settings) {
     if (!ok)
         log_message("Failed to decompile binary rule set file", "error");
     if (ok && !add_json_ruleset_subnets_to_nft_for_section(section, json_tmpfile, "Remote SRS rule set " + as_string(url))) {
-        log_message("Failed to add subnets from a remote SRS list to nftables", "error");
+        log_message("Failed to add subnets from remote SRS list " + safe_remote_source_identity(url, section_name(section)) + " to nftables", "error");
         ok = false;
     }
 
@@ -3419,7 +3438,7 @@ function import_subnets_from_remote_plain_file(url, section, settings) {
         return false;
 
     if (!download_to_file(url, tmpfile, service_proxy_address(settings, "lists")) || !file_nonempty(tmpfile)) {
-        log_message("Failed to download a remote plain subnet list; skipping it until the next successful update", "error");
+        log_message("Failed to download remote plain subnet list " + safe_remote_source_identity(url, section_name(section)) + "; skipping it until the next successful update", "error");
         remove_file(tmpfile);
         return false;
     }
@@ -3445,7 +3464,7 @@ function import_subnets_from_remote_subnet_lists(section, settings) {
     log_message("Importing subnets from remote subnet lists for '" + section_name(section) + "' section", "info");
     let ok = true;
     for (let url in references) {
-        log_message("Importing subnets from a configured remote source", "info");
+        log_message("Importing subnets from " + safe_remote_source_identity(url, section_name(section)), "info");
         let extension = singbox_rulesets_module().file_extension(url);
         log_message("Detected file extension: '" + extension + "'", "debug");
         if (extension == "json") {
@@ -3986,10 +4005,7 @@ function run_pending_reload_if_requested() {
     service_state_success([ "run-pending-reload-if-requested", PENDING_RELOAD_FILE, SERVICE_INIT ]);
 }
 
-function subscription_update_common_locked(force, target_section, target_source_index) {
-    subscription_outbounds_changed = false;
-    let sing_box_config_path = option(uci_settings(), "config_path", "");
-    let proxy_signature_before = current_proxy_outbounds_signature(sing_box_config_path);
+function subscription_prepare_cache_request(force, target_section, target_source_index) {
     let result = subscription_cache_capture([
         "update-request",
         force ? "1" : "0",
@@ -3998,7 +4014,7 @@ function subscription_update_common_locked(force, target_section, target_source_
     ]);
     if (result.status != 0) {
         log_file_lines_from_text(result.output, "error", "subscription update: ");
-        return false;
+        return { ok: false, updated: 0, failed: 0, unchanged: 0, superseded: 0 };
     }
 
     let fields = split(trim(result.output), /[ \t\r\n]+/);
@@ -4010,18 +4026,61 @@ function subscription_update_common_locked(force, target_section, target_source_
     if (updated == 0) {
         if (superseded > 0) {
             log_message("Subscription update was superseded by newer configuration", "info");
-            return true;
+            return { ok: true, updated, failed, unchanged, superseded };
         }
         if (failed > 0) {
             log_message("Subscription update finished with errors; keeping the last working cache", "info");
-            return false;
+            return { ok: false, updated, failed, unchanged, superseded };
         }
         if (unchanged > 0)
             log_message("Subscription update completed: no changes detected", "info");
         else
             log_message("No subscription rules are due for update", "info");
-        return true;
     }
+
+    return { ok: true, updated, failed, unchanged, superseded };
+}
+
+function subscription_discard_config_stage(stage_path, backup_path) {
+    if (as_string(stage_path) != "")
+        module_success([ LIB_DIR + "/singbox/runtime.uc", "discard-config-stage", stage_path ]);
+    if (as_string(backup_path) != "")
+        remove_file(backup_path);
+}
+
+function subscription_restore_previous_runtime(backup_path, transition_timeout) {
+    if (!service_state_success([ "stop-managed-sing-box-runtime", transition_timeout ]))
+        return false;
+
+    if (file_exists_value(backup_path) &&
+        !module_success([ LIB_DIR + "/singbox/runtime.uc", "restore-config-stage", backup_path ]))
+        return false;
+
+    return service_state_success([ "start-managed-sing-box-runtime", transition_timeout ]);
+}
+
+function subscription_start_auxiliary_runtimes() {
+    if (!module_success([ PRIORITY_UC, "start-runtime" ]))
+        return false;
+    return module_success([ DNS_FAILOVER_UC, "start-runtime" ]);
+}
+
+function subscription_stop_auxiliary_runtimes() {
+    module_success([ DNS_FAILOVER_UC, "stop-runtime" ]);
+    module_success([ PRIORITY_UC, "stop-runtime" ]);
+}
+
+function subscription_update_common_locked(force, target_section, target_source_index) {
+    subscription_outbounds_changed = false;
+    let sing_box_config_path = option(uci_settings(), "config_path", "");
+    let proxy_signature_before = current_proxy_outbounds_signature(sing_box_config_path);
+    let prepared = subscription_prepare_cache_request(force, target_section, target_source_index);
+    if (!prepared.ok)
+        return false;
+    let updated = prepared.updated;
+    let failed = prepared.failed;
+    if (updated == 0)
+        return true;
 
     log_message("Reloading sing-box to apply updated subscriptions", "info");
     let validation = module_capture([ LIB_DIR + "/config/validator.uc", "validate-runtime" ]);
@@ -4032,33 +4091,69 @@ function subscription_update_common_locked(force, target_section, target_source_
 
     if (!singbox_runtime_success([ "configure-service" ]))
         return false;
-    let sing_box_config_hash_before = file_md5(sing_box_config_path);
-    let sing_box_pid_before = trim(module_output([ LIB_DIR + "/service/state.uc", "sing-box-service-runtime-pid" ]));
-    module_success([ DNS_FAILOVER_UC, "stop-runtime" ]);
-    if (!singbox_runtime_success([ "init-config", "0", "1", "1" ])) {
-        module_success([ DNS_FAILOVER_UC, "start-runtime" ]);
-        log_message("Failed to rebuild sing-box after subscription update", "error");
+
+    let staged_config_path = temp_path();
+    let backup_config_path = temp_path();
+    if (staged_config_path == "" || backup_config_path == "") {
+        subscription_discard_config_stage(staged_config_path, backup_config_path);
+        log_message("Cannot allocate temporary paths for the subscription runtime update", "error");
         return false;
     }
+    remove_file(backup_config_path);
+    if (!singbox_runtime_success([ "prepare-config-stage", "0", "1", "1", "", staged_config_path ])) {
+        subscription_discard_config_stage(staged_config_path, backup_config_path);
+        log_message("Failed to prepare sing-box configuration after subscription update", "error");
+        return false;
+    }
+
+    module_success([ DNS_FAILOVER_UC, "stop-runtime" ]);
     module_success([ PRIORITY_UC, "stop-runtime" ]);
-    if (!service_state_success([
-        "reload-sing-box-runtime",
-        sing_box_pid_before,
-        sing_box_config_hash_before,
-        file_md5(sing_box_config_path)
-    ])) {
+    let transition_timeout = as_string(getenv("FORKOP_SING_BOX_RELOAD_PID_TIMEOUT") || "15");
+    if (!service_state_success([ "stop-managed-sing-box-runtime", transition_timeout ])) {
+        subscription_discard_config_stage(staged_config_path, backup_config_path);
         module_success([ PRIORITY_UC, "start-runtime" ]);
         module_success([ DNS_FAILOVER_UC, "start-runtime" ]);
+        log_message("Refusing subscription runtime update: the previous sing-box runtime did not stop safely", "error");
         return false;
     }
-    if (!module_success([ PRIORITY_UC, "start-runtime" ])) {
-        log_message("Failed to restart Priority runtime after subscription update", "error");
+
+    if (!singbox_runtime_success([ "commit-config-stage", staged_config_path, backup_config_path ])) {
+        let restored = subscription_restore_previous_runtime(backup_config_path, transition_timeout);
+        subscription_discard_config_stage(staged_config_path, backup_config_path);
+        if (restored)
+            subscription_start_auxiliary_runtimes();
+        else
+            log_message("Subscription runtime update rollback failed; sing-box remains stopped", "fatal");
+        log_message("Failed to publish sing-box configuration after subscription update", "error");
         return false;
     }
-    if (!module_success([ DNS_FAILOVER_UC, "start-runtime" ])) {
-        log_message("Failed to restart DNS failover runtime after subscription update", "error");
+    if (!service_state_success([
+        "start-managed-sing-box-runtime",
+        transition_timeout
+    ])) {
+        log_message("Failed to start sing-box after subscription update; restoring the previous runtime", "error");
+        let restored = subscription_restore_previous_runtime(backup_config_path, transition_timeout);
+        subscription_discard_config_stage(staged_config_path, backup_config_path);
+        if (restored)
+            subscription_start_auxiliary_runtimes();
+        else
+            log_message("Subscription runtime update rollback failed; sing-box remains stopped", "fatal");
         return false;
     }
+
+    if (!subscription_start_auxiliary_runtimes()) {
+        log_message("Failed to restart auxiliary runtimes after subscription update; restoring the previous runtime", "error");
+        subscription_stop_auxiliary_runtimes();
+        let restored = subscription_restore_previous_runtime(backup_config_path, transition_timeout);
+        subscription_discard_config_stage(staged_config_path, backup_config_path);
+        if (restored)
+            subscription_start_auxiliary_runtimes();
+        else
+            log_message("Subscription runtime update rollback failed; sing-box remains stopped", "fatal");
+        return false;
+    }
+    remove_file(backup_config_path);
+    subscription_discard_config_stage(staged_config_path, "");
     if (!write_current_reload_state_clean())
         return false;
 
@@ -4236,6 +4331,8 @@ else if (mode == "duration-to-seconds")
     duration_to_seconds(ARGV[1]);
 else if (mode == "builtin-subnet-urls")
     print_builtin_subnet_urls(ARGV[1]);
+else if (mode == "safe-remote-source-identity")
+    print(safe_remote_source_identity(ARGV[1], ARGV[2]), "\n");
 else if (mode == "jsdelivr-fallback-url")
     print(jsdelivr_fallback_url(ARGV[1]), "\n");
 else if (mode == "github-raw-fallback-url")

@@ -59,14 +59,19 @@ exit(64);
 write_stub "$FAKE_LIB/service/state.uc" "$stub_header"'
 let mode = as_string(ARGV[0]);
 record("service/state:" + mode);
-if (mode == "sing-box-service-runtime-pid") {
-    print("3285\n");
-    exit(0);
+if (mode == "start-managed-sing-box-runtime") {
+    let count_path = getenv("FAKE_START_COUNT_FILE") || "";
+    let count = count_path == "" ? 0 : int(trim(fs.readfile(count_path) || "0")) + 1;
+    if (count_path != "")
+        fs.writefile(count_path, as_string(count) + "\n");
+    if (getenv("FAKE_FAIL_FIRST_START") == "1" && count == 1)
+        exit(1);
 }
 if (mode == "acquire-runtime-dir-lock" ||
     mode == "acquire-runtime-dir-lock-wait" ||
     mode == "release-runtime-dir-lock" ||
-    mode == "reload-sing-box-runtime" ||
+    mode == "stop-managed-sing-box-runtime" ||
+    mode == "start-managed-sing-box-runtime" ||
     mode == "write-current-reload-state-clean" ||
     mode == "run-pending-reload-if-requested")
     exit(0);
@@ -84,7 +89,14 @@ if (mode == "init-config")
     record("singbox/runtime:init-config:" + as_string(ARGV[1]) + ":" + as_string(ARGV[2]) + ":" + as_string(ARGV[3]));
 else
     record("singbox/runtime:" + mode);
-if (mode == "configure-service" || mode == "init-config")
+if (mode == "configure-service" ||
+    mode == "prepare-config-stage" ||
+    mode == "commit-config-stage") {
+    if (mode == "commit-config-stage" && as_string(ARGV[2]) != "")
+        fs.writefile(ARGV[2], "backup\n");
+    exit(0);
+}
+if (mode == "discard-config-stage" || mode == "restore-config-stage")
     exit(0);
 exit(64);
 '
@@ -100,6 +112,14 @@ exit(64);
 write_stub "$FAKE_LIB/singbox/dns_failover.uc" "$stub_header"'
 let mode = as_string(ARGV[0]);
 record("singbox/dns_failover:" + mode);
+if (mode == "start-runtime" && getenv("FAKE_FAIL_AUXILIARY_START") == "1") {
+    let count_path = getenv("FAKE_AUX_START_COUNT_FILE") || "";
+    let count = count_path == "" ? 0 : int(trim(fs.readfile(count_path) || "0")) + 1;
+    if (count_path != "")
+        fs.writefile(count_path, as_string(count) + "\n");
+    if (count == 1)
+        exit(1);
+}
 if (mode == "stop-runtime" || mode == "start-runtime")
     exit(0);
 exit(64);
@@ -125,6 +145,8 @@ run_update() {
     FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_DIR="$WORK_DIR/persistent/subscription-cache" \
     FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_FORMAT_FILE="$WORK_DIR/persistent/subscription-cache/cache-format" \
     FORKOP_PENDING_RELOAD_FILE="$WORK_DIR/run/reload.pending" \
+    FAKE_START_COUNT_FILE="$WORK_DIR/start-count" \
+    FAKE_AUX_START_COUNT_FILE="$WORK_DIR/aux-start-count" \
     FORKOP_RELOAD_STATE_FILE="$WORK_DIR/run/reload-state" \
     FORKOP_RULE_CONDITION_CACHE_DIR="$WORK_DIR/run/rule-condition-cache" \
     FAKE_CALL_LOG="$log" \
@@ -142,11 +164,12 @@ const expected = [
   "subscription/cache:update-request",
   "config/validator:validate-runtime",
   "singbox/runtime:configure-service",
-  "service/state:sing-box-service-runtime-pid",
+  "singbox/runtime:prepare-config-stage",
   "singbox/dns_failover:stop-runtime",
-  "singbox/runtime:init-config:0:1:1",
   "singbox/priority:stop-runtime",
-  "service/state:reload-sing-box-runtime",
+  "service/state:stop-managed-sing-box-runtime",
+  "singbox/runtime:commit-config-stage",
+  "service/state:start-managed-sing-box-runtime",
   "singbox/priority:start-runtime",
   "singbox/dns_failover:start-runtime",
   "service/state:write-current-reload-state-clean",
@@ -171,5 +194,73 @@ run_update "0 0 1 0" "$unchanged_log"
 if grep -Eq 'config/validator|singbox/runtime|singbox/priority|singbox/dns_failover|reload-sing-box-runtime|write-current-reload-state-clean' "$unchanged_log"; then
   fail "unchanged subscription update must not rebuild or reload sing-box"
 fi
+
+: >"$WORK_DIR/start-count"
+rollback_log="$WORK_DIR/rollback.log"
+if FAKE_FAIL_FIRST_START=1 run_update "1 0 0 0" "$rollback_log"; then
+  fail "subscription update must fail when the replacement runtime cannot start"
+fi
+
+node - "$rollback_log" <<'JS'
+const fs = require("fs");
+const calls = fs.readFileSync(process.argv[2], "utf8").trim().split(/\n+/);
+const expected = [
+  "singbox/runtime:prepare-config-stage",
+  "service/state:stop-managed-sing-box-runtime",
+  "singbox/runtime:commit-config-stage",
+  "service/state:start-managed-sing-box-runtime",
+  "service/state:stop-managed-sing-box-runtime",
+  "singbox/runtime:restore-config-stage",
+  "singbox/runtime:discard-config-stage",
+  "service/state:start-managed-sing-box-runtime",
+  "singbox/priority:start-runtime",
+  "singbox/dns_failover:start-runtime"
+];
+
+let position = -1;
+for (const item of expected) {
+  const next = calls.indexOf(item, position + 1);
+  if (next === -1) {
+    console.error(`missing or out-of-order rollback call: ${item}`);
+    console.error(calls.join("\n"));
+    process.exit(1);
+  }
+  position = next;
+}
+JS
+
+: >"$WORK_DIR/start-count"
+auxiliary_log="$WORK_DIR/auxiliary.log"
+if FAKE_FAIL_AUXILIARY_START=1 run_update "1 0 0 0" "$auxiliary_log"; then
+  fail "subscription update must fail when an auxiliary runtime cannot start"
+fi
+
+node - "$auxiliary_log" <<'JS'
+const fs = require("fs");
+const calls = fs.readFileSync(process.argv[2], "utf8").trim().split(/\n+/);
+const expected = [
+  "service/state:start-managed-sing-box-runtime",
+  "singbox/priority:start-runtime",
+  "singbox/dns_failover:start-runtime",
+  "singbox/dns_failover:stop-runtime",
+  "singbox/priority:stop-runtime",
+  "service/state:stop-managed-sing-box-runtime",
+  "singbox/runtime:restore-config-stage",
+  "service/state:start-managed-sing-box-runtime",
+  "singbox/priority:start-runtime",
+  "singbox/dns_failover:start-runtime"
+];
+
+let position = -1;
+for (const item of expected) {
+  const next = calls.indexOf(item, position + 1);
+  if (next === -1) {
+    console.error(`missing or out-of-order auxiliary rollback call: ${item}`);
+    console.error(calls.join("\n"));
+    process.exit(1);
+  }
+  position = next;
+}
+JS
 
 printf 'subscription update reload checks passed\n'
