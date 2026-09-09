@@ -19,45 +19,66 @@ sed '/^main "\$@"$/d' "$ROOT_DIR/install.sh" > "$WORK_DIR/install-library.sh"
 . "$WORK_DIR/install-library.sh"
 
 TMP_DIR="$WORK_DIR/tmp"
-MIRROR_BASE_URL="https://mirror.51343.ru"
+MIRROR_BASE_URL="https://mirror.infotechtg.ru"
 mkdir -p "$TMP_DIR" "$WORK_DIR/etc/opkg"
 distfeeds="$WORK_DIR/etc/opkg/distfeeds.conf"
 cat > "$distfeeds" <<'EOF'
-src/gz openwrt_core https://downloads.openwrt.org/releases/24.10.7/targets/mediatek/filogic/packages
-src/gz openwrt_base https://archive.openwrt.org/releases/24.10.7/packages/aarch64_cortex-a53/base
+src/gz openwrt_core https://downloads.openwrt.org/releases/24.10.7/targets/rockchip/armv8/packages
+src/gz openwrt_base https://archive.openwrt.org/releases/24.10.7/packages/aarch64_generic/base
+src/gz old_mirror https://mirror.51343.ru/openwrt/releases/24.10.1/targets/rockchip/armv8/kmods/6.6.86-1-example
 src/gz glinet_core https://firmware.example/openwrt/releases/v24.x/v24.10.7/mediatek/filogic
 src/gz glinet_plain https://firmware.example/openwrt/releases/v24.x/24.10.7/mediatek/filogic/
-https://downloads.openwrt.org/releases/v25.x/v25.12.5/mediatek/filogic/packages/packages.adb
-https://downloads.openwrt.org/releases/v25.x/v25.12.5/aarch64_cortex-a53/video/packages.adb
+https://downloads.openwrt.org/releases/v25.x/v25.12.5/rockchip/armv8/packages/packages.adb
+https://downloads.openwrt.org/releases/v25.x/v25.12.5/aarch64_generic/video/packages.adb
 EOF
 cp "$distfeeds" "$WORK_DIR/original"
 
 begin_package_mirror_transaction
 rewrite_package_repository_file "$distfeeds"
 
-for feed in glinet_core glinet_plain; do
-  grep -Fxq "src/gz $feed https://mirror.51343.ru/openwrt/releases/24.10.7/targets/mediatek/filogic/packages" "$distfeeds" ||
-    fail_test "transaction did not normalize GL.iNet feed $feed"
-done
-grep -Fq 'https://mirror.51343.ru/openwrt/releases/24.10.7/' "$distfeeds" ||
+grep -Fxq 'src/gz glinet_core https://firmware.example/openwrt/releases/v24.x/v24.10.7/mediatek/filogic' "$distfeeds" ||
+  fail_test "transaction changed a vendor feed"
+grep -Fxq 'src/gz glinet_plain https://firmware.example/openwrt/releases/v24.x/24.10.7/mediatek/filogic/' "$distfeeds" ||
+  fail_test "transaction changed a custom feed"
+grep -Fq 'https://mirror.infotechtg.ru/openwrt/releases/24.10.7/' "$distfeeds" ||
   fail_test "transaction did not rewrite OpenWrt 24 feeds"
-grep -Fxq 'https://mirror.51343.ru/openwrt/releases/25.12.5/targets/mediatek/filogic/packages/packages.adb' "$distfeeds" ||
+grep -Fxq 'https://mirror.infotechtg.ru/openwrt/releases/25.12.5/targets/rockchip/armv8/packages/packages.adb' "$distfeeds" ||
   fail_test "transaction did not normalize an OpenWrt 25 target feed"
-grep -Fxq 'https://mirror.51343.ru/openwrt/releases/25.12.5/packages/aarch64_cortex-a53/video/packages.adb' "$distfeeds" ||
+grep -Fxq 'https://mirror.infotechtg.ru/openwrt/releases/25.12.5/packages/aarch64_generic/video/packages.adb' "$distfeeds" ||
   fail_test "transaction did not normalize an OpenWrt 25 package feed"
 [ -s "$distfeeds.pre-forkop-mirror" ] ||
   fail_test "transaction did not create a persistent recovery copy"
+grep -Fxq 'src/gz old_mirror https://mirror.infotechtg.ru/openwrt/releases/24.10.1/targets/rockchip/armv8/kmods/6.6.86-1-example' "$distfeeds" ||
+  fail_test "legacy mirror migration changed the release or kernel ABI"
 
 rollback_package_mirror
 cmp -s "$WORK_DIR/original" "$distfeeds" ||
   fail_test "transaction rollback did not restore original feeds"
 
+transaction_key="$WORK_DIR/new-forkop-key.pem"
+begin_package_mirror_transaction
+backup_package_mirror_file "$transaction_key"
+printf '%s\n' 'temporary key' > "$transaction_key"
+rollback_package_mirror
+[ ! -e "$transaction_key" ] ||
+  fail_test "transaction rollback did not remove a newly created key"
+
+printf '%s\n' 'existing key' > "$transaction_key"
+begin_package_mirror_transaction
+backup_package_mirror_file "$transaction_key"
+printf '%s\n' 'replacement key' > "$transaction_key"
+rollback_package_mirror
+grep -Fxq 'existing key' "$transaction_key" ||
+  fail_test "transaction rollback did not restore an existing key"
+
 begin_package_mirror_transaction
 rewrite_package_repository_file "$distfeeds"
 commit_package_mirror_transaction
 cleanup
-grep -Fq 'https://mirror.51343.ru/openwrt/releases/24.10.7/' "$distfeeds" ||
+grep -Fq 'https://mirror.infotechtg.ru/openwrt/releases/24.10.7/' "$distfeeds" ||
   fail_test "committed transaction was unexpectedly rolled back"
+TMP_DIR="$WORK_DIR/tmp-after-cleanup"
+mkdir -p "$TMP_DIR"
 
 PKG_IS_APK=1
 apk() {

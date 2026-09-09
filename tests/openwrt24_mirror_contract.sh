@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SYNC="$ROOT_DIR/ops/mirror/sync-openwrt.sh"
 PUBLISH="$ROOT_DIR/ops/mirror/publish-forkop-feed.sh"
+PLATFORMS="$ROOT_DIR/ops/mirror/openwrt-platforms.conf.example"
+SERVICE="$ROOT_DIR/ops/mirror/openwrt-mirror.service"
 
 fail() {
   printf 'FAIL: %s\n' "$1" >&2
@@ -29,6 +31,12 @@ grep -Fq 'xargs -r -P "$DOWNLOAD_JOBS"' "$SYNC" ||
   fail "OpenWrt package download workers are not used"
 grep -Fq 'sync_package_root "packages-$series" "packages.adb"' "$SYNC" ||
   fail "OpenWrt 25 APK synchronization was not preserved"
+grep -Fq 'forkop-platforms.tsv' "$SYNC" ||
+  fail "mirror does not publish its platform matrix"
+grep -Fq 'rockchip/armv8 aarch64_generic' "$PLATFORMS" ||
+  fail "tracked platform example is missing rockchip/armv8"
+grep -Fq 'EnvironmentFile=-/etc/default/forkop-openwrt-mirror' "$SERVICE" ||
+  fail "OpenWrt mirror service does not load its optional environment file"
 
 for package in forkop luci-app-forkop luci-i18n-forkop-ru; do
   grep -Fq "${package}_\$VERSION.ipk" "$PUBLISH" ||

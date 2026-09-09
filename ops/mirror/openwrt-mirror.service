@@ -5,6 +5,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
+EnvironmentFile=-/etc/default/forkop-openwrt-mirror
 ExecStart=/usr/local/sbin/sync-openwrt-mirror
 Nice=10
 IOSchedulingClass=best-effort

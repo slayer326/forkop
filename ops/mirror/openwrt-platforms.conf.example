@@ -1,0 +1,3 @@
+# One OpenWrt target and package architecture per line.
+mediatek/filogic aarch64_cortex-a53
+rockchip/armv8 aarch64_generic

@@ -7,7 +7,7 @@ ROOT="${FORKOP_UNINSTALL_ROOT:-}"
 if [ -n "$ROOT" ]; then ROOT="$(cd "$ROOT" && pwd -P)"; fi
 MIRROR="${FORKOP_MIRROR_BASE_URL:-}"
 if [ -z "$MIRROR" ]; then MIRROR="$(uci -q get forkop.settings.mirror_base_url 2>/dev/null || true)"; fi
-MIRROR="${MIRROR:-https://mirror.51343.ru}"
+MIRROR="${MIRROR:-https://mirror.infotechtg.ru}"
 BIN="$ROOT/usr/bin/forkop"
 LOCK="$ROOT/tmp/forkop-full-uninstall.lock"
 COMPONENT_LOCK="$ROOT/var/run/forkop/component-action.lock"
@@ -15,7 +15,8 @@ PACKAGES="luci-i18n-forkop-ru luci-app-forkop forkop sing-box sing-box-tiny sing
 PHASE=preflight
 
 has_mirror() {
-    grep -Fq "${MIRROR%/}/" "$1" || grep -Fq 'mirror.51343.ru/' "$1"
+    grep -Fq "${MIRROR%/}/" "$1" || grep -Fq 'mirror.51343.ru/' "$1" ||
+        grep -Fq 'mirror.infotechtg.ru/' "$1"
 }
 
 repository_plan() {

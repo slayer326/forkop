@@ -48,6 +48,20 @@ require_file "$BUILD_SCRIPT"
 require_file "$BUILD_WORKFLOW"
 require_file "$FORKOP_LIB"
 
+grep -Fq 'PKGARCH:=all' "$FORKOP_MAKEFILE" ||
+  fail "Forkop IPK package must remain architecture-independent"
+grep -Fq 'LUCI_PKGARCH:=all' "$ROOT_DIR/luci-app-forkop/Makefile" ||
+  fail "Forkop LuCI IPK package must remain architecture-independent"
+[ "$(grep -Fc 'Architecture: all' "$BUILD_SCRIPT")" -ge 3 ] ||
+  fail "manually built IPK packages must remain Architecture: all"
+grep -Fq 'arch:noarch' "$BUILD_SCRIPT" ||
+  fail "manually built APK packages must remain noarch"
+while IFS= read -r -d '' payload_file; do
+  if file -b "$payload_file" | grep -Fq 'ELF'; then
+    fail "architecture-specific ELF payload is not allowed: $payload_file"
+  fi
+done < <(find "$ROOT_DIR/forkop/files" "$ROOT_DIR/luci-app-forkop/root" "$ROOT_DIR/luci-app-forkop/htdocs" -type f -print0)
+
 bash "$BUILD_SCRIPT" --help >/dev/null ||
   fail "build.sh must provide command-line usage"
 if bash "$BUILD_SCRIPT" 1.2 >/dev/null 2>&1; then
@@ -125,6 +139,10 @@ grep -Fq "list applied_migrations 'retired_secondary_rulesets_v2'" "$FORKOP_CONF
   fail "new installations must mark the updated retired secondary rule set migration as applied"
 grep -Fq "list applied_migrations 'secondary_rulesets_mirror_v1'" "$FORKOP_CONFIG" ||
   fail "new installations must mark the secondary rule set mirror migration as applied"
+grep -Fq "list applied_migrations 'own_dependency_mirror_v1'" "$FORKOP_CONFIG" ||
+  fail "new installations must mark the own dependency mirror migration as applied"
+grep -Fq "list applied_migrations 'mirror_infotechtg_ru_v1'" "$FORKOP_CONFIG" ||
+  fail "new installations must mark the own package mirror migration as applied"
 grep -Fq '/usr/lib/forkop/config/migration.uc migrate' "$FORKOP_MAKEFILE" ||
   fail "OpenWrt package postinst must run configuration migrations"
 [ "$(grep -Fc '/usr/lib/forkop/config/migration.uc migrate' "$BUILD_SCRIPT")" -ge 3 ] ||
