@@ -213,14 +213,20 @@ parse_args --language=ru --sing-box stable
 INSTALL_MODE="clean"
 FORKOP_I18N_REQUESTED=0
 INSTALLER_LANG="en"
-INSTALLER_LANG_EXPLICIT=1
+INSTALLER_LANG_EXPLICIT=0
 INSTALLER_LANG_DETECTED=0
 pkg_is_installed() { return 1; }
 get_luci_main_lang() { printf '%s\n' ru; }
-select_installer_language() { INSTALLER_LANG="ru"; }
+parse_args --lang ru
 decide_i18n_installation >/dev/null
-[ "$FORKOP_I18N_REQUESTED" -eq 1 ] ||
+[ "$INSTALLER_LANG" = "ru" ] && [ "$FORKOP_I18N_REQUESTED" -eq 1 ] ||
   fail_test "Russian selection must request the Russian LuCI package"
+
+FORKOP_I18N_REQUESTED=0
+parse_args --lang en
+decide_i18n_installation >/dev/null
+[ "$INSTALLER_LANG" = "en" ] && [ "$FORKOP_I18N_REQUESTED" -eq 0 ] ||
+  fail_test "explicit English selection must override the detected LuCI language"
 
 printf x >"$WORK_DIR/backend.ipk"
 printf xx >"$WORK_DIR/app.ipk"
