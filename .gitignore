@@ -8,6 +8,7 @@ AGENTS.md
 sandbox/
 .build/
 dist/
+__pycache__/
 
 # Local router and deployment snapshots
 .known_hosts*

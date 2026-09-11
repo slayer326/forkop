@@ -1937,6 +1937,72 @@ function renderDefaultState({
   subscriptionUpdating,
   selectorSwitchingTag
 }) {
+  function renderPriorityMembers(outbound) {
+    const members = outbound.priorityInfo?.outbounds || [];
+    if (members.length === 0) {
+      return void 0;
+    }
+    let previousLevel = -1;
+    const content = [];
+    members.forEach((member, index) => {
+      if (member.levelIndex !== previousLevel) {
+        previousLevel = member.levelIndex;
+        content.push(
+          E(
+            "div",
+            { class: "fkp_dashboard-page__priority-members__level" },
+            `${_("Priority")} #${member.levelIndex + 1}: ${member.levelName}`
+          )
+        );
+      }
+      content.push(
+        E(
+          "div",
+          {
+            class: [
+              "fkp_dashboard-page__priority-members__row",
+              member.selected ? "fkp_dashboard-page__priority-members__row--selected" : ""
+            ].filter(Boolean).join(" ")
+          },
+          [
+            E(
+              "span",
+              { class: "fkp_dashboard-page__priority-members__order" },
+              String(index + 1)
+            ),
+            E(
+              "span",
+              { class: "fkp_dashboard-page__priority-members__name" },
+              renderFlagEmojis(member.displayName)
+            ),
+            E(
+              "span",
+              {
+                class: member.latency ? "fkp_dashboard-page__outbound-grid__item__latency--green" : "fkp_dashboard-page__outbound-grid__item__latency--empty"
+              },
+              member.latency ? `${member.latency}ms` : "N/A"
+            )
+          ]
+        )
+      );
+    });
+    return E(
+      "details",
+      {
+        class: "fkp_dashboard-page__priority-members",
+        open: true,
+        click: (event) => event.stopPropagation()
+      },
+      [
+        E("summary", {}, `${_("Nodes")}: ${members.length}`),
+        E(
+          "div",
+          { class: "fkp_dashboard-page__priority-members__list" },
+          content
+        )
+      ]
+    );
+  }
   function testLatency() {
     if (section.withTagSelect) {
       return onTestLatency(
@@ -1961,6 +2027,7 @@ function renderDefaultState({
       return "fkp_dashboard-page__outbound-grid__item__latency--red";
     }
     const footerLabel = getOutboundFooterLabel(outbound);
+    const priorityMembers = renderPriorityMembers(outbound);
     const selectorSwitching = Boolean(selectorSwitchingTag);
     const outboundSwitching = selectorSwitchingTag === outbound.code;
     const canChooseOutbound = section.withTagSelect && outbound.runtimeAvailable !== false && !selectorSwitching && !outbound.selected;
@@ -2042,7 +2109,8 @@ function renderDefaultState({
             { class: getLatencyClass() },
             outbound.latency ? `${outbound.latency}ms` : "N/A"
           )
-        ])
+        ]),
+        ...priorityMembers ? [priorityMembers] : []
       ]
     );
   }
@@ -3746,6 +3814,9 @@ function buildProxyGroupOutbounds(section, proxies, outboundMetadata, urltestGro
     entry: proxyByCode.get(config.code)
   }));
   const manualLinkByCode = buildManualLinkByCode(section);
+  const priorityMemberCodes = new Set(
+    priorityEntries.flatMap(({ entry }) => entry?.value.all || [])
+  );
   const selectorCodes = selector?.value?.all ?? [];
   const urlTestCodes = urlTestConfigs.map((config) => config.code);
   const priorityCodes = priorityConfigs.map((config) => config.code);
@@ -3766,6 +3837,9 @@ function buildProxyGroupOutbounds(section, proxies, outboundMetadata, urltestGro
     const item = proxyByCode.get(code);
     const urlTestConfig = urlTestConfigByCode.get(code);
     const priorityConfig = priorityConfigByCode.get(code);
+    if (!priorityConfig && priorityMemberCodes.has(code)) {
+      return [];
+    }
     if (!item && !urlTestConfig && !priorityConfig) {
       return [];
     }
@@ -5998,11 +6072,21 @@ async function handleTestLatency(latencyType, sectionName, tag, timeout) {
     }
     followedLatencyJobs.add(jobId);
     ownsJobFollow = true;
-    await ForkopShellMethods.waitLatencyTestJob(jobId);
+    const completion = await ForkopShellMethods.waitLatencyTestJob(jobId);
+    if (!completion.success) {
+      throw new Error(completion.error);
+    }
+    if (!completion.data.success) {
+      throw new Error(completion.data.message || _("Latency test failed"));
+    }
     await completeLatencyTestJob(jobId, sectionName);
     completed = true;
   } catch (error) {
     logger.error("[DASHBOARD]", "handleTestLatency: failed", error);
+    if (!pageUnloading) {
+      const message = error instanceof Error ? error.message : "";
+      showToast(message || _("Latency test failed"), "error");
+    }
   } finally {
     if (ownsJobFollow) {
       followedLatencyJobs.delete(jobId);
@@ -7419,6 +7503,57 @@ var styles = `
 
 .fkp_dashboard-page__outbound-grid__item__latency--red {
     color: var(--error-color-medium, red);
+}
+
+.fkp_dashboard-page__priority-members {
+    margin-top: 10px;
+    border-top: 1px solid var(--border-color-low, #eee);
+    padding-top: 8px;
+}
+
+.fkp_dashboard-page__priority-members > summary {
+    cursor: pointer;
+    color: var(--text-color-medium, #666);
+    font-size: 13px;
+    user-select: none;
+}
+
+.fkp_dashboard-page__priority-members__list {
+    display: grid;
+    gap: 3px;
+    margin-top: 8px;
+}
+
+.fkp_dashboard-page__priority-members__level {
+    margin-top: 5px;
+    color: var(--text-color-medium, #666);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.fkp_dashboard-page__priority-members__row {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) max-content;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 4px 5px;
+    border-radius: 3px;
+    font-size: 13px;
+}
+
+.fkp_dashboard-page__priority-members__row--selected {
+    background: rgba(54, 179, 126, 0.13);
+}
+
+.fkp_dashboard-page__priority-members__order {
+    color: var(--text-color-medium, #666);
+    font-family: monospace;
+}
+
+.fkp_dashboard-page__priority-members__name {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .fkp_dashboard-page__urltest-details {

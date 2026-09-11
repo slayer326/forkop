@@ -1,0 +1,19 @@
+{
+    admin off
+    auto_https off
+}
+:8080 {
+    root * /srv/mirror/public
+    header X-Content-Type-Options nosniff
+    route {
+        @private path_regexp private (^|/)\.
+        respond @private 404
+        respond /healthz "ok\n" 200
+        handle /zapret-manager/proxy/* {
+            reverse_proxy forkop-zapret-cache:9081
+        }
+        handle {
+            file_server
+        }
+    }
+}

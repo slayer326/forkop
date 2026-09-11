@@ -66,11 +66,25 @@ reject_runtime_regex 'log_message\("subscription/cache\.uc: ' \
 reject_runtime_regex 'log_message\("singbox/runtime\.uc: ' \
   "runtime logs must not expose singbox/runtime.uc as a user-facing prefix"
 
-reject_runtime_regex 'log_message\([^\n]*(as_string\()?url\)?' \
-  "runtime logs must not include remote URLs, which can contain query credentials"
-reject_runtime_regex 'log_message\([^\n]*entry\.url' \
-  "runtime logs must not include preflight source URLs"
+reject_runtime_regex 'log_message\([^\n]*\+ url' \
+  "runtime logs must not interpolate raw remote URLs"
+reject_runtime_regex 'log_message\([^\n]*\+ entry\.url' \
+  "runtime logs must not interpolate raw preflight source URLs"
 reject_runtime_regex 'log_message\([^\n]*\+ reference' \
-  "runtime logs must not include rule-set references, which can be URLs"
+  "runtime logs must not interpolate raw rule-set references"
+
+safe_source="$(ucode -L "$ROOT_DIR/forkop/files/usr/lib" \
+  "$ROOT_DIR/forkop/files/usr/lib/components/updates.uc" \
+  safe-remote-source-identity \
+  'https://alice:secret@example.test:8443/list.txt?token=very-secret#fragment')"
+
+if [[ "$safe_source" != "example.test:8443/list.txt" ]]; then
+  printf 'unexpected sanitized source identity: %s\n' "$safe_source" >&2
+  fail "remote source sanitizer must preserve host/path and remove credentials and query data"
+fi
+
+if [[ "$safe_source" == *alice* || "$safe_source" == *secret* || "$safe_source" == *token* || "$safe_source" == *fragment* ]]; then
+  fail "remote source sanitizer leaked sensitive URL components"
+fi
 
 printf 'log hygiene checks passed\n'

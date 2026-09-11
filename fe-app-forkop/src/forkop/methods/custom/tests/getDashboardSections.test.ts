@@ -535,6 +535,9 @@ describe('getDashboardSections', () => {
       type: 'Priority',
       selected: true,
     });
+    expect(section.outbounds.map((item) => item.code)).toEqual([
+      'main-priority-pg_main-out',
+    ]);
     expect(priority?.priorityInfo).toMatchObject({
       selectedCode: 'main-2-out',
       selectedName: 'Second cached',

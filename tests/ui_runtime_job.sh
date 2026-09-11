@@ -227,6 +227,23 @@ export FORKOP_UI_LATENCY_ACTION_DIR="$FORKOP_UI_STATE_DIR/latency-actions"
 export FORKOP_UI_COMPONENT_ACTION_DIR="$FORKOP_UI_STATE_DIR/component-actions"
 export FORKOP_UI_SUBSCRIPTION_ACTION_DIR="$FORKOP_UI_STATE_DIR/subscription-actions"
 
+export FORKOP_LATENCY_TEST_LOCK_DIR="$WORK_DIR/latency.lock"
+mkdir -p "$FORKOP_LATENCY_TEST_LOCK_DIR"
+printf '%s\n' "$$" >"$FORKOP_LATENCY_TEST_LOCK_DIR/pid"
+if ui_ucode latency-test-async proxy main test 5000 >"$WORK_DIR/busy.json"; then
+  fail "latency check must reject a live lock owner"
+fi
+grep -Fq 'Another latency test is already running' "$WORK_DIR/busy.json" ||
+  fail "latency busy error must be explicit"
+printf '%s\n' 99999999 >"$FORKOP_LATENCY_TEST_LOCK_DIR/pid"
+# Exercise stale-owner recovery before starting the asynchronous worker.
+ucode -L "$FORKOP_FILES/usr/lib" "$FORKOP_FILES/usr/lib/service/state.uc" \
+  acquire-runtime-dir-lock "$FORKOP_LATENCY_TEST_LOCK_DIR" "$$" ||
+  fail "dead latency owner must be recoverable"
+ucode -L "$FORKOP_FILES/usr/lib" "$FORKOP_FILES/usr/lib/service/state.uc" \
+  release-runtime-dir-lock "$FORKOP_LATENCY_TEST_LOCK_DIR"
+mkdir -p "$FORKOP_LATENCY_TEST_LOCK_DIR"
+printf '%s\n' 99999999 >"$FORKOP_LATENCY_TEST_LOCK_DIR/pid"
 latency_start="$(
   FORKOP_BIN=/bin/true \
   FORKOP_LIB="$FORKOP_FILES/usr/lib" \

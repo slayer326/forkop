@@ -14,6 +14,7 @@ const FORKOP_RELEASE_REPO = getenv("FORKOP_RELEASE_REPO") || constants.FORKOP_RE
 const FORKOP_RELEASE_BASE_URL = getenv("FORKOP_RELEASE_BASE_URL") || constants.FORKOP_RELEASE_BASE_URL || "https://fold8.ru/forkop";
 const FORKOP_MIRROR_BASE_URL = getenv("FORKOP_MIRROR_BASE_URL") || constants.FORKOP_MIRROR_BASE_URL || "";
 const RUNTIME_STATE_DIR = getenv("FORKOP_RUNTIME_STATE_DIR") || "/var/run/forkop";
+const MANAGED_UPGRADE_SING_BOX_MARKER = getenv("FORKOP_MANAGED_UPGRADE_SING_BOX_MARKER") || "/tmp/forkop-managed-upgrade-sing-box";
 const SYSTEM_INFO_CACHE_FILE = getenv("FORKOP_SYSTEM_INFO_CACHE_FILE") || RUNTIME_STATE_DIR + "/system-info.json";
 const COMPONENT_LOCK_DIR = getenv("UPDATES_LOCK_DIR") || RUNTIME_STATE_DIR + "/component-action.lock";
 const TMP_STALE_TTL_MINUTES = getenv("UPDATES_TMP_STALE_TTL_MINUTES") || "30";
@@ -792,6 +793,14 @@ function capture_forkop_running_state() {
     forkop_was_running = file_exists(BIN_PATH) && forkop_status_running_with_timeout();
 }
 
+function capture_managed_upgrade_sing_box_marker() {
+    let state_module = LIB_DIR + "/service/state.uc";
+    if (!file_exists(state_module))
+        return;
+    if (module_success([ state_module, "write-managed-upgrade-sing-box-marker", MANAGED_UPGRADE_SING_BOX_MARKER ]))
+        updates_log("Recorded managed sing-box provenance for package upgrade");
+}
+
 function restart_forkop_after_successful_change() {
     if (!file_exists(SERVICE_INIT))
         return;
@@ -1114,8 +1123,9 @@ function install_zapret_manager(action) {
     let source = read_file(manager_file);
     let matched = match(source, /ZAPRET_MANAGER_VERSION="([^"]+)"/);
     let latest_version = matched != null ? as_string(matched[1]) : "mirror";
-    let wrapper = "#!/bin/sh\nexec sh <(wget -q -O - " + shell_quote(manager_url) + ") \"$@\"\n";
-    let auto_wrapper = "#!/bin/sh\nexec sh <(wget -q -O - " + shell_quote(manager_url) + ") \"$@\"\n";
+    let wrapper = "#!/bin/sh\nexport ZAPRET_MANAGER_MIRROR=" + shell_quote(FORKOP_MIRROR_BASE_URL) +
+        "\nexec sh <(wget -q -O - " + shell_quote(manager_url) + ") \"$@\"\n";
+    let auto_wrapper = wrapper;
 
     if (!write_file("/usr/bin/zms", wrapper) || !write_file("/usr/bin/zmsA", auto_wrapper) ||
         !command_success_from_args([ "chmod", "0755", "/usr/bin/zms", "/usr/bin/zmsA" ]))
@@ -1889,6 +1899,10 @@ function install_forkop() {
         !download_with_retry(release.app_url, app_file, release.app_name) ||
         (release.i18n_url != "" && !download_with_retry(release.i18n_url, i18n_file, release.i18n_name)))
         action_fail("forkop", "install", "Failed to download Forkop release packages", FORKOP_VERSION, latest_version);
+
+    // Capture the exact managed sing-box process before apk/opkg runs the
+    // currently installed package's prerm.
+    capture_managed_upgrade_sing_box_marker();
 
     // apk refreshes repository indexes for every `add` invocation. Install the
     // release files in one transaction on APK systems to retain dependency
