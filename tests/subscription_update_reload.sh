@@ -211,8 +211,8 @@ const expected = [
   "service/state:start-managed-sing-box-runtime",
   "service/state:stop-managed-sing-box-runtime",
   "singbox/runtime:restore-config-stage",
-  "singbox/runtime:discard-config-stage",
   "service/state:start-managed-sing-box-runtime",
+  "singbox/runtime:discard-config-stage",
   "singbox/priority:start-runtime",
   "singbox/dns_failover:start-runtime"
 ];

@@ -1,6 +1,8 @@
 name: Build packages
 on:
   push:
+    branches:
+      - 'codex/release-*'
     tags:
       - '*'
   workflow_dispatch:
@@ -23,6 +25,14 @@ permissions:
   contents: read
 
 jobs:
+  backend-checks:
+    name: Verify release backend
+    uses: ./.github/workflows/backend-ci.yml
+
+  frontend-checks:
+    name: Verify release frontend
+    uses: ./.github/workflows/frontend-ci.yml
+
   preparation:
     name: Setup build version
     runs-on: ubuntu-24.04
@@ -44,6 +54,9 @@ jobs:
             VERSION="$INPUT_VERSION"
           else
             VERSION=$(git describe --tags --exact-match 2>/dev/null || true)
+            if [ -z "$VERSION" ] && [ -f RELEASE_VERSION ]; then
+              VERSION=$(tr -d '\r\n' < RELEASE_VERSION)
+            fi
           fi
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Release version must use x.y.z format, got: ${VERSION:-<empty>}" >&2
@@ -116,13 +129,15 @@ jobs:
 
   release:
     name: Create Release
-    if: github.event_name == 'push' || inputs.publish_release
+    if: startsWith(github.ref, 'refs/tags/') || inputs.publish_release
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     needs:
       - preparation
       - build
+      - backend-checks
+      - frontend-checks
     steps:
       - uses: actions/checkout@v5.0.0
       - name: Create release dirs

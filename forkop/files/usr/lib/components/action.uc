@@ -1123,8 +1123,9 @@ function install_zapret_manager(action) {
     let source = read_file(manager_file);
     let matched = match(source, /ZAPRET_MANAGER_VERSION="([^"]+)"/);
     let latest_version = matched != null ? as_string(matched[1]) : "mirror";
-    let wrapper = "#!/bin/sh\nexec sh <(wget -q -O - " + shell_quote(manager_url) + ") \"$@\"\n";
-    let auto_wrapper = "#!/bin/sh\nexec sh <(wget -q -O - " + shell_quote(manager_url) + ") \"$@\"\n";
+    let wrapper = "#!/bin/sh\nexport ZAPRET_MANAGER_MIRROR=" + shell_quote(FORKOP_MIRROR_BASE_URL) +
+        "\nexec sh <(wget -q -O - " + shell_quote(manager_url) + ") \"$@\"\n";
+    let auto_wrapper = wrapper;
 
     if (!write_file("/usr/bin/zms", wrapper) || !write_file("/usr/bin/zmsA", auto_wrapper) ||
         !command_success_from_args([ "chmod", "0755", "/usr/bin/zms", "/usr/bin/zmsA" ]))

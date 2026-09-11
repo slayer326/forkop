@@ -1154,6 +1154,9 @@ function buildProxyGroupOutbounds(
     entry: proxyByCode.get(config.code),
   }));
   const manualLinkByCode = buildManualLinkByCode(section);
+  const priorityMemberCodes = new Set(
+    priorityEntries.flatMap(({ entry }) => entry?.value.all || []),
+  );
   const selectorCodes = selector?.value?.all ?? [];
   const urlTestCodes = urlTestConfigs.map((config) => config.code);
   const priorityCodes = priorityConfigs.map((config) => config.code);
@@ -1177,6 +1180,11 @@ function buildProxyGroupOutbounds(
     const item = proxyByCode.get(code);
     const urlTestConfig = urlTestConfigByCode.get(code);
     const priorityConfig = priorityConfigByCode.get(code);
+
+    // Priority members are displayed inside their group's card.
+    if (!priorityConfig && priorityMemberCodes.has(code)) {
+      return [];
+    }
 
     if (!item && !urlTestConfig && !priorityConfig) {
       return [];

@@ -1424,6 +1424,13 @@ function latency_test_async(latency_type, section, tag, requested_timeout) {
         exit(1);
     }
 
+    // This is only an early busy hint. The worker still acquires the lock
+    // atomically and reclaims dead owners; existence alone is not ownership.
+    if (pid_running(first_line(LATENCY_TEST_LOCK_DIR + "/pid"))) {
+        action_start_response(false, "", "Another latency test is already running");
+        exit(1);
+    }
+
     ensure_dirs();
     let id = job_id();
     let path = job_state_path_value(LATENCY_ACTION_DIR, id);

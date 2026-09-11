@@ -230,7 +230,7 @@ function subscription_visibility_refs(outbounds) {
         if (type(outbound) != "object")
             continue;
 
-        if (subscription_urltest_group_outbound(outbound)) {
+        if (as_string(outbound.type) == "urltest") {
             for (let tag_name in array_or_empty(outbound.outbounds)) {
                 tag_name = as_string(tag_name);
                 if (tag_name != "")
@@ -1250,14 +1250,7 @@ function grouped_selector_outbounds(section, selector_tags, group_outbounds, sta
     let selected = [];
     for (let group_name in keys(object_or_empty(group_outbounds))) {
         for (let tag_name in array_or_empty(group_outbounds[group_name])) {
-            if (array_contains(selector_tags, tag_name)) {
-                push(selected, tag_name);
-                continue;
-            }
-
-            let selector_group = selector_group_for_outbound(selector_tags, state, tag_name);
-            if (selector_group != "")
-                push(selected, selector_group);
+            push(selected, tag_name);
         }
     }
 

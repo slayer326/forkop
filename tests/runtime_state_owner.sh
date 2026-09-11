@@ -87,12 +87,12 @@ grep -Fq '"wait-forkop-stable-start"' "$LIFECYCLE_UC" ||
   fail "service/lifecycle.uc must verify stable runtime after sing-box start/reload"
 grep -Fq 'SING_BOX_START_STABLE_MIN_AGE' "$LIFECYCLE_UC" ||
   fail "service/lifecycle.uc must use a dedicated sing-box start stability window"
-sing_box_start_line="$(grep -nF 'command_start_without_procd_lock([ "/etc/init.d/sing-box", "start" ])' "$LIFECYCLE_UC" | head -n1 | cut -d: -f1)"
+sing_box_start_line="$(grep -nF '"start-managed-sing-box-runtime"' "$LIFECYCLE_UC" | head -n1 | cut -d: -f1)"
 early_stable_line="$(awk -v start="$sing_box_start_line" 'NR > start && /"wait-forkop-stable-start"/ { print NR; exit }' "$LIFECYCLE_UC")"
 start_stable_min_age_line="$(awk -v start="$sing_box_start_line" 'NR > start && /SING_BOX_START_STABLE_MIN_AGE/ { print NR; exit }' "$LIFECYCLE_UC")"
 deferred_bootstrap_line="$(grep -nF '"run-deferred-bootstrap"' "$LIFECYCLE_UC" | head -n1 | cut -d: -f1)"
 [ -n "$sing_box_start_line" ] ||
-  fail "service/lifecycle.uc must start sing-box through init.d"
+  fail "service/lifecycle.uc must use the ownership-checked sing-box start"
 [ -n "$early_stable_line" ] ||
   fail "service/lifecycle.uc must verify stable runtime immediately after sing-box start"
 [ "$early_stable_line" -lt "$deferred_bootstrap_line" ] ||

@@ -1,0 +1,49 @@
+name: forkop-zapret-cache
+services:
+  cache:
+    image: python@sha256:d50fb7611f86d04a3b0471b46d7557818d88983fc3136726336b2a4c657aa30b
+    pull_policy: never
+    container_name: forkop-zapret-cache
+    user: "65534:65534"
+    read_only: true
+    restart: unless-stopped
+    init: true
+    cpus: 0.25
+    mem_limit: 128m
+    memswap_limit: 128m
+    pids_limit: 32
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    entrypoint: [python3, -B, /app/cache.py]
+    environment:
+      ZAPRET_CACHE_LISTEN: 0.0.0.0
+      ZAPRET_CACHE_PORT: "9081"
+      ZAPRET_CACHE_ROOT: /cache
+      ZAPRET_MANAGER_MIRROR: https://mirror.infotechtg.ru
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    volumes:
+      - type: bind
+        source: /mnt/storage/forkop-mirror/config/zapret-manager-cache.py
+        target: /app/cache.py
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /mnt/storage/forkop-mirror/data/cache/zapret-manager
+        target: /cache
+        bind: {create_host_path: false}
+    networks:
+      matrix:
+        aliases: [forkop-zapret-cache]
+    logging:
+      driver: json-file
+      options: {max-size: "2m", max-file: "2"}
+    healthcheck:
+      test: [CMD, python3, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9081/healthz', timeout=3).close()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+networks:
+  matrix:
+    external: true
+    name: matrix-server_default

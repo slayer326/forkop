@@ -161,8 +161,8 @@ grep -Fxq 'retry_start_on_wan_up' "$retry_call_file" ||
   fail "WAN retry should skip when autostart is disabled"
 [ "$(initd_ucode retry-start-on-wan-up-action 0 1 0)" = "skip_no_retry" ] ||
   fail "WAN retry should skip stopped service without failed-start marker"
-[ "$(initd_ucode retry-start-on-wan-up-action 0 1 1)" = "restart" ] ||
-  fail "WAN retry should restart only after a recorded failed start"
+[ "$(initd_ucode retry-start-on-wan-up-action 0 1 1)" = "start" ] ||
+  fail "WAN retry should use controlled start after a recorded failed start"
 
 initd_ucode initd-should-restore-dnsmasq-on-start-fixture "" 0 >/dev/null ||
   fail "unclean shutdown should request dnsmasq restore on start"
@@ -214,7 +214,7 @@ esac
   fail "monitored WAN up should reload a running service"
 [ "$(initd_ucode wan-up-action 1 1 1 0)" = "skip_running" ] ||
   fail "unmonitored WAN up should not reload a running service"
-[ "$(initd_ucode wan-up-action 0 1 1 1)" = "restart" ] ||
+[ "$(initd_ucode wan-up-action 0 1 1 1)" = "start" ] ||
   fail "stopped monitored WAN up should keep failed-start retry"
 
 for legacy in \
