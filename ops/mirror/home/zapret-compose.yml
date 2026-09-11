@@ -12,6 +12,8 @@ services:
     mem_limit: 128m
     memswap_limit: 128m
     pids_limit: 32
+    # Keep proxy destinations real/public even if the LAN resolver uses Fake-IP.
+    dns: [1.1.1.1, 8.8.8.8]
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     entrypoint: [python3, -B, /app/cache.py]

@@ -69,6 +69,9 @@ entries, downloads to 128 MiB, and request workers to eight. Only the repositori
 listed in `zapret-manager-cache.py` and the two Routerich feed directories are
 accepted. Redirect destinations and resolved public IP addresses are checked;
 TLS still verifies the original hostname. No credentials or request URLs are logged.
+The cache container uses its own public DNS resolvers (1.1.1.1/8.8.8.8), since
+the home LAN resolver can return Fake-IP addresses. Host and other containers'
+DNS settings are not changed.
 
 The entry script served from Screamshow/Zapret-Manager is adapted to default to
 `https://mirror.infotechtg.ru`, including after it recreates its own launchers.
