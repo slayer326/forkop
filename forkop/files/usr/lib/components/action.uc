@@ -17,6 +17,7 @@ const RUNTIME_STATE_DIR = getenv("FORKOP_RUNTIME_STATE_DIR") || "/var/run/forkop
 const MANAGED_UPGRADE_SING_BOX_MARKER = getenv("FORKOP_MANAGED_UPGRADE_SING_BOX_MARKER") || "/tmp/forkop-managed-upgrade-sing-box";
 const SYSTEM_INFO_CACHE_FILE = getenv("FORKOP_SYSTEM_INFO_CACHE_FILE") || RUNTIME_STATE_DIR + "/system-info.json";
 const COMPONENT_LOCK_DIR = getenv("UPDATES_LOCK_DIR") || RUNTIME_STATE_DIR + "/component-action.lock";
+const FORKOP_OPKG_RECOVERY_DIR = getenv("FORKOP_OPKG_RECOVERY_DIR") || "/etc/forkop/opkg-package-set-recovery";
 const TMP_STALE_TTL_MINUTES = getenv("UPDATES_TMP_STALE_TTL_MINUTES") || "30";
 const TMP_FILE_STALE_TTL_MINUTES = getenv("UPDATES_TMP_FILE_STALE_TTL_MINUTES") || "10";
 const SB_MANAGED_SERVICE_MARKER = getenv("SB_MANAGED_SERVICE_MARKER") || constants.SB_MANAGED_SERVICE_MARKER || "Forkop managed sing-box service for binary variants";
@@ -1935,8 +1936,7 @@ function check_forkop() {
     action_success("forkop", "check_update", "Installed version is newer than release", FORKOP_VERSION, latest_version, 0, status, release_url);
 }
 
-function resolve_forkop_release(latest_version) {
-    let release_json = latest_forkop_release_json();
+function resolve_forkop_release_json(latest_version, release_json) {
     if (release_json == "")
         return null;
     let asset_ext = is_apk() ? "apk" : "ipk";
@@ -1954,6 +1954,193 @@ function resolve_forkop_release(latest_version) {
         i18n_name: fields[5],
         i18n_url: forkop_release_url(fields[6])
     };
+}
+
+function resolve_forkop_release(latest_version) {
+    let release_json = latest_forkop_release_json();
+    return resolve_forkop_release_json(latest_version, release_json);
+}
+
+function forkop_release_matches(package_name, version) {
+    let installed = installed_package_version(package_name);
+    let revision_prefix = version + "-r";
+    return installed == version || (substr(installed, 0, length(revision_prefix)) == revision_prefix &&
+        match(substr(installed, length(revision_prefix)), /^[0-9]+$/) != null);
+}
+
+function previous_forkop_release(version) {
+    if (match(version, /^[0-9]+[.][0-9]+[.][0-9]+$/) == null)
+        return null;
+    let parts = split(FORKOP_RELEASE_REPO, "/");
+    if (length(parts) != 2 || match(parts[0], /^[A-Za-z0-9_.-]+$/) == null ||
+        match(parts[1], /^[A-Za-z0-9_.-]+$/) == null)
+        return null;
+    let metadata = http_get("https://api.github.com/repos/" + parts[0] + "/" + parts[1] + "/releases/tags/" + version);
+    return resolve_forkop_release_json(version, metadata);
+}
+
+function opkg_forkop_set_versions_match(version, with_i18n) {
+    return forkop_release_matches("forkop", version) &&
+        forkop_release_matches("luci-app-forkop", version) &&
+        (!with_i18n || forkop_release_matches("luci-i18n-forkop-ru", version));
+}
+
+function opkg_forkop_set_command(files, noaction, reinstall) {
+    let args = [ "opkg" ];
+    if (noaction)
+        push(args, "--noaction");
+    push(args, "install", "--force-overwrite", "--force-downgrade");
+    if (reinstall)
+        push(args, "--force-reinstall");
+    for (let file in files)
+        push(args, file);
+    return command_from_args(args) + " </dev/null";
+}
+
+function opkg_forkop_recovery_files(with_i18n) {
+    let files = [ FORKOP_OPKG_RECOVERY_DIR + "/backend.ipk",
+        FORKOP_OPKG_RECOVERY_DIR + "/app.ipk" ];
+    if (with_i18n)
+        push(files, FORKOP_OPKG_RECOVERY_DIR + "/i18n.ipk");
+    return files;
+}
+
+function restore_forkop_opkg_service(was_running) {
+    if (!was_running) {
+        if (!forkop_status_running_with_timeout())
+            return true;
+        return command_success_from_args([ SERVICE_INIT, "stop" ]) &&
+            !forkop_status_running_with_timeout();
+    }
+    if (forkop_status_running_with_timeout())
+        return true;
+    if (!command_success_from_args([ SERVICE_INIT, "start" ]))
+        return false;
+    for (let attempt = 0; attempt < 45; attempt++) {
+        if (forkop_status_running_with_timeout())
+            return true;
+        command_success_from_args([ "sleep", "4" ]);
+    }
+    return false;
+}
+
+function finish_forkop_opkg_recovery(service_state) {
+    if (service_state == "")
+        return "Forkop package-set service state is unknown; recovery archives retained for manual recovery";
+    if (!restore_forkop_opkg_service(service_state == "1"))
+        return "Forkop package-set service state could not be restored; recovery archives retained in " + FORKOP_OPKG_RECOVERY_DIR;
+    if (!command_success_from_args([ "rm", "-rf", FORKOP_OPKG_RECOVERY_DIR ]) ||
+        file_exists(FORKOP_OPKG_RECOVERY_DIR + "/pending"))
+        return "Forkop package-set recovery metadata could not be cleared";
+    return "";
+}
+
+function recover_forkop_opkg_set() {
+    let marker = split(trim(read_file(FORKOP_OPKG_RECOVERY_DIR + "/pending")), "\t");
+    if ((length(marker) != 3 && length(marker) != 4) ||
+        match(marker[0], /^[0-9]+[.][0-9]+[.][0-9]+$/) == null ||
+        match(marker[1], /^[0-9]+[.][0-9]+[.][0-9]+$/) == null ||
+        (marker[2] != "0" && marker[2] != "1") ||
+        (length(marker) == 4 && marker[3] != "0" && marker[3] != "1"))
+        return "Forkop package-set recovery marker is invalid; manual recovery required";
+    let with_i18n = marker[2] == "1";
+    if (!opkg_forkop_set_versions_match(marker[1], with_i18n) &&
+        !opkg_forkop_set_versions_match(marker[0], with_i18n)) {
+        let files = opkg_forkop_recovery_files(with_i18n);
+        for (let file in files)
+            if (!file_nonempty(file))
+                return "Forkop package-set recovery archive is missing; manual recovery required";
+        // Restore the UI before the backend, so an old backend is never paired
+        // with a newer LuCI app during the recovery sequence.
+        let restored = true;
+        for (let i = length(files) - 1; i >= 0; i--)
+            if (!run_logged("Restoring Forkop release package " + path_basename(files[i]),
+                opkg_forkop_set_command([ files[i] ], false, true))) {
+                restored = false;
+                updates_log("Restoring " + path_basename(files[i]) + " failed", "error");
+            }
+        if (!restored || !opkg_forkop_set_versions_match(marker[0], with_i18n))
+            return "Forkop package-set rollback failed; recovery archives retained in " + FORKOP_OPKG_RECOVERY_DIR;
+    }
+    return finish_forkop_opkg_recovery(length(marker) == 4 ? marker[3] : "");
+}
+
+function install_forkop_opkg_set(latest_version, backend_file, app_file, i18n_file) {
+    let with_i18n = i18n_file != "";
+    if (file_exists(FORKOP_OPKG_RECOVERY_DIR + "/pending"))
+        return "Forkop package-set recovery is pending; a fresh component action is required";
+    if (!opkg_forkop_set_versions_match(FORKOP_VERSION, with_i18n))
+        return "Installed Forkop package versions are inconsistent; automatic upgrade refused";
+
+    let previous = previous_forkop_release(FORKOP_VERSION);
+    if (previous == null || (with_i18n && previous.i18n_url == ""))
+        return "Previous Forkop release packages are unavailable; automatic upgrade refused";
+
+    // A directory without the marker predates every package mutation.
+    if (file_exists(FORKOP_OPKG_RECOVERY_DIR))
+        command_success_from_args([ "rm", "-rf", FORKOP_OPKG_RECOVERY_DIR ]);
+    if (file_exists(FORKOP_OPKG_RECOVERY_DIR))
+        return "Failed to clear incomplete Forkop package-set staging";
+    let recovery_parent = trim(command_output_from_args([ "dirname", FORKOP_OPKG_RECOVERY_DIR ]));
+    if (recovery_parent == "" || !ensure_dir(recovery_parent))
+        return "Failed to prepare Forkop package-set recovery storage";
+    if (!command_success_from_args([ "mkdir", "-m", "0700", FORKOP_OPKG_RECOVERY_DIR ]))
+        return "Failed to reserve Forkop package-set recovery storage";
+    let old_backend = FORKOP_OPKG_RECOVERY_DIR + "/backend.ipk";
+    let old_app = FORKOP_OPKG_RECOVERY_DIR + "/app.ipk";
+    let old_i18n = with_i18n ? FORKOP_OPKG_RECOVERY_DIR + "/i18n.ipk" : "";
+    if (!download_with_retry(previous.backend_url, old_backend, previous.backend_name) ||
+        !download_with_retry(previous.app_url, old_app, previous.app_name) ||
+        (with_i18n && !download_with_retry(previous.i18n_url, old_i18n, previous.i18n_name))) {
+        command_success_from_args([ "rm", "-rf", FORKOP_OPKG_RECOVERY_DIR ]);
+        return "Failed to stage previous Forkop release packages; automatic upgrade refused";
+    }
+
+    let old_files = [ old_backend, old_app ];
+    let new_files = [ backend_file, app_file ];
+    if (with_i18n) {
+        push(old_files, old_i18n);
+        push(new_files, i18n_file);
+    }
+    if (!run_logged("Checking new Forkop package set", opkg_forkop_set_command(new_files, true)) ||
+        !run_logged("Checking previous Forkop package set", opkg_forkop_set_command(old_files, true, true))) {
+        command_success_from_args([ "rm", "-rf", FORKOP_OPKG_RECOVERY_DIR ]);
+        return "Forkop package-set preflight failed; automatic upgrade refused";
+    }
+    let marker_tmp = FORKOP_OPKG_RECOVERY_DIR + "/pending.new";
+    if (!write_file(marker_tmp, FORKOP_VERSION + "\t" + latest_version + "\t" + (with_i18n ? "1" : "0") + "\t" + (forkop_was_running ? "1" : "0") + "\n") ||
+        !fs.rename(marker_tmp, FORKOP_OPKG_RECOVERY_DIR + "/pending")) {
+        command_success_from_args([ "rm", "-rf", FORKOP_OPKG_RECOVERY_DIR ]);
+        return "Failed to record Forkop package-set recovery state";
+    }
+    if (!command_success_from_args([ "sync" ]))
+        return "Failed to persist Forkop package-set recovery state";
+
+    // Install the backend first so the old UI cannot invoke a newer API before
+    // the matching backend exists. OPKG is not atomic, even with several files.
+    let failed = false;
+    for (let file in new_files) {
+        if (!run_logged("Installing Forkop release package " + path_basename(file), opkg_forkop_set_command([ file ], false))) {
+            failed = true;
+            break;
+        }
+    }
+    if (!failed && opkg_forkop_set_versions_match(latest_version, with_i18n)) {
+        return finish_forkop_opkg_recovery(forkop_was_running ? "1" : "0");
+    }
+
+    if (opkg_forkop_set_versions_match(latest_version, with_i18n)) {
+        let recovery_error = finish_forkop_opkg_recovery(forkop_was_running ? "1" : "0");
+        if (recovery_error != "")
+            return recovery_error;
+        return "OPKG reported an error after the complete Forkop package set was installed";
+    }
+
+    updates_log("Forkop package-set upgrade failed; restoring previous release", "warn");
+    let recovery_error = recover_forkop_opkg_set();
+    if (recovery_error != "")
+        return recovery_error;
+    return "Forkop package-set upgrade failed; previous release restored";
 }
 
 function install_forkop() {
@@ -1984,8 +2171,7 @@ function install_forkop() {
 
     // apk refreshes repository indexes for every `add` invocation. Install the
     // release files in one transaction on APK systems to retain dependency
-    // resolution while avoiding two redundant index refreshes. Keep opkg's
-    // established ordering unchanged.
+    // resolution while avoiding two redundant index refreshes.
     if (is_apk()) {
         let files = [ app_file ];
         if (i18n_file != "")
@@ -1995,12 +2181,9 @@ function install_forkop() {
             action_fail("forkop", "install", "Failed to install Forkop release packages", FORKOP_VERSION, latest_version);
     }
     else {
-        if (!run_logged("Installing LuCI app package " + release.app_name, pkg_install_files_command([ app_file ])))
-            action_fail("forkop", "install", "Failed to install LuCI app package", FORKOP_VERSION, latest_version);
-        if (i18n_file != "" && !run_logged("Installing LuCI Russian i18n package " + release.i18n_name, pkg_install_files_command([ i18n_file ])))
-            action_fail("forkop", "install", "Failed to install LuCI Russian i18n package", FORKOP_VERSION, latest_version);
-        if (!run_logged("Installing Forkop package " + release.backend_name, pkg_install_files_command([ backend_file ])))
-            action_fail("forkop", "install", "Failed to install Forkop package", FORKOP_VERSION, latest_version);
+        let error = install_forkop_opkg_set(latest_version, backend_file, app_file, i18n_file);
+        if (error != "")
+            action_fail("forkop", "install", error, FORKOP_VERSION, latest_version);
     }
 
     remove_file("/var/luci-indexcache");
@@ -2175,6 +2358,15 @@ function component_action(component, action) {
         action_fail(component != "" ? component : "unknown", action != "" ? action : "unknown", "Another component action is already running");
     if (!init_tmp_dir())
         action_fail(component != "" ? component : "unknown", action != "" ? action : "unknown", "Failed to create temporary directory");
+    if (component == "forkop" && action == "install" && !is_apk() &&
+        file_exists(FORKOP_OPKG_RECOVERY_DIR + "/pending")) {
+        let recovery_error = recover_forkop_opkg_set();
+        if (recovery_error != "")
+            action_fail("forkop", "install", recovery_error);
+        action_success("forkop", "install",
+            "Forkop package-set recovery completed; no new update was attempted, and a fresh invocation is required",
+            installed_package_version("forkop"), "", 0, "recovered");
+    }
     capture_forkop_running_state();
 
     if (component == "forkop" && action == "check_update")

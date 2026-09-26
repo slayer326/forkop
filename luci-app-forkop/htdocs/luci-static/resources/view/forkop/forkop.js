@@ -280,6 +280,29 @@ const EntryPoint = {
 
       return uiCapabilitiesPromise;
     };
+    await loadUiCapabilities().catch(() => null);
+    try {
+      await uci.load(UCI_PACKAGE);
+    } catch (_error) {
+      const readonlyMap = new form.JSONMap(
+        { dashboard: {}, diagnostic: {} },
+        _("Forkop X Settings"),
+      );
+      readonlyMap.readonly = true;
+      readonlyMap.tabbed = true;
+      dashboard.createDashboardContent(
+        readonlyMap.section(form.TypedSection, "dashboard", _("Dashboard")),
+      );
+      diagnostic.createDiagnosticContent(
+        readonlyMap.section(form.TypedSection, "diagnostic", _("Diagnostics")),
+      );
+      const rendered = await readonlyMap.render();
+      main.coreService({
+        waitForLogWatcherStart: loadUiCapabilities,
+        logWatcherStartDelayMs: 5000,
+      });
+      return rendered;
+    }
     const forkopMap = new form.Map(
       UCI_PACKAGE,
       _("Forkop X Settings"),
@@ -403,8 +426,6 @@ const EntryPoint = {
       return ["updates"];
     };
     updates.createUpdatesContent(updatesSection);
-
-    await loadUiCapabilities().catch(() => null);
 
     const rendered = await forkopMap.render();
     main.coreService({

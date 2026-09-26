@@ -806,6 +806,46 @@ function show_sing_box_config(visibility) {
     return 0;
 }
 
+function get_readonly_config_sections() {
+    let result = [];
+    // Explicit allowlist: never return connection links, passwords, raw JSON or
+    // subscription URLs through a read-only rpcd capability.
+    let safe_keys = [ "action", "enabled", "interface", "interfaces", "label",
+        "section", "sort_by_latency", "urltest_enabled", "urltests", "priority_groups" ];
+    for (let type_name in config_section_types(FORKOP_CONFIG)) {
+        for (let source in uci_core.section_objects(CONFIG_NAME, type_name)) {
+            let item = { ".name": source[".name"], ".type": source[".type"] || type_name };
+            for (let key in safe_keys)
+                if (source[key] != null)
+                    item[key] = source[key];
+            push(result, item);
+        }
+    }
+    write_json(result);
+    return 0;
+}
+
+function get_dashboard_runtime_metadata() {
+    let path = option(settings(), "config_path", "");
+    let parsed = read_json_file(path);
+    let groups = {};
+    for (let outbound in (parsed != null && type(parsed.outbounds) == "array" ? parsed.outbounds : [])) {
+        if (outbound.type != "urltest" || as_string(outbound.tag) == "")
+            continue;
+        groups[outbound.tag] = {
+            displayName: outbound.tag,
+            outbounds: type(outbound.outbounds) == "array" ? outbound.outbounds : [],
+            url: match(as_string(outbound.url), /[?#@]/) == null ? outbound.url : "",
+            interval: outbound.interval,
+            tolerance: outbound.tolerance,
+            idle_timeout: outbound.idle_timeout,
+            interrupt_exist_connections: outbound.interrupt_exist_connections
+        };
+    }
+    write_json({ urltestGroups: groups });
+    return 0;
+}
+
 function show_config(visibility) {
     visibility = as_string(visibility || "masked");
     if (!file_exists(FORKOP_CONFIG)) {
@@ -2233,6 +2273,10 @@ else if (mode == "show-version")
     exit(show_version());
 else if (mode == "show-sing-box-config")
     exit(show_sing_box_config(ARGV[1] || "masked"));
+else if (mode == "get-readonly-config-sections")
+    exit(get_readonly_config_sections());
+else if (mode == "get-dashboard-runtime-metadata")
+    exit(get_dashboard_runtime_metadata());
 else if (mode == "show-sing-box-version")
     exit(show_sing_box_version());
 else if (mode == "get-status")

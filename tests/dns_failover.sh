@@ -115,6 +115,11 @@ assert(main.server == "cloudflare-dns.com", "runtime main index selects the seco
 assert(main.detour == "proxy-out", "main DNS uses selected section detour");
 assert(main.domain_resolver == "bootstrap-dns-server", "main hostname uses direct bootstrap resolver");
 assert(bootstrap.server == "8.8.8.8" && bootstrap.detour == null, "bootstrap index selects direct second server");
+assert(bootstrap.domain_resolver == null, "IP bootstrap is independent from a recursive domain resolver");
+for (let server in multi.dns.servers) {
+    if (index(server.tag || "", "dns-health-bootstrap-") == 0)
+        assert(server.domain_resolver == null && (server.server == "1.1.1.1" || server.server == "8.8.8.8"), "generated bootstrap health servers use IP literals");
+}
 assert(multi.route.default_domain_resolver == "bootstrap-dns-server", "detour mode breaks endpoint DNS cycles with bootstrap");
 let health_rules = 0;
 for (let rule in multi.dns.rules || []) {
@@ -125,6 +130,11 @@ for (let rule in multi.dns.rules || []) {
 }
 assert(health_rules == 5, "each candidate and the canonical active DNS have an inbound-specific rule");
 ' "$WORK_DIR/single-config.json" "$WORK_DIR/multi-config.json"
+
+if command -v sing-box >/dev/null 2>&1; then
+  sing-box check -c "$WORK_DIR/single-config.json"
+  sing-box check -c "$WORK_DIR/multi-config.json"
+fi
 
 cat >"$WORK_DIR/select-state.json" <<'JSON'
 {

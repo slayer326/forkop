@@ -3,21 +3,40 @@
     "description": "Grant UCI and RPC access to LuCI app Forkop",
     "read": {
       "file": {
-        "/etc/init.d/forkop": [
-          "exec"
-        ],
-        "/etc/sing-box/config.json": [
-          "read"
-        ],
-        "/tmp/sing-box/config.json": [
-          "read"
-        ],
-        "/var/run/forkop/section-cache/*": [
-          "read"
-        ],
-        "/tmp/run/forkop/section-cache/*": [
-          "read"
-        ],
+        "/usr/bin/forkop get_status": ["exec"],
+        "/usr/bin/forkop get_sing_box_status": ["exec"],
+        "/usr/bin/forkop get_zapret_status": ["exec"],
+        "/usr/bin/forkop get_zapret2_status": ["exec"],
+        "/usr/bin/forkop get_byedpi_status": ["exec"],
+        "/usr/bin/forkop get_system_info": ["exec"],
+        "/usr/bin/forkop get_ui_capabilities": ["exec"],
+        "/usr/bin/forkop get_ui_state": ["exec"],
+        "/usr/bin/forkop get_readonly_config_sections": ["exec"],
+        "/usr/bin/forkop get_dashboard_runtime_metadata": ["exec"],
+        "/usr/bin/forkop get_outbound_metadata *": ["exec"],
+        "/usr/bin/forkop show_version": ["exec"],
+        "/usr/bin/forkop show_sing_box_version": ["exec"],
+        "/usr/bin/forkop check_proxy": ["exec"],
+        "/usr/bin/forkop check_nft": ["exec"],
+        "/usr/bin/forkop check_nft_rules": ["exec"],
+        "/usr/bin/forkop check_sing_box": ["exec"],
+        "/usr/bin/forkop check_logs": ["exec"],
+        "/usr/bin/forkop check_sing_box_logs": ["exec"],
+        "/usr/bin/forkop check_fakeip": ["exec"],
+        "/usr/bin/forkop check_zapret_runtime": ["exec"],
+        "/usr/bin/forkop check_zapret2_runtime": ["exec"],
+        "/usr/bin/forkop check_byedpi_runtime": ["exec"],
+        "/usr/bin/forkop check_dns_available": ["exec"],
+        "/usr/bin/forkop clash_api get_proxies": ["exec"],
+        "/usr/bin/forkop clash_api get_connections": ["exec"],
+        "/usr/bin/forkop clash_api get_proxy_latency *": ["exec"],
+        "/usr/bin/forkop clash_api get_proxy_latencies *": ["exec"],
+        "/usr/bin/forkop clash_api get_group_latency *": ["exec"],
+        "/usr/bin/forkop service_action_status *": ["exec"],
+        "/usr/bin/forkop latency_test_status *": ["exec"],
+        "/usr/bin/forkop component_action_status *": ["exec"],
+        "/usr/bin/forkop subscription_update_status *": ["exec"],
+        "/usr/bin/forkop component_update_check_cache": ["exec"],
         "/var/run/forkop/component-actions/*": [
           "read"
         ],
@@ -42,9 +61,8 @@
         "/tmp/run/forkop/ui-state/latency-actions/*": [
           "read"
         ],
-        "/usr/bin/forkop": [
-          "exec"
-        ]
+        "/usr/bin/forkop global_check masked": ["exec"],
+        "/usr/bin/forkop show_sing_box_config masked": ["exec"]
       },
       "ubus": {
         "luci-rpc": [
@@ -57,13 +75,16 @@
         "service": [
           "list"
         ]
-      },
-      "uci": [
-        "forkop"
-      ]
+      }
     },
     "write": {
       "file": {
+        "/usr/bin/forkop": ["exec"],
+        "/etc/init.d/forkop": ["exec"],
+        "/etc/sing-box/config.json": ["read"],
+        "/tmp/sing-box/config.json": ["read"],
+        "/var/run/forkop/section-cache/*": ["read"],
+        "/tmp/run/forkop/section-cache/*": ["read"],
         "/var/run/forkop/ui-state/*": [
           "write"
         ],
@@ -86,6 +107,12 @@
       "uci": [
         "forkop"
       ]
+    }
+  },
+  "luci-app-forkop-admin": {
+    "description": "Grant Forkop configuration read access to administrators",
+    "read": {
+      "uci": ["forkop"]
     }
   }
 }

@@ -75,6 +75,8 @@ export namespace Forkop {
     GET_SYSTEM_INFO = 'get_system_info',
     GET_UI_CAPABILITIES = 'get_ui_capabilities',
     GET_UI_STATE = 'get_ui_state',
+    GET_READONLY_CONFIG_SECTIONS = 'get_readonly_config_sections',
+    GET_DASHBOARD_RUNTIME_METADATA = 'get_dashboard_runtime_metadata',
     SERVICE_ACTION_ASYNC = 'service_action_async',
     SERVICE_ACTION_STATUS = 'service_action_status',
     LATENCY_TEST_ASYNC = 'latency_test_async',
@@ -525,7 +527,7 @@ export namespace Forkop {
     latest_version: string;
     release_url?: string;
     changed: boolean;
-    status?: 'latest' | 'outdated' | 'dev' | '';
+    status?: 'latest' | 'outdated' | 'dev' | 'recovered' | '';
     pid?: string | null;
     started_at?: number;
     updated_at?: number | null;

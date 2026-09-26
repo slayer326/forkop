@@ -1650,6 +1650,33 @@ function nft_remove_transition_guard(table, mark) {
     return nft_transition_guard_batch(table, mark, true);
 }
 
+function nft_dpi_transition_guard(table, remove) {
+    // This output hook runs after Forkop's route hook (-150), including its
+    // NFQUEUE bypass rules, and drops provider-marked packets until the old
+    // or new DPI processes and nft table are a coherent pair.
+    let guard_table = as_string(table) + "DpiGuard";
+    if (match(guard_table, /^[A-Za-z][A-Za-z0-9_]*$/) == null)
+        return false;
+    let path = trim(command_output_from_args([ "mktemp" ]));
+    if (path == "")
+        return false;
+    let present = run_args_quiet([ "nft", "list", "table", "inet", guard_table ]);
+    if ((!remove && present) || (remove && !present)) {
+        fs.unlink(path);
+        return remove && !present;
+    }
+    let data = remove
+        ? "delete table inet " + guard_table + "\n"
+        : "add table inet " + guard_table + "\n" +
+            "add chain inet " + guard_table + " output { type filter hook output priority -149; policy accept; }\n" +
+            "add rule inet " + guard_table + " output meta mark & 0xff000000 == 0x01000000 drop\n" +
+            "add rule inet " + guard_table + " output meta mark & 0xff000000 == 0x02000000 drop\n";
+    let ok = fs.writefile(path, data) != null && run_args([ "nft", "-c", "-f", path ]) &&
+        run_args([ "nft", "-f", path ]);
+    fs.unlink(path);
+    return ok;
+}
+
 function nft_rebuild_runtime_from_uci(rt_table, table, localv4_set, common_set, port_set, ip_port_set, interface_set, fakeip_mark, outbound_mark, fakeip_range, tproxy_port, zapret_bin, zapret_route_mark_base, zapret_queue_base, zapret_desync_mark, zapret_desync_mark_postnat, zapret2_bin, zapret2_route_mark_base, zapret2_queue_base, zapret2_desync_mark, zapret2_desync_mark_postnat, localv6_set, common6_set, ip_port6_set, fakeip6_range, tproxy6_address) {
     log_debug("Applying nftables runtime rules");
 
@@ -2079,6 +2106,10 @@ else if (mode == "install-transition-guard")
     exit(nft_install_transition_guard(ARGV[1], ARGV[2]) ? 0 : 1);
 else if (mode == "remove-transition-guard")
     exit(nft_remove_transition_guard(ARGV[1], ARGV[2]) ? 0 : 1);
+else if (mode == "install-dpi-transition-guard")
+    exit(nft_dpi_transition_guard(ARGV[1], false) ? 0 : 1);
+else if (mode == "remove-dpi-transition-guard")
+    exit(nft_dpi_transition_guard(ARGV[1], true) ? 0 : 1);
 else if (mode == "ensure-bridge-netfilter-disabled")
     exit(ensure_bridge_netfilter_disabled() ? 0 : 1);
 else {

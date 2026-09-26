@@ -908,6 +908,13 @@ function dns_server_value_valid(value) {
         match(host, /[\/:\[\]]/) == null;
 }
 
+function bootstrap_dns_server_value_valid(value) {
+    value = trim(as_string(value));
+    return dns_server_value_valid(value) &&
+        match(value, /[\/?#@]/) == null &&
+        core_ip.valid_ip(core_url.host(value));
+}
+
 function dns_setting_values(settings, key) {
     let values = [];
     for (let value in option_list_values(settings, key)) {
@@ -939,6 +946,8 @@ function validate_dns_settings(settings, sections, context) {
     for (let value in bootstrap_servers)
         if (!dns_server_value_valid(value))
             fail_validation("Invalid Bootstrap DNS server '" + value + "'. Aborted.");
+        else if (!bootstrap_dns_server_value_valid(value))
+            fail_validation("Bootstrap DNS server '" + value + "' must be an IPv4 or IPv6 address with an optional port; hostnames and URLs need an independent resolver. Aborted.");
 
     if (length(main_servers) > 1 || length(bootstrap_servers) > 1) {
         validate_required_duration_option(option(settings, "dns_check_interval", "10s"), "settings.dns_check_interval");

@@ -232,6 +232,14 @@ export const ForkopShellMethods = {
     ),
   getStatus: async () =>
     callBaseMethod<Forkop.GetStatus>(Forkop.AvailableMethods.GET_STATUS),
+  getReadonlyConfigSections: async () =>
+    callBaseMethod<Forkop.ConfigSection[]>(
+      Forkop.AvailableMethods.GET_READONLY_CONFIG_SECTIONS,
+    ),
+  getDashboardRuntimeMetadata: async () =>
+    callBaseMethod<{ urltestGroups: Record<string, unknown> }>(
+      Forkop.AvailableMethods.GET_DASHBOARD_RUNTIME_METADATA,
+    ),
   getOutboundMetadata: async (section: string) =>
     callBaseMethod<Forkop.GetOutboundMetadata>(
       Forkop.AvailableMethods.GET_OUTBOUND_METADATA,

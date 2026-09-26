@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateDNS } from '../validateDns.js';
+import { validateDNS, validateBootstrapDNS } from '../validateDns.js';
 import { invalidIPs, validIPs } from './validateIp.test';
 import { invalidDomains, validDomains } from './validateDomain.test';
 
@@ -40,5 +40,26 @@ describe('validateDns', () => {
       const res = validateDNS(domain);
       expect(res.valid).toBe(false);
     });
+  });
+});
+
+describe('validateBootstrapDNS', () => {
+  it.each([
+    '1.1.1.1',
+    '8.8.8.8:5353',
+    '2606:4700:4700::1111',
+    '[2606:4700:4700::1111]:53',
+  ])('accepts IP bootstrap server %s', (value) => {
+    expect(validateBootstrapDNS(value).valid).toBe(true);
+  });
+
+  it.each([
+    'dns.example.com',
+    'dns.example.com:53',
+    'https://1.1.1.1/dns-query',
+    '1.1.1.1/dns-query',
+    '8.8.8.8:0',
+  ])('rejects bootstrap server %s', (value) => {
+    expect(validateBootstrapDNS(value).valid).toBe(false);
   });
 });

@@ -167,6 +167,8 @@ function command_spec(command) {
         get_system_info: [ "diagnostics/runtime.uc", "get-system-info", 0 ],
         get_ui_capabilities: [ "service/ui.uc", "get-ui-capabilities", 0 ],
         get_ui_state: [ "service/ui.uc", "get-ui-state", 0 ],
+        get_readonly_config_sections: [ "diagnostics/runtime.uc", "get-readonly-config-sections", 0 ],
+        get_dashboard_runtime_metadata: [ "diagnostics/runtime.uc", "get-dashboard-runtime-metadata", 0 ],
         service_action_async: [ "service/ui.uc", "service-action-async", 1 ],
         service_action_status: [ "service/ui.uc", "service-action-status", 1 ],
         latency_test_async: [ "service/ui.uc", "latency-test-async", 4 ],

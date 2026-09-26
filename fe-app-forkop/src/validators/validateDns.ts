@@ -36,3 +36,30 @@ export function validateDNS(value: string): ValidationResult {
     ),
   };
 }
+
+export function validateBootstrapDNS(value: string): ValidationResult {
+  if (!value) {
+    return { valid: false, message: _('Bootstrap DNS server cannot be empty') };
+  }
+
+  if (/[/?#@]/.test(value)) {
+    return {
+      valid: false,
+      message: _('Bootstrap DNS server must be an IPv4 or IPv6 address with an optional port'),
+    };
+  }
+
+  const parsed = parseHostPort(value);
+  if (parsed && !isValidPort(parsed.port)) {
+    return { valid: false, message: _('Invalid Bootstrap DNS server port') };
+  }
+  const host = parsed ? parsed.host : unbracketHost(value);
+  if (validateIP(host).valid) {
+    return { valid: true, message: _('Valid') };
+  }
+
+  return {
+    valid: false,
+    message: _('Bootstrap DNS server must be an IPv4 or IPv6 address with an optional port'),
+  };
+}

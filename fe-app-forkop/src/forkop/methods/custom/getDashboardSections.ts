@@ -40,15 +40,6 @@ type UrlTestCacheGroup = {
   interrupt_exist_connections?: boolean;
 };
 
-type SingBoxRuntimeConfig = {
-  outbounds?: Array<
-    UrlTestCacheGroup & {
-      type?: string;
-      tag?: string;
-    }
-  >;
-};
-
 type SingBoxRuntimeMetadata = {
   urltestGroups: Record<string, UrlTestCacheGroup>;
 };
@@ -825,46 +816,11 @@ function getUrlTestGroups(dashboardCache?: DashboardSectionCache) {
   return groups;
 }
 
-async function readRuntimeMetadata(
-  configSections: Forkop.ConfigSection[],
-): Promise<SingBoxRuntimeMetadata> {
-  const configPath =
-    getSettingsSection(configSections)?.config_path ||
-    '/etc/sing-box/config.json';
-
-  try {
-    const parsed = JSON.parse(
-      await fs.read(configPath),
-    ) as SingBoxRuntimeConfig;
-    const groups: Record<string, UrlTestCacheGroup> = {};
-
-    for (const outbound of Array.isArray(parsed?.outbounds)
-      ? parsed.outbounds
-      : []) {
-      const tag = `${outbound?.tag || ''}`;
-      if (!tag) {
-        continue;
-      }
-
-      if (outbound?.type !== 'urltest') {
-        continue;
-      }
-
-      groups[tag] = {
-        displayName: tag,
-        outbounds: Array.isArray(outbound.outbounds) ? outbound.outbounds : [],
-        url: outbound.url,
-        interval: outbound.interval,
-        tolerance: outbound.tolerance,
-        idle_timeout: outbound.idle_timeout,
-        interrupt_exist_connections: outbound.interrupt_exist_connections,
-      };
-    }
-
-    return { urltestGroups: groups };
-  } catch (_error) {
-    return { urltestGroups: {} };
-  }
+async function readRuntimeMetadata(): Promise<SingBoxRuntimeMetadata> {
+  const response = await ForkopShellMethods.getDashboardRuntimeMetadata();
+  return response.success
+    ? (response.data as SingBoxRuntimeMetadata)
+    : { urltestGroups: {} };
 }
 
 function mergeUrlTestGroups(
@@ -1428,7 +1384,7 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
   const configSections = hydrateConfigSections(await getConfigSections());
   const [clashProxies, runtimeMetadata] = await Promise.all([
     getClashApiProxies(configSections),
-    readRuntimeMetadata(configSections),
+    readRuntimeMetadata(),
   ]);
 
   if (!clashProxies.success || !clashProxies.data?.proxies) {

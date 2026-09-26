@@ -222,6 +222,42 @@ cat >"$WORK_DIR/empty-bootstrap-dns.json" <<'JSON'
 JSON
 assert_rejects "empty Bootstrap DNS list" "$WORK_DIR/empty-bootstrap-dns.json" "At least one Bootstrap DNS server is required"
 
+cat >"$WORK_DIR/hostname-bootstrap-dns.json" <<'JSON'
+{
+  "settings": {
+    ".name": "settings",
+    ".type": "settings",
+    "dns_server": [ "dns.google" ],
+    "bootstrap_dns_server": [ "dns.example.com" ]
+  }
+}
+JSON
+assert_rejects "hostname Bootstrap DNS" "$WORK_DIR/hostname-bootstrap-dns.json" "must be an IPv4 or IPv6 address"
+
+cat >"$WORK_DIR/url-bootstrap-dns.json" <<'JSON'
+{
+  "settings": {
+    ".name": "settings",
+    ".type": "settings",
+    "dns_server": [ "dns.google" ],
+    "bootstrap_dns_server": [ "https://1.1.1.1/dns-query" ]
+  }
+}
+JSON
+assert_rejects "URL Bootstrap DNS" "$WORK_DIR/url-bootstrap-dns.json" "must be an IPv4 or IPv6 address"
+
+cat >"$WORK_DIR/ipv6-bootstrap-dns.json" <<'JSON'
+{
+  "settings": {
+    ".name": "settings",
+    ".type": "settings",
+    "dns_server": [ "dns.google" ],
+    "bootstrap_dns_server": [ "[2606:4700:4700::1111]:53" ]
+  }
+}
+JSON
+validate_fixture "$WORK_DIR/ipv6-bootstrap-dns.json" >/dev/null || fail "IPv6 Bootstrap DNS with port should be accepted"
+
 cat >"$WORK_DIR/bad-dns-detour-bypass.json" <<'JSON'
 {
   "settings": {

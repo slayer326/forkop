@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   getConfigSections: vi.fn(),
   getClashApiProxies: vi.fn(),
+  getDashboardRuntimeMetadata: vi.fn(),
   canUseDirectClashApi: vi.fn(),
   fsRead: vi.fn(),
 }));
@@ -14,6 +15,7 @@ vi.mock('../getConfigSections', () => ({
 vi.mock('../../shell', () => ({
   ForkopShellMethods: {
     getClashApiProxies: mocks.getClashApiProxies,
+    getDashboardRuntimeMetadata: mocks.getDashboardRuntimeMetadata,
   },
 }));
 
@@ -136,6 +138,11 @@ describe('getDashboardSections', () => {
   beforeEach(() => {
     mocks.getConfigSections.mockReset();
     mocks.getClashApiProxies.mockReset();
+    mocks.getDashboardRuntimeMetadata.mockReset();
+    mocks.getDashboardRuntimeMetadata.mockResolvedValue({
+      success: true,
+      data: { urltestGroups: {} },
+    });
     mocks.canUseDirectClashApi.mockReset();
     mocks.fsRead.mockReset();
     mocks.fsRead.mockRejectedValue(new Error('cache miss'));
@@ -371,6 +378,22 @@ describe('getDashboardSections', () => {
       });
     });
 
+    mocks.getDashboardRuntimeMetadata.mockResolvedValue({
+      success: true,
+      data: {
+        urltestGroups: {
+          Imported: {
+            displayName: 'Imported',
+            outbounds: ['main-1-out'],
+            url: 'https://www.gstatic.com/generate_204',
+            interval: '70s',
+            tolerance: 175,
+            idle_timeout: '30m',
+            interrupt_exist_connections: true,
+          },
+        },
+      },
+    });
     const result = await getDashboardSections();
     const details = result.data[0].outbounds[0].urlTestInfo;
 

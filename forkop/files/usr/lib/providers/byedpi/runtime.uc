@@ -3,6 +3,8 @@
 let fs = require("fs");
 let uci_core = require("core.uci");
 let runtime_constants = require("singbox.constants");
+let runtime_snapshot = require("providers.runtime_snapshot");
+let process_identity = require("core.process_identity");
 let validator_module = null;
 
 const CONFIG_NAME = getenv("FORKOP_CONFIG_NAME") || "forkop";
@@ -204,17 +206,13 @@ function file_first_line(path) {
     return trim(newline >= 0 ? substr(data, 0, newline) : data);
 }
 
-function kill_pidfile_process(path, signal) {
-    let pid = file_first_line(path);
-    if (pid == "")
-        return;
-    if (signal == "9") {
-        if (runtime_pid_running(pid))
-            command_success_from_args([ "kill", "-9", pid ]);
-    }
-    else {
-        command_success_from_args([ "kill", pid ]);
-    }
+function kill_pidfile_process(path, signal, supervisor_pid) {
+    let name = replace(replace(path, /^.*\//, ""), /\.pid$/, "");
+    let expected_exe = supervisor_pid ? "ucode" : BYEDPI_BIN;
+    let expected_args = supervisor_pid
+        ? [ "ucode", "-L", LIB_DIR, LIB_DIR + "/providers/byedpi/runtime.uc", "supervisor", name ]
+        : [ BYEDPI_BIN, "--ip", BYEDPI_LISTEN_ADDRESS, "--port" ];
+    process_identity.signal(path, expected_exe, expected_args, false, signal == "9" ? "KILL" : "TERM", !supervisor_pid);
 }
 
 function pidfiles_in_dir(path) {
@@ -232,17 +230,25 @@ function pidfiles_in_dir(path) {
 }
 
 function stop_runtime() {
+    for (let child_pidfile in pidfiles_in_dir(BYEDPI_CHILD_PID_DIR)) {
+        let name = replace(replace(child_pidfile, /^.*\//, ""), /\.pid$/, "");
+        process_identity.promote_legacy_child(
+            child_pidfile, BYEDPI_PID_DIR + "/" + name + ".pid",
+            [ "ucode", "-L", LIB_DIR, LIB_DIR + "/providers/byedpi/runtime.uc", "supervisor", name ],
+            BYEDPI_BIN, [ BYEDPI_BIN, "--ip", BYEDPI_LISTEN_ADDRESS, "--port" ]
+        );
+    }
     for (let pidfile in pidfiles_in_dir(BYEDPI_PID_DIR))
-        kill_pidfile_process(pidfile, "");
+        kill_pidfile_process(pidfile, "", true);
     for (let pidfile in pidfiles_in_dir(BYEDPI_CHILD_PID_DIR))
-        kill_pidfile_process(pidfile, "");
+        kill_pidfile_process(pidfile, "", false);
 
     command_success_from_args([ "sleep", "1" ]);
 
     for (let pidfile in pidfiles_in_dir(BYEDPI_PID_DIR))
-        kill_pidfile_process(pidfile, "9");
+        kill_pidfile_process(pidfile, "9", true);
     for (let pidfile in pidfiles_in_dir(BYEDPI_CHILD_PID_DIR))
-        kill_pidfile_process(pidfile, "9");
+        kill_pidfile_process(pidfile, "9", false);
 
     command_success_from_args([ "rm", "-rf", BYEDPI_PID_DIR, BYEDPI_CHILD_PID_DIR, BYEDPI_LOG_DIR ]);
 }
@@ -253,7 +259,9 @@ function supervisor_command(port, raw_opt, child_pidfile) {
         push(args, word);
 
     return "ulimit -n " + shell_quote(BYEDPI_OPEN_FILES_LIMIT) + " >/dev/null 2>&1 || true; " +
-        command_from_args(args) + " & child=$!; echo $child > " + shell_quote(child_pidfile) + "; wait $child; rc=$?; rm -f " + shell_quote(child_pidfile) + "; exit $rc";
+        command_from_args(args) + " & child=$!; " +
+        command_from_args([ "ucode", "-L", LIB_DIR, LIB_DIR + "/core/pidfile_cli.uc", "record" ]) +
+        " \"$child\" " + shell_quote(child_pidfile) + "; wait $child; rc=$?; rm -f " + shell_quote(child_pidfile) + "; exit $rc";
 }
 
 function supervisor(section, port, raw_opt, child_pidfile) {
@@ -296,7 +304,7 @@ function start_rule(section, index_value) {
         child_pidfile
     ]) + " >>" + shell_quote(logfile) + " 2>&1 1000>&- & echo $!";
     let pid = trim(command_output("sh -c " + shell_quote(command)));
-    if (pid == "" || !fs.writefile(pidfile, pid + "\n")) {
+    if (pid == "" || !process_identity.record(pidfile, pid)) {
         log_message("ciadpi failed to start for rule '" + name + "'. Check " + logfile + ". Aborted.", "fatal");
         exit(1);
     }
@@ -308,16 +316,26 @@ function start_rule(section, index_value) {
     }
 
     let child_pid = file_first_line(child_pidfile);
-    if (child_pid == "" || !runtime_pid_running(child_pid))
-        log_message("ciadpi supervisor started for rule '" + name + "', but ciadpi is not running yet. Check " + logfile + ".", "warn");
+    for (let attempt = 0; attempt < 4 && (child_pid == "" || !runtime_pid_running(child_pid)); attempt++) {
+        command_success_from_args([ "sleep", "1" ]);
+        child_pid = file_first_line(child_pidfile);
+    }
+    if (child_pid == "" || !runtime_pid_running(child_pid)) {
+        log_message("ciadpi supervisor started for rule '" + name + "', but ciadpi is not running. Check " + logfile + ". Aborted.", "fatal");
+        exit(1);
+    }
 }
 
 function start_runtime() {
     stop_runtime();
 
     let sections = enabled_byedpi_sections();
-    if (length(sections) == 0 || !provider_available())
+    if (length(sections) == 0)
         return;
+    if (!provider_available()) {
+        log_message("ciadpi is required by enabled rules but is not executable. Aborted.", "fatal");
+        exit(1);
+    }
 
     if (standalone_service_enabled())
         log_message("Standalone byedpi service is enabled. Forkop manages ciadpi itself for action 'byedpi'; disable standalone byedpi autostart to avoid boot-time port conflicts.", "warn");
@@ -535,6 +553,20 @@ if (mode == "start-runtime")
     start_runtime();
 else if (mode == "stop-runtime")
     stop_runtime();
+else if (mode == "snapshot-runtime")
+    exit(runtime_snapshot.snapshot(BYEDPI_PID_DIR, BYEDPI_CHILD_PID_DIR, LIB_DIR + "/providers/byedpi/runtime.uc", LIB_DIR, ARGV[1]) ? 0 : 1);
+else if (mode == "preflight-runtime")
+    exit(runtime_snapshot.valid_entries(ARGV[1], BYEDPI_CHILD_PID_DIR,
+        LIB_DIR + "/providers/byedpi/runtime.uc", LIB_DIR) != null ? 0 : 1);
+else if (mode == "stop-owned-runtime")
+    exit(runtime_snapshot.stop_owned(BYEDPI_PID_DIR, BYEDPI_CHILD_PID_DIR,
+        LIB_DIR + "/providers/byedpi/runtime.uc", LIB_DIR, BYEDPI_BIN,
+        [ BYEDPI_BIN, "--ip", BYEDPI_LISTEN_ADDRESS, "--port" ]) ? 0 : 1);
+else if (mode == "restore-runtime") {
+    exit(runtime_snapshot.restore(ARGV[1], BYEDPI_PID_DIR, BYEDPI_CHILD_PID_DIR, BYEDPI_LOG_DIR,
+        LIB_DIR + "/providers/byedpi/runtime.uc", LIB_DIR, BYEDPI_BIN,
+        [ BYEDPI_BIN, "--ip", BYEDPI_LISTEN_ADDRESS, "--port" ]) ? 0 : 1);
+}
 else if (mode == "supervisor")
     supervisor(ARGV[1], ARGV[2], ARGV[3], ARGV[4]);
 else if (mode == "status")
