@@ -12,6 +12,9 @@ let runtime_constants = require("singbox.constants");
 const CONFIG_NAME = getenv("FORKOP_CONFIG_NAME") || "forkop";
 const DNS_SOURCE_SET = "forkop_dns_sources";
 const DNS_SOURCE6_SET = "forkop_dns_sources6";
+// Where the kernel exposes the IPv6 switches; overridable so a test can
+// present a router without IPv6 without turning it off on the host.
+const IPV6_CONF_DIR = getenv("FORKOP_IPV6_CONF_DIR") || "/proc/sys/net/ipv6/conf";
 const NFT_BATCH_FILE = getenv("FORKOP_NFT_BATCH_FILE") || "";
 // Prepared elements of rule-set subnet imports (tmpfs), by the rule set's
 // content and the rule's port filter: a reload, and the final apply of a list
@@ -1413,6 +1416,26 @@ function ensure_rt_table_entry(path, table_id, table_name) {
     return write_text_file(path, data + as_string(table_id) + " " + as_string(table_name) + "\n");
 }
 
+// The IPv6 half of TPROXY is a route and a marking rule installed on the
+// loopback. A kernel built or booted without IPv6, or one where it was turned
+// off, has no loopback to carry them: `ip -6 route add local ::/0 dev lo`
+// fails, and the start aborted on that failure. The router was then left
+// retrying the start for ever with no proxy at all, having torn down the IPv4
+// half it had just built - the whole product, gone, for want of a protocol
+// that router was not using.
+//
+// Both places the kernel can refuse are checked: the module, which leaves no
+// /proc entry at all, and the switches for "all" and for the loopback itself,
+// which is where the route and the rule go.
+function ipv6_available() {
+    for (let scope in [ "all", "lo" ]) {
+        let data = fs.readfile(IPV6_CONF_DIR + "/" + scope + "/disable_ipv6");
+        if (data == null || trim(as_string(data)) != "0")
+            return false;
+    }
+    return true;
+}
+
 function tproxy_route4_present(table) {
     return has_local_default_route_text(command_output_quiet_from_args([ "ip", "route", "list", "table", table ]), 4);
 }
@@ -1422,7 +1445,7 @@ function tproxy_route6_present(table) {
 }
 
 function tproxy_route_present(table) {
-    return tproxy_route4_present(table) && tproxy_route6_present(table);
+    return tproxy_route4_present(table) && (!ipv6_available() || tproxy_route6_present(table));
 }
 
 function tproxy_marking_rule4_present(table, mark) {
@@ -1434,7 +1457,8 @@ function tproxy_marking_rule6_present(table, mark) {
 }
 
 function tproxy_marking_rule_present(table, mark) {
-    return tproxy_marking_rule4_present(table, mark) && tproxy_marking_rule6_present(table, mark);
+    return tproxy_marking_rule4_present(table, mark) &&
+        (!ipv6_available() || tproxy_marking_rule6_present(table, mark));
 }
 
 function tproxy_route_rule_present(table, mark) {
@@ -1460,7 +1484,10 @@ function ensure_tproxy_route_rule(table, mark, rt_tables_path) {
         log_debug("IPv4 TPROXY route already exists");
     }
 
-    if (!tproxy_route6_present(table)) {
+    if (!ipv6_available()) {
+        log_debug("IPv6 is unavailable; its TPROXY route and marking rule are not installed");
+    }
+    else if (!tproxy_route6_present(table)) {
         log_debug("Added IPv6 TPROXY route");
         if (!run_args([ "ip", "-6", "route", "add", "local", "::/0", "dev", "lo", "table", table ]) && !tproxy_route6_present(table)) {
             log_fatal("Failed to add IPv6 route for tproxy. Aborted.");
@@ -1480,6 +1507,10 @@ function ensure_tproxy_route_rule(table, mark, rt_tables_path) {
     }
     else {
         log_debug("IPv4 TPROXY marking rule already exists");
+    }
+
+    if (!ipv6_available()) {
+        return true;
     }
 
     if (!tproxy_marking_rule6_present(table, mark)) {
