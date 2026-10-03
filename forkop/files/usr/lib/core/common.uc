@@ -164,6 +164,21 @@ function int_option(section, key, fallback) {
     return int(value, 10);
 }
 
+// Validating a binary (SRS) rule-set: `sing-box rule-set match` parses the
+// whole file before it answers, so a truncated, corrupt or non-SRS file still
+// fails, and nothing is expanded into JSON on the way. Decompiling a list only
+// to throw the JSON away cost about 60 MB of peak RSS for a 40k-domain rule set
+// on a 234 MB router, against about 34 MB for this - and the list update is
+// what runs out of memory first on a small router.
+//
+// The probe value does not change the answer: a match and a miss both exit 0.
+// It is a name that cannot match, so nothing is printed either.
+const SRS_VALIDATION_PROBE = "forkop-srs-validation.invalid";
+
+function srs_validation_args(path) {
+    return [ "sing-box", "rule-set", "match", "-f", "binary", as_string(path), SRS_VALIDATION_PROBE ];
+}
+
 return {
     as_string,
     read_json_file,
@@ -183,5 +198,7 @@ return {
     bool_option,
     int_option,
     clash_api_secret,
-    random_hex_secret
+    random_hex_secret,
+    SRS_VALIDATION_PROBE,
+    srs_validation_args
 };

@@ -2,6 +2,7 @@
 
 let fs = require("fs");
 let common = require("core.common");
+let core_ip = require("core.ip");
 let uci_core = require("core.uci");
 let runtime_constants = require("singbox.constants");
 let runtime_country = require("singbox.country");
@@ -2989,6 +2990,47 @@ function add_fully_routed_ips_rules(config, section) {
     push(config.route.rules, exclude_sources_from_route_rule(route_rule, section));
 }
 
+// The Discord community list carries shared Cloudflare Anycast ranges, and
+// nftables intercepts those for Discord's media ports only (nft/apply.uc,
+// nft_add_community_subnet_file_for_section). The community rule-set that
+// routes Discord does not cover every one of those ports, and a packet that is
+// intercepted but matches no route rule falls through to route.final, which is
+// direct: it leaves the router outside the section the user chose. So the
+// section that enables the list gets a route rule for exactly the ranges and
+// ports that are intercepted, from the same constants.
+//
+// The section's own port filter is deliberately not applied: nftables puts the
+// shared ranges in a set keyed by the Discord ports alone, and the two halves
+// have to agree.
+function add_discord_shared_cloudflare_rule(config, section) {
+    let enabled = false;
+    for (let community in connections.community_lists(section))
+        if (as_string(community) == "discord")
+            enabled = true;
+    if (!enabled)
+        return;
+
+    let target = runtime_route.target(section, outbound_tag(section[".name"]));
+    if (target.unsupported)
+        runtime_generate_unsupported(target.unsupported);
+
+    let route_rule = {
+        action: target.action,
+        inbound: tproxy_inbound_matcher(),
+        network: "udp",
+        ip_cidr: core_ip.CLOUDFLARE_SHARED_CIDRS
+    };
+    if (target.outbound)
+        route_rule.outbound = target.outbound;
+    let matchers = core_ip.discord_voice_port_matchers();
+    for (let key in matchers)
+        route_rule[key] = matchers[key];
+    let source_ip_cidr = legacy_condition_values(section, "source_ip_cidr");
+    if (length(source_ip_cidr) > 0)
+        route_rule.source_ip_cidr = source_ip_cidr;
+    push(config.route.rules, exclude_sources_from_route_rule(route_rule, section));
+}
+
 function push_section_route_rule(config, section, route_rule) {
     let resolve = runtime_route.resolve_rule_for_section(section, route_rule);
     if (type(resolve) == "object" && resolve.warning)
@@ -3012,6 +3054,7 @@ function add_combined_route_for_section(config, section) {
     let section_name = section[".name"];
 
     add_fully_routed_ips_rules(config, section);
+    add_discord_shared_cloudflare_rule(config, section);
 
     for (let community in connections.community_lists(section)) {
         let ensured = ensure_community_ruleset(config, section_name, as_string(community));

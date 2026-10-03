@@ -1,6 +1,7 @@
 #!/usr/bin/env ucode
 
 let fs = require("fs");
+let common = require("core.common");
 let uci_core = require("core.uci");
 let connections = require("config.connections");
 let core_ip = require("core.ip");
@@ -515,12 +516,8 @@ function validate_staged_list_download(path, format) {
     if (format != "srs")
         return true;
 
-    let output = path + ".json";
-    remove_file(output);
-    let ok = command_success_from_args([ "sing-box", "rule-set", "decompile", path, "-o", output ]) &&
-        valid_list_ruleset_file(output);
-    remove_file(output);
-    return ok;
+    // A readable SRS is a valid one; see common.srs_validation_args().
+    return command_success_from_args(common.srs_validation_args(path));
 }
 
 // The lock owner is this ucode process. `sh -c 'echo $PPID'` names it only

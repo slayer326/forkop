@@ -247,10 +247,10 @@ function valid_binary(path) {
     if (trim(as_string(fs.readfile(validation_path))) == signature)
         return true;
 
-    let output = parent_dir(path) + "/.validate-" + cache_key(path) + ".json";
-    fs.unlink(output);
-    let ok = command_success([ "sing-box", "rule-set", "decompile", path, "-o", output ]) && valid_source(output);
-    fs.unlink(output);
+    // A readable SRS is a valid one; see common.srs_validation_args(). This is
+    // the cache the big remote lists land in, so not expanding them into JSON
+    // is what keeps a list refresh inside the memory of a small router.
+    let ok = command_success(common.srs_validation_args(path));
     if (ok)
         mark_binary_valid(path);
     else

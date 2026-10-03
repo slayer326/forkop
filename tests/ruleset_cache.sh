@@ -42,9 +42,12 @@ esac
 EOF
 cat >"$WORK_DIR/bin/sing-box" <<'EOF'
 #!/bin/sh
-[ "$1" = rule-set ] && [ "$2" = decompile ] || exit 1
-[ -f "$3" ] || exit 1
-cp "$RULESET_TEST_SOURCE_JSON" "$5"
+# Validation reads the rule-set instead of expanding it: `rule-set match`
+# parses the whole file and answers without writing any JSON. Anything else is
+# refused, so a validator that goes back to decompiling fails here.
+[ "$1" = rule-set ] && [ "$2" = match ] || exit 1
+[ "$3" = -f ] && [ "$4" = binary ] || exit 1
+[ -f "$5" ] || exit 1
 EOF
 chmod +x "$WORK_DIR/bin/curl" "$WORK_DIR/bin/sing-box"
 
@@ -81,40 +84,43 @@ if ! ucode -e '
 fi
 
 # A refresh that downloads the same bytes as the validated cache does not
-# validate them again: for a large binary list that is a sing-box decompile
-# of several seconds on the router.
+# validate them again: for a large binary list that is a sing-box read of
+# several seconds on the router.
 cat >"$WORK_DIR/bin/sing-box" <<'EOF'
 #!/bin/sh
-[ "$1" = rule-set ] && [ "$2" = decompile ] || exit 1
-[ -f "$3" ] || exit 1
-echo "$3" >>"$RULESET_TEST_DECOMPILE_LOG"
-cp "$RULESET_TEST_SOURCE_JSON" "$5"
+[ "$1" = rule-set ] && [ "$2" = match ] || exit 1
+[ "$3" = -f ] && [ "$4" = binary ] || exit 1
+[ -f "$5" ] || exit 1
+echo "$5" >>"$RULESET_TEST_VALIDATION_LOG"
 EOF
-: >"$WORK_DIR/decompile.log"
+: >"$WORK_DIR/validation.log"
 PATH="$WORK_DIR/bin:$PATH" \
 RULESET_TEST_SOURCE_JSON="$WORK_DIR/source.json" \
 RULESET_TEST_SOURCE_SRS="$WORK_DIR/source.srs" \
-RULESET_TEST_DECOMPILE_LOG="$WORK_DIR/decompile.log" \
+RULESET_TEST_VALIDATION_LOG="$WORK_DIR/validation.log" \
 FORKOP_RULESET_CACHE_DIR="$WORK_DIR/cache" \
 FORKOP_RULESET_CACHE_MANIFEST="$WORK_DIR/cache/manifest.json" \
   ucode -L "$FORKOP_LIB" "$RULESET_CACHE_UC" refresh >/dev/null 2>&1 && fail "an identical refresh must report no change" || true
-[ ! -s "$WORK_DIR/decompile.log" ] || fail "an identical download was validated again: $(cat "$WORK_DIR/decompile.log")"
+[ ! -s "$WORK_DIR/validation.log" ] || fail "an identical download was validated again: $(cat "$WORK_DIR/validation.log")"
 # Changed bytes are still validated before they replace the cache.
 printf 'mock-srs changed\n' >"$WORK_DIR/source.srs"
 PATH="$WORK_DIR/bin:$PATH" \
 RULESET_TEST_SOURCE_JSON="$WORK_DIR/source.json" \
 RULESET_TEST_SOURCE_SRS="$WORK_DIR/source.srs" \
-RULESET_TEST_DECOMPILE_LOG="$WORK_DIR/decompile.log" \
+RULESET_TEST_VALIDATION_LOG="$WORK_DIR/validation.log" \
 FORKOP_RULESET_CACHE_DIR="$WORK_DIR/cache" \
 FORKOP_RULESET_CACHE_MANIFEST="$WORK_DIR/cache/manifest.json" \
   ucode -L "$FORKOP_LIB" "$RULESET_CACHE_UC" refresh >/dev/null 2>&1 || fail "a changed rule set must report a change"
-grep -q . "$WORK_DIR/decompile.log" || fail "a changed download must be validated"
+grep -q . "$WORK_DIR/validation.log" || fail "a changed download must be validated"
 printf 'mock-srs\n' >"$WORK_DIR/source.srs"
 cat >"$WORK_DIR/bin/sing-box" <<'EOF'
 #!/bin/sh
-[ "$1" = rule-set ] && [ "$2" = decompile ] || exit 1
-[ -f "$3" ] || exit 1
-cp "$RULESET_TEST_SOURCE_JSON" "$5"
+# Validation reads the rule-set instead of expanding it: `rule-set match`
+# parses the whole file and answers without writing any JSON. Anything else is
+# refused, so a validator that goes back to decompiling fails here.
+[ "$1" = rule-set ] && [ "$2" = match ] || exit 1
+[ "$3" = -f ] && [ "$4" = binary ] || exit 1
+[ -f "$5" ] || exit 1
 EOF
 PATH="$WORK_DIR/bin:$PATH" \
 RULESET_TEST_SOURCE_JSON="$WORK_DIR/source.json" \

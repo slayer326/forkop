@@ -158,8 +158,49 @@ function is_cloudflare_shared_cidr(value) {
     return false;
 }
 
-// Discord voice and video. Shared Cloudflare ranges are routed only for these.
-const DISCORD_VOICE_PORTS_NFT = "5000-5020,3478,19294-19344,50000-65535";
+// Discord voice and video, as port ranges: STUN, the voice range and the two
+// media ranges. Shared Cloudflare ranges are handled only for these ports, and
+// both halves of that - the nftables sets that intercept the traffic and the
+// sing-box rule that routes it - are derived from this one list. When they
+// disagree, traffic is intercepted and then routed nowhere: sing-box falls
+// through to its final outbound, which is direct.
+const DISCORD_VOICE_PORT_RANGES = [
+    [ 443, 443 ],
+    [ 5000, 5020 ],
+    [ 3478, 3478 ],
+    [ 19294, 19344 ],
+    [ 50000, 65535 ]
+];
+
+function discord_voice_ports_nft() {
+    let parts = [];
+    for (let range in DISCORD_VOICE_PORT_RANGES)
+        push(parts, range[0] == range[1]
+            ? as_string(range[0])
+            : as_string(range[0]) + "-" + as_string(range[1]));
+    return join(",", parts);
+}
+
+const DISCORD_VOICE_PORTS_NFT = discord_voice_ports_nft();
+
+// The same ports as sing-box route rule matchers: single ports go to `port`,
+// spans to `port_range`. Only the fields with values are returned.
+function discord_voice_port_matchers() {
+    let ports = [];
+    let ranges = [];
+    for (let range in DISCORD_VOICE_PORT_RANGES) {
+        if (range[0] == range[1])
+            push(ports, range[0]);
+        else
+            push(ranges, as_string(range[0]) + ":" + as_string(range[1]));
+    }
+    let matchers = {};
+    if (length(ports) > 0)
+        matchers.port = ports;
+    if (length(ranges) > 0)
+        matchers.port_range = ranges;
+    return matchers;
+}
 
 return {
     valid_ipv4,
@@ -174,5 +215,7 @@ return {
     format_ipv6_tproxy_target,
     CLOUDFLARE_SHARED_CIDRS,
     is_cloudflare_shared_cidr,
-    DISCORD_VOICE_PORTS_NFT
+    DISCORD_VOICE_PORT_RANGES,
+    DISCORD_VOICE_PORTS_NFT,
+    discord_voice_port_matchers
 };

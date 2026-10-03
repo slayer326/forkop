@@ -71,4 +71,126 @@ grep -Fq 'nft_create_ipv4_port_set(table, sets.udp_ip_ports)' "$NFT_APPLY_UC" ||
 grep -Fq 'CLOUDFLARE_SHARED_CIDRS' "$IP_UC" ||
   fail "the shared Cloudflare ranges must stay in one place"
 
+# Interception is only half of it. A packet that nftables redirects into
+# sing-box and that matches no route rule falls through to route.final, which
+# is direct: it leaves the router outside the section the user chose. The
+# community rule-set does not cover every intercepted port, so the generator
+# emits the matching route rule, and both halves come from one list of ports.
+ucode -L "$FORKOP_LIB" -e '
+let ip = require("core.ip");
+
+// Both halves, normalised to sorted "first-last" pairs.
+function nft_ports() {
+    let set = [];
+    for (let part in split(ip.DISCORD_VOICE_PORTS_NFT, ",")) {
+        let span = split(part, "-");
+        push(set, length(span) == 2
+            ? sprintf("%05d-%05d", int(span[0]), int(span[1]))
+            : sprintf("%05d-%05d", int(part), int(part)));
+    }
+    return join(" ", sort(set));
+}
+function matcher_ports() {
+    let matchers = ip.discord_voice_port_matchers();
+    let set = [];
+    for (let port in matchers.port ?? [])
+        push(set, sprintf("%05d-%05d", int(port), int(port)));
+    for (let span in matchers.port_range ?? []) {
+        let parts = split(span, ":");
+        push(set, sprintf("%05d-%05d", int(parts[0]), int(parts[1])));
+    }
+    return join(" ", sort(set));
+}
+if (nft_ports() != matcher_ports()) {
+    warn("the intercepted and the routed Discord ports differ:\n  nftables: " +
+        nft_ports() + "\n  sing-box: " + matcher_ports() + "\n");
+    exit(1);
+}
+if (length(ip.DISCORD_VOICE_PORT_RANGES) < 4) {
+    warn("the Discord media port ranges are incomplete\n");
+    exit(1);
+}
+' || fail "the nftables ports and the sing-box port matchers must describe the same ports"
+
+WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "$WORK_DIR"' EXIT HUP INT TERM
+
+cat >"$WORK_DIR/fixture.json" <<'JSON'
+{
+  "settings": { ".name":"settings", ".type":"settings", "dns_server":"77.88.8.8" },
+  "section": [
+    {
+      ".name":"voice", ".type":"section", ".index":"0", "enabled":"1", "action":"connection",
+      "outbound_jsons":["{\"type\":\"http\",\"tag\":\"up\",\"server\":\"proxy.example\",\"server_port\":8080}"],
+      "community_lists":["discord"], "port":["80"]
+    },
+    {
+      ".name":"other", ".type":"section", ".index":"1", "enabled":"1", "action":"connection",
+      "outbound_jsons":["{\"type\":\"http\",\"tag\":\"up2\",\"server\":\"proxy.example\",\"server_port\":8081}"],
+      "community_lists":["youtube"]
+    }
+  ]
+}
+JSON
+
+ucode -L "$FORKOP_LIB" "$FORKOP_LIB/singbox/generator.uc" generate-config-fixture \
+  "$WORK_DIR/fixture.json" "$WORK_DIR/config.json" 192.0.2.1 0 1 '' 1.14.1 ||
+  fail "the generator must accept a section with the Discord list"
+
+ucode -L "$FORKOP_LIB" -e '
+let ip = require("core.ip");
+let config = json(require("fs").readfile(ARGV[0]));
+
+function shared_rules(outbound) {
+    let found = [];
+    for (let rule in config.route.rules) {
+        if (rule.network != "udp" || type(rule.ip_cidr) != "array")
+            continue;
+        if (index(sprintf("%J", rule.ip_cidr), "162.158.0.0/15") < 0)
+            continue;
+        if ((rule.outbound ?? "") == outbound)
+            push(found, rule);
+    }
+    return found;
+}
+
+// The section that enables the list gets the rule, for the ranges and the
+// ports nftables intercepts, routed to that section.
+let voice = shared_rules("voice-out");
+if (length(voice) != 1) {
+    warn("expected one shared-Cloudflare route rule for the section, got " +
+        length(voice) + "\n");
+    exit(1);
+}
+let rule = voice[0];
+if (sprintf("%J", rule.ip_cidr) != sprintf("%J", ip.CLOUDFLARE_SHARED_CIDRS)) {
+    warn("the routed ranges differ from the intercepted ones\n");
+    exit(1);
+}
+let matchers = ip.discord_voice_port_matchers();
+for (let key in matchers)
+    if (sprintf("%J", rule[key]) != sprintf("%J", matchers[key])) {
+        warn("route rule " + key + " is " + sprintf("%J", rule[key]) +
+            ", expected " + sprintf("%J", matchers[key]) + "\n");
+        exit(1);
+    }
+// The section port filter must not narrow it: nftables keys the shared ranges
+// by the Discord ports alone.
+if (index(sprintf("%J", rule.port), "80") >= 0) {
+    warn("the section port filter must not apply to the shared ranges\n");
+    exit(1);
+}
+if (rule.action != "route") {
+    warn("the rule must route, not something else\n");
+    exit(1);
+}
+
+// A section without the list gets no such rule.
+if (length(shared_rules("other-out")) != 0) {
+    warn("a section without the Discord list must not route the shared ranges\n");
+    exit(1);
+}
+' "$WORK_DIR/config.json" ||
+  fail "the generator must route exactly what nftables intercepts for Discord"
+
 printf 'discord cloudflare split checks passed\n'
