@@ -164,6 +164,15 @@ function int_option(section, key, fallback) {
     return int(value, 10);
 }
 
+// Parse a compiled SRS completely without expanding it back into source JSON.
+// Decompiling large lists can exhaust memory on small routers while sing-box
+// is running; match keeps the compact binary structures in memory instead.
+const SRS_VALIDATION_PROBE = "forkop-srs-validation.invalid";
+
+function srs_validation_args(path) {
+    return [ "sing-box", "rule-set", "match", "-f", "binary", as_string(path), SRS_VALIDATION_PROBE ];
+}
+
 return {
     as_string,
     read_json_file,
@@ -183,5 +192,7 @@ return {
     bool_option,
     int_option,
     clash_api_secret,
-    random_hex_secret
+    random_hex_secret,
+    SRS_VALIDATION_PROBE,
+    srs_validation_args
 };
