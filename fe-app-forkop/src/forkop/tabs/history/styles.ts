@@ -1,9 +1,33 @@
 // language=CSS
+import { FORKOP_UCI_PACKAGE as FORKOP_CBI_PREFIX } from '../../../constants';
+
 export const styles = `
+#cbi-${FORKOP_CBI_PREFIX}-history-_mount_node {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+#cbi-${FORKOP_CBI_PREFIX}-history-_mount_node > .cbi-value-title {
+    display: none;
+}
+#cbi-${FORKOP_CBI_PREFIX}-history-_mount_node > .cbi-value-field {
+    display: block;
+    flex: 1 1 100%;
+    margin: 0;
+    margin-inline-start: 0;
+    width: 100%;
+    max-width: none;
+}
+#cbi-${FORKOP_CBI_PREFIX}-history-_mount_node > div {
+    width: 100%;
+}
+
 .fkp-history {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--fkp-space-3);
+    width: 100%;
     min-width: 0;
 }
 .fkp-history__card {
@@ -58,6 +82,16 @@ export const styles = `
 .fkp-history__diff-wrap { width: 0; min-width: 100%; overflow-x: auto; }
 .fkp-history__diff { width: 100%; }
 .fkp-history__diff td { overflow-wrap: anywhere; vertical-align: top; }
+
+@media (min-width: 960px) {
+    .fkp-history {
+        grid-template-columns: minmax(280px, 0.8fr) minmax(0, 2fr);
+        align-items: start;
+    }
+    .fkp-history__card:nth-child(n + 3) {
+        grid-column: 1 / -1;
+    }
+}
 
 @media (max-width: 599px) {
     .fkp-history__facts { grid-template-columns: minmax(0, 1fr); }

@@ -8806,13 +8806,24 @@ var styles3 = `
     unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E, U+E0073-E0074, U+E0077, U+E007F;
 }
 
+#cbi-${FORKOP_UCI_PACKAGE}-dashboard-_mount_node {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
 #cbi-${FORKOP_UCI_PACKAGE}-dashboard-_mount_node > .cbi-value-title {
     display: none;
 }
 
 #cbi-${FORKOP_UCI_PACKAGE}-dashboard-_mount_node > .cbi-value-field {
-    margin-left: 0;
+    display: block;
+    flex: 1 1 100%;
+    margin: 0;
+    margin-inline-start: 0;
     width: 100%;
+    max-width: none;
 }
 
 #cbi-${FORKOP_UCI_PACKAGE}-dashboard-_mount_node > div {
@@ -8825,6 +8836,7 @@ var styles3 = `
 
 .fkp_dashboard-page {
     width: 100%;
+    min-width: 0;
     --dashboard-grid-columns: 4;
     --dashboard-grid-min-width: 180px;
 }
@@ -12986,6 +12998,26 @@ async function initController2(dependencies2 = {}) {
 
 // src/forkop/tabs/diagnostic/styles.ts
 var styles4 = `
+#cbi-${FORKOP_UCI_PACKAGE}-diagnostic-_mount_node {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+#cbi-${FORKOP_UCI_PACKAGE}-diagnostic-_mount_node > .cbi-value-title {
+    display: none;
+}
+
+#cbi-${FORKOP_UCI_PACKAGE}-diagnostic-_mount_node > .cbi-value-field {
+    display: block;
+    flex: 1 1 100%;
+    margin: 0;
+    margin-inline-start: 0;
+    width: 100%;
+    max-width: none;
+}
+
 #cbi-${FORKOP_UCI_PACKAGE}-diagnostic-_mount_node > div {
     width: 100%;
 }
@@ -13000,6 +13032,18 @@ var styles4 = `
     gap: 12px;
     width: 100%;
     box-sizing: border-box;
+}
+
+.fkp-diag-help,
+.fkp-diag-details {
+    grid-column: 1 / -1;
+}
+
+@media (min-width: 960px) {
+    .fkp-diag {
+        grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+        align-items: start;
+    }
 }
 
 .fkp-diag * {
@@ -18466,10 +18510,32 @@ async function initController5() {
 
 // src/forkop/tabs/history/styles.ts
 var styles7 = `
+#cbi-${FORKOP_UCI_PACKAGE}-history-_mount_node {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+#cbi-${FORKOP_UCI_PACKAGE}-history-_mount_node > .cbi-value-title {
+    display: none;
+}
+#cbi-${FORKOP_UCI_PACKAGE}-history-_mount_node > .cbi-value-field {
+    display: block;
+    flex: 1 1 100%;
+    margin: 0;
+    margin-inline-start: 0;
+    width: 100%;
+    max-width: none;
+}
+#cbi-${FORKOP_UCI_PACKAGE}-history-_mount_node > div {
+    width: 100%;
+}
+
 .fkp-history {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--fkp-space-3);
+    width: 100%;
     min-width: 0;
 }
 .fkp-history__card {
@@ -18524,6 +18590,16 @@ var styles7 = `
 .fkp-history__diff-wrap { width: 0; min-width: 100%; overflow-x: auto; }
 .fkp-history__diff { width: 100%; }
 .fkp-history__diff td { overflow-wrap: anywhere; vertical-align: top; }
+
+@media (min-width: 960px) {
+    .fkp-history {
+        grid-template-columns: minmax(280px, 0.8fr) minmax(0, 2fr);
+        align-items: start;
+    }
+    .fkp-history__card:nth-child(n + 3) {
+        grid-column: 1 / -1;
+    }
+}
 
 @media (max-width: 599px) {
     .fkp-history__facts { grid-template-columns: minmax(0, 1fr); }

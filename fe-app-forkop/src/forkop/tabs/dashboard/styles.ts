@@ -11,13 +11,24 @@ export const styles = `
     unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E, U+E0073-E0074, U+E0077, U+E007F;
 }
 
+#cbi-${FORKOP_CBI_PREFIX}-dashboard-_mount_node {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
 #cbi-${FORKOP_CBI_PREFIX}-dashboard-_mount_node > .cbi-value-title {
     display: none;
 }
 
 #cbi-${FORKOP_CBI_PREFIX}-dashboard-_mount_node > .cbi-value-field {
-    margin-left: 0;
+    display: block;
+    flex: 1 1 100%;
+    margin: 0;
+    margin-inline-start: 0;
     width: 100%;
+    max-width: none;
 }
 
 #cbi-${FORKOP_CBI_PREFIX}-dashboard-_mount_node > div {
@@ -30,6 +41,7 @@ export const styles = `
 
 .fkp_dashboard-page {
     width: 100%;
+    min-width: 0;
     --dashboard-grid-columns: 4;
     --dashboard-grid-min-width: 180px;
 }
