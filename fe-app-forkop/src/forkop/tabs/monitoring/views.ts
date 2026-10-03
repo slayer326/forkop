@@ -1,5 +1,5 @@
 import { readPageParams } from '../../helpers/navigation';
-import { setForkopPage } from '../../services/tab.service';
+import { delegateTabController } from '../../services/tab.service';
 
 // Monitoring has two views: live connections and node selection
 // (monitoring#view=nodes). Node selection is run by the dashboard
@@ -33,9 +33,9 @@ export function showMonitoringView(view: MonitoringView, updateUrl = true) {
     history.replaceState(
       null,
       '',
-      view === 'nodes' ? `${url}#view=nodes` : url,
+      view === 'nodes' ? `${url}#tab=monitoring&view=nodes` : url,
     );
   }
 
-  setForkopPage(controllerForView(view));
+  delegateTabController('monitoring', controllerForView(view));
 }

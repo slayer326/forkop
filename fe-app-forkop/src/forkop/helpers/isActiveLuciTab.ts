@@ -1,17 +1,6 @@
-import { getForkopPage } from '../services/forkopPage';
+import { activeForkopController } from '../services/forkopPage';
 
+// Whether this controller is the one in front, and so may poll and render.
 export function isActiveLuciTab(tabId: string) {
-  if (getForkopPage() === tabId) {
-    return true;
-  }
-
-  if (typeof document === 'undefined') {
-    return false;
-  }
-
-  return Boolean(
-    document.querySelector(
-      `.cbi-tab[data-tab="${tabId}"]:not(.cbi-tab-disabled)`,
-    ),
-  );
+  return activeForkopController() === tabId;
 }

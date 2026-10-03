@@ -252,8 +252,10 @@ function configureDnsDuration(
   configureDnsFailoverVisibility(option, dnsOption, bootstrapOption);
 }
 
-// One tab per group of the "settings" UCI section: DNS, Network, Lists and
-// updates, Service. sections: { dns, network, lists, service }.
+// The groups of the "settings" UCI section: DNS, Network, Lists and updates,
+// Service. sections: { dns, network, lists, service } - four sections to put a
+// group on a tab of its own, or the same section four times to lay every group
+// out on one tab, which is what the Forkop X view does.
 function createSettingsContent(sections, capabilities) {
   const renderSettings = sections.dns.render;
   // Rarely changed DNS options fold under "Advanced settings".
@@ -262,6 +264,10 @@ function createSettingsContent(sections, capabilities) {
       (node) => {
         const first = node.querySelector('[id$="-dns_rewrite_ttl"]');
         if (!first) return node;
+        // Where the DNS group ends. When every group shares one section the
+        // fold has to stop here, or it would swallow Network, Lists and
+        // Service as well - the whole page behind one "Advanced settings".
+        const last = node.querySelector('[id$="-dns_detour_section"]');
 
         const details = E(
           "details",
@@ -282,7 +288,9 @@ function createSettingsContent(sections, capabilities) {
         );
         first.parentNode.insertBefore(details, first);
         while (details.nextElementSibling) {
-          details.appendChild(details.nextElementSibling);
+          const folded = details.nextElementSibling;
+          details.appendChild(folded);
+          if (folded === last) break;
         }
         // Keep invalid fields reachable even when the group was collapsed.
         details.addEventListener("validation-failure", () => {

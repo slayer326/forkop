@@ -3,9 +3,9 @@
 "require uci";
 "require view.forkop.main as main";
 
-// Shared start-up of every Forkop page (admin/services/forkop/*): access
-// mode, provider capabilities and the background services. Each page is a
-// separate LuCI view with its own URL.
+// Start-up of the Forkop X view (admin/services/forkop): access mode,
+// provider capabilities and the background services. The features are tabs of
+// that one view, so this runs once for all of them.
 
 const UCI_PACKAGE = main.FORKOP_UCI_PACKAGE;
 
@@ -270,19 +270,11 @@ function startPage(pageId) {
   return capabilities;
 }
 
-function renderPage(title, content) {
-  return E("div", { class: "fkp-page" }, [
-    E("h2", { name: "content" }, title),
-    content,
-  ]);
-}
-
 const EntryPoint = {
   uiCapabilities,
   loadUiCapabilities,
   detectAccess,
   startPage,
-  renderPage,
 };
 
 return baseclass.extend(EntryPoint);

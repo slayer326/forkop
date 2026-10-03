@@ -8,7 +8,11 @@ import { showToast } from '../../../helpers/showToast';
 import { confirmAction } from '../../ui/confirmAction';
 import { renderStartServiceAction } from '../shared/startService';
 import { isReadonlyMode } from '../../services/accessMode.service';
-import { forkopPageUrl, readPageParams } from '../../helpers/navigation';
+import {
+  forkopPageUrl,
+  openForkopPage,
+  readPageParams,
+} from '../../helpers/navigation';
 import { isActiveLuciTab } from '../../helpers/isActiveLuciTab';
 import { copyToClipboard } from '../../../helpers/copyToClipboard';
 import {
@@ -35,9 +39,7 @@ import {
   type RouteRule,
 } from './connectionView';
 import { renderProvenance } from '../../ui/status';
-import { getForkopPage } from '../../services/forkopPage';
-import { setForkopPage } from '../../services/tab.service';
-import { controllerForView, readMonitoringView } from './views';
+import { readMonitoringView, showMonitoringView } from './views';
 import {
   getCachedRuntimeUiState,
   refreshRuntimeUiState,
@@ -1138,6 +1140,10 @@ function renderConnectionDetailsPanel() {
                 {
                   class: 'btn cbi-button',
                   href: forkopPageUrl('diagnostics', { host }),
+                  click: (event: Event) => {
+                    event.preventDefault();
+                    openForkopPage('diagnostics', { host });
+                  },
                 },
                 _('Check address in Diagnostics'),
               ),
@@ -2182,12 +2188,18 @@ export async function initController(
 
   monitoringControllerInitialized = true;
 
-  // monitoring#view=nodes opens on node selection (the dashboard controller).
-  if (getForkopPage() === 'monitoring')
-    setForkopPage(controllerForView(readMonitoringView()));
-
   onMount('monitoring-status').then(() => {
     registerLifecycleListeners();
+
+    // #view=nodes opens on node selection, which the dashboard controller
+    // runs: showMonitoringView hands the Monitoring tab over to it. A link
+    // into this tab changes only the hash - the tabs of one view are not
+    // reloaded - so the view follows the hash instead of being read once.
+    const followRequestedView = () =>
+      showMonitoringView(readMonitoringView(), false);
+
+    followRequestedView();
+    window.addEventListener('hashchange', followRequestedView);
 
     if (
       store.get().tabService.current === 'monitoring' ||

@@ -1,4 +1,9 @@
-import { getForkopPage, setStandalonePage } from './forkopPage';
+import {
+  activeForkopController,
+  setDelegatedController,
+  setStandalonePage,
+} from './forkopPage';
+import { switchLuciTab, readPageParams } from '../helpers/navigation';
 
 type TabInfo = {
   el: HTMLElement;
@@ -13,11 +18,19 @@ export function setForkopPage(pageId: string | null) {
   TabService.getInstance().refresh();
 }
 
+// A tab that hands its turn to another controller while one of its views is
+// open (Monitoring's node selection runs the dashboard controller).
+export function delegateTabController(host: string, controller: string | null) {
+  setDelegatedController(host, controller);
+  TabService.getInstance().refresh();
+}
+
 class TabService {
   private static instance: TabService;
   private observer: MutationObserver | null = null;
   private callback?: TabChangeCallback;
   private lastActiveId: string | null = null;
+  private requestedTabApplied = false;
 
   private constructor() {
     this.init();
@@ -61,13 +74,33 @@ class TabService {
   }
 
   private getActiveTabId(): string | null {
-    const active = document.querySelector<HTMLElement>(
-      '.cbi-tab:not(.cbi-tab-disabled)',
-    );
-    return active?.dataset.tab || getForkopPage();
+    return activeForkopController();
+  }
+
+  // A link into another tab (Diagnostics -> Monitoring and back) leaves
+  // "tab" in the hash so the same URL opens there after a reload. The tab
+  // menu is built by LuCI after the view has rendered, so this waits for it
+  // and then opens the tab once.
+  private applyRequestedTab() {
+    if (this.requestedTabApplied) {
+      return;
+    }
+
+    const requested = readPageParams().tab;
+
+    if (!requested) {
+      this.requestedTabApplied = true;
+      return;
+    }
+
+    if (switchLuciTab(requested)) {
+      this.requestedTabApplied = true;
+    }
   }
 
   private notify() {
+    this.applyRequestedTab();
+
     const tabs = this.getTabsInfo();
     const activeId = this.getActiveTabId();
 

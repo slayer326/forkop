@@ -1,5 +1,9 @@
 import { ForkopShellMethods } from '../../methods';
-import { forkopPageUrl, readPageParams } from '../../helpers/navigation';
+import {
+  forkopPageUrl,
+  openForkopPage,
+  readPageParams,
+} from '../../helpers/navigation';
 import { Forkop } from '../../types';
 import { renderProvenance, type Provenance } from '../../ui/status';
 import {
@@ -266,6 +270,10 @@ export function initSiteCheck(
             {
               class: 'btn cbi-button',
               href: forkopPageUrl('monitoring', { search: target }),
+              click: (event: Event) => {
+                event.preventDefault();
+                openForkopPage('monitoring', { search: target });
+              },
             },
             _('See connections to this address'),
           ),
@@ -288,10 +296,22 @@ export function initSiteCheck(
     }
   };
 
-  // diagnostics#host=example.com (from Monitoring) checks it right away.
-  const host = readPageParams().host;
-  if (host && !input.value) {
+  // #host=example.com (a link from Monitoring) checks it right away. The tabs
+  // of one view are not reloaded, so the hash is read again when it changes
+  // and not only when this tab is first built.
+  let requestedHost: string | null = null;
+  const checkRequestedHost = () => {
+    const host = readPageParams().host;
+
+    if (!host || host === requestedHost) {
+      return;
+    }
+
+    requestedHost = host;
     input.value = host.slice(0, 253);
     button.click();
-  }
+  };
+
+  checkRequestedHost();
+  window.addEventListener('hashchange', checkRequestedHost);
 }

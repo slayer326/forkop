@@ -1,15 +1,15 @@
 # RU translations for FORKOP package.
 # Copyright (C) 2026 THE FORKOP COPYRIGHT HOLDER
 # This file is distributed under the same license as the FORKOP package.
-# Asofwar, 2026.
+# slayer, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-01 10:58+0300\n"
-"PO-Revision-Date: 2026-10-01 10:58+0300\n"
-"Last-Translator: Asofwar\n"
+"POT-Creation-Date: 2026-10-03 03:56+0300\n"
+"PO-Revision-Date: 2026-10-03 03:56+0300\n"
+"Last-Translator: slayer\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -212,8 +212,8 @@ msgstr "Активна: осталась после неудавшегося и�
 msgid "Active: restore not finished"
 msgstr "Активна: восстановление не завершено"
 
-msgid "Add a rule"
-msgstr "Добавить правило"
+msgid "Add a section"
+msgstr "Добавить секцию"
 
 msgid "Add a target first"
 msgstr "Сначала добавьте цель"
@@ -986,6 +986,9 @@ msgstr "своя стратегия"
 msgid "Custom strategy"
 msgstr "Своя стратегия"
 
+msgid "Dashboard"
+msgstr "Дашборд"
+
 msgid "Dashboard currently unavailable"
 msgstr "Дашборд сейчас недоступен"
 
@@ -1295,6 +1298,9 @@ msgstr "Стратегия DPI"
 msgid "DPI strategy syntax check"
 msgstr "Проверка синтаксиса DPI-стратегии"
 
+msgid "Drag rows to change priority. The rule at the top is checked first."
+msgstr "Перетаскивайте строки, чтобы изменить приоритет. Правило сверху проверяется первым."
+
 msgid "Duplicate JSON outbound tag"
 msgstr "Такой тег JSON outbound уже используется"
 
@@ -1603,6 +1609,9 @@ msgstr "Forkop X восстановит снимок «Перед автопод
 
 msgid "Forkop X restores the last known working configuration if the current one differs from it, and reloads the service."
 msgstr "Forkop X восстановит последнюю рабочую конфигурацию, если текущая от неё отличается, и перезагрузит службу."
+
+msgid "Forkop X Settings"
+msgstr "Настройки Forkop X"
 
 msgid "Forkop X stays stopped until you start it: reloads, restores and updates do not start it."
 msgstr "Forkop X останется остановленным, пока вы его не запустите: перезагрузка конфигурации, восстановление и обновления его не запускают."
@@ -2144,9 +2153,6 @@ msgstr "Список из правила"
 msgid "List Update Frequency"
 msgstr "Частота обновления списков"
 
-msgid "Lists and updates"
-msgstr "Списки и обновления"
-
 msgid "Lists: %d"
 msgstr "Списки: %d"
 
@@ -2263,9 +2269,6 @@ msgstr "Имя, которое отображается в списке уров
 
 msgid "Needs attention"
 msgstr "Требуется внимание"
-
-msgid "Network"
-msgstr "Сеть"
 
 msgid "Network Interface"
 msgstr "Сетевой интерфейс"
@@ -3032,9 +3035,6 @@ msgstr "Наборы правил"
 msgid "Rules"
 msgstr "Правила"
 
-msgid "Rules are checked from top to bottom. Drag rows to change priority."
-msgstr "Правила проверяются сверху вниз. Перетащите строки, чтобы изменить приоритет."
-
 msgid "Rules mangle counters"
 msgstr "Счётчики правил mangle"
 
@@ -3086,8 +3086,14 @@ msgstr "Поиск домена"
 msgid "Secret of the Clash API controller used by YACD and the Forkop pages. Required: it is generated on installation and protects the controller with or without WAN access."
 msgstr "Секрет контроллера Clash API, который используют YACD и страницы Forkop. Обязателен: создаётся при установке и защищает контроллер независимо от доступа через WAN."
 
+msgid "Section"
+msgstr "Секция"
+
 msgid "Section name"
 msgstr "Имя секции"
+
+msgid "Sections"
+msgstr "Секции"
 
 msgid "Security"
 msgstr "Защита"
@@ -3190,9 +3196,6 @@ msgstr "Действия со службой"
 
 msgid "Service list"
 msgstr "Список сервисов"
-
-msgid "Service settings"
-msgstr "Служебные"
 
 msgid "Service start"
 msgstr "Запуск службы"

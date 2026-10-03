@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Forkop X is a LuCI menu subtree (admin/services/forkop/*), one view per
-# page. This test covers the views themselves: a session that cannot read the
-# Forkop UCI package is switched to read-only mode before any page content
-# renders, status pages have no Save/Apply footer, and the configuration form
-# lives only on the Settings page, which the read-only role cannot reach.
+# Forkop X is one LuCI view (admin/services/forkop) whose features are tabs of a
+# single form. This test covers that view: a session that cannot read the Forkop
+# UCI package is switched to read-only before any content renders and is offered
+# only the tabs that read state, while the two that write - the rules and the
+# settings - appear for an administrator alone.
+#
+# The tabs are recorded through a form double, so the set each role is offered
+# is observed rather than matched in the source.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 node - "$ROOT_DIR" <<'NODE'
@@ -32,128 +35,193 @@ function load(file, modules) {
     { dispatchEvent() {}, setTimeout() {} }, class {});
 }
 
-function stubs(canReadUci, calls, { stale = false } = {}) {
+// A form double that records the sections a map is given. The section types are
+// what LuCI writes as data-tab, and the tab controllers ask about exactly those
+// ids, so the recorded types are the tabs the role is offered.
+function formDouble(record) {
+  class MapDouble {
+    constructor(_pkg, title) { this.title = title; record.maps.push(this); }
+    section(Type, type, title) {
+      const section = { Type, type, title, options: [] };
+      section.option = (OptionType, name) => {
+        const option = { OptionType, name };
+        section.options.push(option);
+        return option;
+      };
+      record.sections.push(section);
+      return section;
+    }
+    // CBI resolves each option's cfgvalue when it renders it, and that is what
+    // starts a tab's controller: a double that never calls it would let a tab
+    // be mounted without one and still pass.
+    render() {
+      for (const section of record.sections)
+        for (const option of section.options)
+          if (typeof option.cfgvalue === 'function') option.cfgvalue();
+      return `rendered:${this.title}`;
+    }
+  }
+  class JSONMapDouble extends MapDouble {
+    constructor(data, title) { super(null, title); this.data = data; }
+  }
+  return {
+    Map: MapDouble,
+    JSONMap: JSONMapDouble,
+    TypedSection: 'TypedSection',
+    GridSection: Object.assign('GridSection', { prototype: { renderSectionAdd() {} } }),
+    DummyValue: 'DummyValue',
+  };
+}
+
+function stubs(canReadUci, calls) {
+  const record = { maps: [], sections: [] };
+  const form = formDouble(record);
   const main = {
     FORKOP_UCI_PACKAGE: 'forkop',
-    FORKOP_ACTION_PROVIDERS_AVAILABILITY_EVENT: 'x',
     injectGlobalStyles() {},
     coreService() { calls.push('core'); },
     setReadonlyMode(value) { calls.push(`readonly:${value}`); },
     setForkopPage(page) { calls.push(`page:${page}`); },
     store: { get: () => ({ diagnosticsSystemInfo: {} }), set() {} },
-    ForkopShellMethods: { getUiCapabilities: async () => ({ success: true, data: {} }) },
+    FORKOP_ACTION_PROVIDERS_AVAILABILITY_EVENT: 'x',
+    ForkopShellMethods: {
+      getUiCapabilities: async () => ({ success: true, data: {} }),
+      snapshotCreate: async () => ({ success: true, data: { status: 'created' } }),
+    },
   };
-  if (stale) delete main.setReadonlyMode;
-  for (const tab of ['DashboardTab', 'MonitoringTab', 'DiagnosticTab', 'AutotuneTab', 'HistoryTab']) {
+  for (const tab of ['DashboardTab', 'MonitoringTab', 'DiagnosticTab', 'AutotuneTab', 'HistoryTab', 'UpdatesTab']) {
     main[tab] = {
       initController() { calls.push(`init:${tab}`); },
       render() {
-        assert(!canReadUci ? calls.includes('readonly:true') || stale : true,
+        assert(!canReadUci ? calls.includes('readonly:true') : true,
           `${tab} rendered before the read-only mode was set`);
         calls.push(`render:${tab}`);
         return tab;
       },
     };
   }
-  const uci = { load: async () => { if (!canReadUci) throw Error('Permission denied'); } };
   const baseclass = { extend: value => value };
-  const shell = load('shell.js', { baseclass, uci, main });
+  const uci = { load: async () => { if (!canReadUci) throw Error('Permission denied'); } };
+  const ui = { addNotification() {} };
+  const localDevices = { loadLocalDeviceChoices: async () => ({}) };
+  const mountModules = {
+    dashboard: 'dashboard.js', diagnostic: 'diagnostic.js', monitoring: 'monitoring.js',
+    history: 'history.js', autotune: 'autotune.js', updates: 'updates.js',
+  };
+  const mounts = {};
+  for (const [name, file] of Object.entries(mountModules))
+    mounts[name] = load(file, { baseclass, form, ui, uci, fs: {}, main, localDevices });
+
+  // The shell is the real one: it decides the role and starts the services.
+  const shell = load('shell.js', { baseclass, uci, ui, main });
   return {
-    view: { extend: value => value }, baseclass, uci, main, shell,
-    localDevices: { loadLocalDeviceChoices() {} },
+    record,
+    modules: {
+      view: { extend: value => value }, form, baseclass, uci, ui, main, shell, localDevices,
+      ...mounts,
+      configform: {
+        createMap: (title, description) => new form.Map('forkop', title, description),
+        configureGridSection() {},
+      },
+      settings: {
+        createSettingsContent(sections) {
+          calls.push('settings-content');
+          record.settingsGroups = sections;
+        },
+      },
+      section: { configureSectionSection() {}, createSectionContent() { calls.push('rules-content'); } },
+    },
   };
 }
 
+const tabsOf = record => record.sections.map(section => section.type);
+
 (async () => {
-  const pages = {
-    'page/overview.js': 'DashboardTab',
-    'page/monitoring.js': 'MonitoringTab',
-    'page/diagnostics.js': 'DiagnosticTab',
-    'page/autotune.js': 'AutotuneTab',
-    'page/history.js': 'HistoryTab',
-  };
-  for (const [file, tab] of Object.entries(pages)) {
-    for (const stale of [false, true]) {
-      const calls = [];
-      const page = load(file, stubs(false, calls, { stale }));
-      assert.equal(await page.load(), true, `${file}: read-only session not detected`);
-      const rendered = page.render();
-      assert.equal(rendered.children[1], tab, `${file}: page content not rendered`);
-      if (!stale) {
-        assert.equal(calls.filter(call => call === 'readonly:true').length, 1,
-          `${file}: read-only mode not set exactly once`);
-        assert(calls.indexOf('readonly:true') < calls.indexOf(`render:${tab}`),
-          `${file}: read-only mode must be set before rendering`);
-      }
-      assert.equal(page.handleSave, null, `${file}: status page must not offer Save`);
-      assert.equal(page.handleSaveApply, null, `${file}: status page must not offer Save & Apply`);
-      assert.equal(page.handleReset, null, `${file}: status page must not offer Reset`);
-    }
+  // A read-only session: detected before anything renders, offered the tabs
+  // that only read, and never the rules or the settings.
+  {
     const calls = [];
-    const page = load(file, stubs(true, calls));
-    assert.equal(await page.load(), false, `${file}: administrator detected as read-only`);
-    page.render();
-    assert(!calls.some(call => call.startsWith('readonly:')), `${file}: administrator switched to read-only`);
-    assert(calls.includes(`init:${tab}`), `${file}: controller not initialised`);
+    const context = stubs(false, calls);
+    const view = load('forkop.js', context.modules);
+    assert.equal(await view.load(), true, 'a read-only session was not detected');
+    const rendered = await view.render(true);
+    assert.match(String(rendered), /^rendered:/, 'the read-only view must render a map');
+    assert.equal(calls.filter(call => call === 'readonly:true').length, 1,
+      'read-only mode must be set exactly once');
+    assert.deepEqual(tabsOf(context.record),
+      ['dashboard', 'diagnostic', 'monitoring', 'history', 'autotune'],
+      'the read-only role must be offered every reading tab and no other');
+    assert.equal(context.record.maps.length, 1);
+    assert.equal(context.record.maps[0].readonly, true, 'the read-only map must be read-only');
+    assert.equal(context.record.maps[0].tabbed, true, 'the view is tabbed, not a page per feature');
+    assert(!calls.includes('rules-content'), 'the read-only role must not be given the rules form');
+    assert(!calls.includes('settings-content'), 'the read-only role must not be given the settings form');
   }
 
-  // Rules and Settings: the only pages with configuration forms, both with
-  // the snapshot-first Save & Apply of configform.js.
+  // An administrator: the same reading tabs plus the two that write.
+  {
+    const calls = [];
+    const context = stubs(true, calls);
+    const view = load('forkop.js', context.modules);
+    assert.equal(await view.load(), false, 'an administrator was detected as read-only');
+    await view.render(false);
+    assert(!calls.some(call => call.startsWith('readonly:')), 'an administrator must not be read-only');
+    assert.deepEqual(tabsOf(context.record),
+      ['section', 'settings', 'diagnostic', 'dashboard', 'monitoring', 'history', 'autotune', 'updates'],
+      'the administrator tab set changed');
+    assert.equal(context.record.maps[0].tabbed, true, 'the view is tabbed');
+    assert(calls.includes('rules-content'), 'the rules form is missing');
+    assert(calls.includes('settings-content'), 'the settings form is missing');
+    // The four settings groups share the one "settings" tab, rather than
+    // taking four more entries in the tab row.
+    const groups = context.record.settingsGroups;
+    assert.deepEqual(Object.keys(groups), ['dns', 'network', 'lists', 'service']);
+    const settingsSection = context.record.sections.find(s => s.type === 'settings');
+    for (const [name, given] of Object.entries(groups))
+      assert.equal(given, settingsSection, `the ${name} group is not on the Settings tab`);
+    for (const tab of ['DashboardTab', 'MonitoringTab', 'DiagnosticTab', 'AutotuneTab', 'HistoryTab', 'UpdatesTab'])
+      assert(calls.includes(`init:${tab}`), `${tab} controller was not started`);
+  }
+
+  // Tab activity is the CBI tab's: no standalone page may register itself, or
+  // every controller would believe its tab is in front and poll at once.
+  {
+    const calls = [];
+    const context = stubs(true, calls);
+    const view = load('forkop.js', context.modules);
+    await view.load();
+    assert(calls.includes('page:null'), 'the view must register no standalone page');
+  }
+
+  // Every Save & Apply takes a snapshot first, so History has something to
+  // restore from.
   const formSource = read('configform.js');
   assert.match(formSource, /new form\.Map\(UCI_PACKAGE/, 'configform must build the form');
   assert.match(formSource, /map\.handleSaveApply = async function/,
     'configform must keep the snapshot-first Save & Apply');
   assert.match(formSource, /snapshotCreate\("automatic"\)[\s\S]*originalHandleSaveApply\.call/,
     'a snapshot must be taken before applying');
-  const settingsSource = read('page/settings.js');
-  const rulesSource = read('page/rules.js');
-  for (const [name, source] of [['settings', settingsSource], ['rules', rulesSource]])
-    assert.match(source, /configform\.createMap\(/, `${name} page must host its form through configform`);
-  assert(rulesSource.includes('form.GridSection,\n      "section"'), 'the rules page must host the rules grid');
-  assert(!settingsSource.includes('"section"'), 'the rules moved out of Settings');
-  assert(settingsSource.includes('form.TypedSection,\n      "updates"'), 'settings page lost the components tab');
-  assert.match(settingsSource, /forkopMap\.section\(form\.TypedSection, type, title\)/,
-    'settings page lost the settings tabs');
-  // LuCI keys map tabs by section type: every settings tab needs its own.
-  const tabTypes = [...settingsSource.matchAll(/settingsTab\("(settings_\w+)", _\("([^"]+)"\)\)/g)];
-  assert.deepEqual(tabTypes.map((m) => m[2]), ['DNS', 'Network', 'Lists and updates', 'Service settings']);
-  assert.equal(new Set(tabTypes.map((m) => m[1])).size, 4, 'settings tabs must not share a section type');
-  assert.match(settingsSource, /cfgsections = function \(\) \{\s*return \["settings"\];/,
-    'settings tabs must edit the single settings section');
-  for (const file of Object.keys(pages))
-    assert.doesNotMatch(read(file), /form\.(Map|JSONMap)/, `${file} must not render a form`);
+  assert.match(read('forkop.js'), /configform\.createMap\(/,
+    'the view must build its form through configform, or it loses the snapshot');
 
-  // The old single view and its wrappers are gone.
-  for (const file of ['forkop.js', 'dashboard.js', 'diagnostic.js', 'monitoring.js'])
-    assert(!fs.existsSync(path.join(viewDir, file)), `${file} should have been removed`);
-
-  // Menu subtree.
+  // One menu entry, opening the one view.
   const menu = JSON.parse(fs.readFileSync(
     path.join(root, 'luci-app-forkop/root/usr/share/luci/menu.d/luci-app-forkop.json'), 'utf8'));
-  const parent = menu['admin/services/forkop'];
-  assert.deepEqual(parent.action, { type: 'firstchild' },
-    'the old URL admin/services/forkop must open the first page');
-  assert.deepEqual(parent.depends.acl, ['luci-app-forkop']);
-  const children = Object.entries(menu).filter(([key]) => key.startsWith('admin/services/forkop/'));
-  const order = children.sort((a, b) => a[1].order - b[1].order).map(([key]) => key.split('/').pop());
-  assert.deepEqual(order, ['overview', 'rules', 'monitoring', 'diagnostics', 'autotune', 'history', 'settings']);
-  for (const [key, node] of children) {
-    assert.equal(node.action.type, 'view', `${key} must be a view`);
-    assert(fs.existsSync(path.join(root, 'luci-app-forkop/htdocs/luci-static/resources/view', `${node.action.path}.js`)),
-      `${key} points to a missing view ${node.action.path}`);
-  }
-  assert.deepEqual(menu['admin/services/forkop/settings'].depends, { acl: ['luci-app-forkop-admin'] },
-    'Settings must be hidden from the read-only role');
-  assert.deepEqual(menu['admin/services/forkop/rules'].depends, { acl: ['luci-app-forkop-admin'] },
-    'Rules must be hidden from the read-only role');
-  for (const key of ['overview', 'monitoring', 'diagnostics', 'autotune', 'history'])
-    assert(!menu[`admin/services/forkop/${key}`].depends,
-      `${key} must stay available to the read-only role`);
+  assert.deepEqual(Object.keys(menu), ['admin/services/forkop'], 'Forkop X is one menu entry');
+  const entry = menu['admin/services/forkop'];
+  assert.deepEqual(entry.action, { type: 'view', path: 'forkop/forkop' });
+  assert.deepEqual(entry.depends.acl, ['luci-app-forkop']);
+  assert(fs.existsSync(path.join(viewDir, 'forkop.js')), 'the view the menu points at is missing');
 
+  // The per-page entry points are gone.
+  assert(!fs.existsSync(path.join(viewDir, 'page')), 'the per-page views should have been removed');
+
+  // The read-only role is still gated by the UCI read permission: that is what
+  // the view probes to decide the role.
   const acl = JSON.parse(fs.readFileSync(
     path.join(root, 'luci-app-forkop/root/usr/share/rpcd/acl.d/luci-app-forkop.json'), 'utf8'));
   assert.deepEqual(acl['luci-app-forkop-admin'].read.uci, ['forkop'],
-    'the Settings gate group must grant the Forkop UCI read access');
+    'the administrator group must grant the Forkop UCI read access');
 
   console.log('luci_readonly_view: PASS');
 })().catch(error => { console.error(error); process.exitCode = 1; });

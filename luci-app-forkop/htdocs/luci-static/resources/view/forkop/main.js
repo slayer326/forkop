@@ -4289,11 +4289,79 @@ var RemoteFakeIPMethods = {
 
 // src/forkop/services/forkopPage.ts
 var standalonePage = null;
+var delegated = null;
 function setStandalonePage(pageId) {
   standalonePage = pageId || null;
 }
-function getForkopPage() {
-  return standalonePage;
+function setDelegatedController(host, controller) {
+  delegated = controller && controller !== host ? { host, controller } : null;
+}
+function activeCbiTab() {
+  if (typeof document === "undefined") {
+    return null;
+  }
+  const active = document.querySelector(
+    ".cbi-tab[data-tab]:not(.cbi-tab-disabled)"
+  );
+  return active?.dataset.tab || null;
+}
+function activeForkopController() {
+  const host = activeCbiTab() ?? standalonePage;
+  if (host && delegated?.host === host) {
+    return delegated.controller;
+  }
+  return host;
+}
+
+// src/forkop/helpers/navigation.ts
+var FORKOP_MENU_PATH = "admin/services/forkop";
+var PAGE_TAB_IDS = {
+  overview: "dashboard",
+  monitoring: "monitoring",
+  diagnostics: "diagnostic",
+  autotune: "autotune",
+  history: "history",
+  rules: "section",
+  settings: "settings"
+};
+function luci() {
+  return globalThis.L;
+}
+function forkopPageUrl(page, params = {}) {
+  const base = typeof luci()?.url === "function" ? luci().url(FORKOP_MENU_PATH) : `/cgi-bin/luci/${FORKOP_MENU_PATH}`;
+  const query = new URLSearchParams({
+    tab: PAGE_TAB_IDS[page],
+    ...params
+  }).toString();
+  return `${base}#${query}`;
+}
+function switchLuciTab(tabId) {
+  if (typeof document === "undefined") {
+    return false;
+  }
+  const link = document.querySelector(
+    `ul.cbi-tabmenu > li[data-tab="${tabId}"] > a`
+  );
+  if (!link) {
+    return false;
+  }
+  link.click();
+  return true;
+}
+function openForkopPage(page, params = {}) {
+  if (typeof history !== "undefined" && history.replaceState) {
+    history.replaceState(null, "", forkopPageUrl(page, params));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("hashchange"));
+    }
+  }
+  return switchLuciTab(PAGE_TAB_IDS[page]);
+}
+function readPageParams(hash) {
+  const source = hash ?? (typeof window === "undefined" ? "" : window.location?.hash);
+  return Object.fromEntries(
+    new URLSearchParams((source ?? "").replace(/^#/, ""))
+  );
 }
 
 // src/forkop/services/tab.service.ts
@@ -4301,10 +4369,15 @@ function setForkopPage(pageId) {
   setStandalonePage(pageId);
   TabService.getInstance().refresh();
 }
+function delegateTabController(host, controller) {
+  setDelegatedController(host, controller);
+  TabService.getInstance().refresh();
+}
 var TabService = class _TabService {
   constructor() {
     this.observer = null;
     this.lastActiveId = null;
+    this.requestedTabApplied = false;
     this.init();
   }
   static getInstance() {
@@ -4337,12 +4410,27 @@ var TabService = class _TabService {
     }));
   }
   getActiveTabId() {
-    const active = document.querySelector(
-      ".cbi-tab:not(.cbi-tab-disabled)"
-    );
-    return active?.dataset.tab || getForkopPage();
+    return activeForkopController();
+  }
+  // A link into another tab (Diagnostics -> Monitoring and back) leaves
+  // "tab" in the hash so the same URL opens there after a reload. The tab
+  // menu is built by LuCI after the view has rendered, so this waits for it
+  // and then opens the tab once.
+  applyRequestedTab() {
+    if (this.requestedTabApplied) {
+      return;
+    }
+    const requested = readPageParams().tab;
+    if (!requested) {
+      this.requestedTabApplied = true;
+      return;
+    }
+    if (switchLuciTab(requested)) {
+      this.requestedTabApplied = true;
+    }
   }
   notify() {
+    this.applyRequestedTab();
     const tabs = this.getTabsInfo();
     const activeId = this.getActiveTabId();
     if (activeId !== this.lastActiveId) {
@@ -5690,17 +5778,7 @@ async function fetchServicesInfo() {
 
 // src/forkop/helpers/isActiveLuciTab.ts
 function isActiveLuciTab(tabId) {
-  if (getForkopPage() === tabId) {
-    return true;
-  }
-  if (typeof document === "undefined") {
-    return false;
-  }
-  return Boolean(
-    document.querySelector(
-      `.cbi-tab[data-tab="${tabId}"]:not(.cbi-tab-disabled)`
-    )
-  );
+  return activeForkopController() === tabId;
 }
 
 // src/forkop/helpers/restoredActionLoading.ts
@@ -6167,23 +6245,6 @@ function overviewLastEvent(input) {
     outcome: eventOutcomeView(toEventOutcome(event.status)),
     time: formatRelativeTime(event.timestamp, input.nowMs)
   };
-}
-
-// src/forkop/helpers/navigation.ts
-var FORKOP_MENU_PATH = "admin/services/forkop";
-function luci() {
-  return globalThis.L;
-}
-function forkopPageUrl(page, params = {}) {
-  const base = typeof luci()?.url === "function" ? luci().url(FORKOP_MENU_PATH, page) : `/cgi-bin/luci/${FORKOP_MENU_PATH}/${page}`;
-  const query = new URLSearchParams(params).toString();
-  return query ? `${base}#${query}` : base;
-}
-function openForkopPage(page, params = {}) {
-  window.location.href = forkopPageUrl(page, params);
-}
-function readPageParams(hash = window.location.hash) {
-  return Object.fromEntries(new URLSearchParams(hash.replace(/^#/, "")));
 }
 
 // src/forkop/ui/overflowMenu.ts
@@ -11496,7 +11557,11 @@ function initSiteCheck(loadDevices) {
             "a",
             {
               class: "btn cbi-button",
-              href: forkopPageUrl("monitoring", { search: target })
+              href: forkopPageUrl("monitoring", { search: target }),
+              click: (event) => {
+                event.preventDefault();
+                openForkopPage("monitoring", { search: target });
+              }
             },
             _("See connections to this address")
           )
@@ -11516,11 +11581,18 @@ function initSiteCheck(loadDevices) {
       button.disabled = false;
     }
   };
-  const host = readPageParams().host;
-  if (host && !input.value) {
+  let requestedHost = null;
+  const checkRequestedHost = () => {
+    const host = readPageParams().host;
+    if (!host || host === requestedHost) {
+      return;
+    }
+    requestedHost = host;
     input.value = host.slice(0, 253);
     button.click();
-  }
+  };
+  checkRequestedHost();
+  window.addEventListener("hashchange", checkRequestedHost);
 }
 
 // src/forkop/tabs/shared/startService.ts
@@ -13401,10 +13473,10 @@ function showMonitoringView(view, updateUrl = true) {
     history.replaceState(
       null,
       "",
-      view === "nodes" ? `${url}#view=nodes` : url
+      view === "nodes" ? `${url}#tab=monitoring&view=nodes` : url
     );
   }
-  setForkopPage(controllerForView(view));
+  delegateTabController("monitoring", controllerForView(view));
 }
 
 // src/forkop/tabs/monitoring/render.ts
@@ -14420,7 +14492,11 @@ function renderConnectionDetailsPanel() {
             "a",
             {
               class: "btn cbi-button",
-              href: forkopPageUrl("diagnostics", { host })
+              href: forkopPageUrl("diagnostics", { host }),
+              click: (event) => {
+                event.preventDefault();
+                openForkopPage("diagnostics", { host });
+              }
             },
             _("Check address in Diagnostics")
           )
@@ -15225,10 +15301,11 @@ async function initController3(controllerDependencies = {}) {
     return;
   }
   monitoringControllerInitialized = true;
-  if (getForkopPage() === "monitoring")
-    setForkopPage(controllerForView(readMonitoringView()));
   onMount("monitoring-status").then(() => {
     registerLifecycleListeners3();
+    const followRequestedView = () => showMonitoringView(readMonitoringView(), false);
+    followRequestedView();
+    window.addEventListener("hashchange", followRequestedView);
     if (store.get().tabService.current === "monitoring" || isActiveLuciTab("monitoring")) {
       onPageMount3();
     }

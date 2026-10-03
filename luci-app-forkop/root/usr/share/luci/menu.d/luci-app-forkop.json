@@ -3,73 +3,12 @@
     "title": "Forkop X",
     "order": 42,
     "action": {
-      "type": "firstchild"
+      "type": "view",
+      "path": "forkop/forkop"
     },
     "depends": {
-      "acl": [ "luci-app-forkop" ],
-      "uci": { "forkop": true }
-    }
-  },
-  "admin/services/forkop/overview": {
-    "title": "Overview",
-    "order": 10,
-    "action": {
-      "type": "view",
-      "path": "forkop/page/overview"
-    }
-  },
-  "admin/services/forkop/rules": {
-    "title": "Rules",
-    "order": 15,
-    "action": {
-      "type": "view",
-      "path": "forkop/page/rules"
-    },
-    "depends": {
-      "acl": [ "luci-app-forkop-admin" ]
-    }
-  },
-  "admin/services/forkop/monitoring": {
-    "title": "Monitoring",
-    "order": 20,
-    "action": {
-      "type": "view",
-      "path": "forkop/page/monitoring"
-    }
-  },
-  "admin/services/forkop/diagnostics": {
-    "title": "Diagnostics",
-    "order": 30,
-    "action": {
-      "type": "view",
-      "path": "forkop/page/diagnostics"
-    }
-  },
-  "admin/services/forkop/autotune": {
-    "title": "DPI autotune",
-    "order": 35,
-    "action": {
-      "type": "view",
-      "path": "forkop/page/autotune"
-    }
-  },
-  "admin/services/forkop/history": {
-    "title": "History and recovery",
-    "order": 40,
-    "action": {
-      "type": "view",
-      "path": "forkop/page/history"
-    }
-  },
-  "admin/services/forkop/settings": {
-    "title": "Settings",
-    "order": 90,
-    "action": {
-      "type": "view",
-      "path": "forkop/page/settings"
-    },
-    "depends": {
-      "acl": [ "luci-app-forkop-admin" ]
-    }
+			"acl": [ "luci-app-forkop" ],
+			"uci": { "forkop": true }
+		}
   }
 }
