@@ -19,7 +19,8 @@
 // page registers none, and each controller runs only while its own tab is in
 // front. The section type is what CBI writes as data-tab, so it has to be the
 // id the controller asks about: dashboard, diagnostic, monitoring, updates,
-// history, autotune.
+// history, autotune. The dashboard controller renders the overview summary,
+// so its tab is the one titled "Overview".
 function mountTab(map, type, title, mount) {
   const section = map.section(form.TypedSection, type, title);
   section.anonymous = true;
@@ -35,7 +36,7 @@ function mountTab(map, type, title, mount) {
 // Forkop configuration is offered these and nothing else: the rules and the
 // settings are the two that write, and their ACL is the administrator's.
 function mountReadOnlyTabs(map) {
-  mountTab(map, "dashboard", _("Dashboard"), dashboard.createDashboardContent);
+  mountTab(map, "dashboard", _("Overview"), dashboard.createDashboardContent);
   mountTab(
     map,
     "diagnostic",
@@ -144,7 +145,7 @@ const EntryPoint = {
     mountTab(
       forkopMap,
       "dashboard",
-      _("Dashboard"),
+      _("Overview"),
       dashboard.createDashboardContent,
     );
     mountTab(
