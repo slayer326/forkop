@@ -86,7 +86,7 @@ for (let aliases in [
     fields(normalize(links.serialize_outbound_link(last)), "X & session=key", 17);
     let generated = vless_outbound(generate([base + "&extra=" + encode(sprintf("%J", extra))], [], "1.14.1-extended-2.7.2"));
     fields(generated, "X & session=key", 17);
-    expect(generated.tls.reality.support_x25519mlkem768 === true, "manual Reality default");
+    expect(!exists(generated.tls.reality, "support_x25519mlkem768"), "manual Reality keeps server-compatible default");
 }
 let priority = normalize(base + "&uplinkHTTPMethod=POST&sessionIDPlacement=cookie&scMaxBufferedPosts=0&extra=" +
     encode('{"uplinkHTTPMethod":"GET","SessionIDPlacement":"header","scMaxBufferedPosts":17}'));
@@ -169,9 +169,7 @@ expect(cached_generated.tls.reality.support_x25519mlkem768 === false,
 for (let version in ["1.13.21", "1.14.1", "1.14.1-extended-2.7.1", "unknown", "1.14.1-extended-2.7.2-rc1",
     "1.14.1-extended-2.7.2", "1.14.1-extended-2.7.20", "1.14.1-extended-2.8.0", "1.14.1-extended-3.0.0"]) {
     let o = vless_outbound(generate([base], [], version));
-    let supported = version == "1.14.1-extended-2.7.2" || version == "1.14.1-extended-2.7.20" ||
-        version == "1.14.1-extended-2.8.0" || version == "1.14.1-extended-3.0.0";
-    expect(exists(o.tls.reality,"support_x25519mlkem768") == supported, "version gate " + version);
+    expect(!exists(o.tls.reality,"support_x25519mlkem768"), "no implicit Reality key share " + version);
 }
 for (let value in [false,true]) {
     let o = normalize(base + "&support_x25519mlkem768=" + (value ? "true" : "false"));
