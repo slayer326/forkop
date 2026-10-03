@@ -156,6 +156,10 @@ const tabsOf = record => record.sections.map(section => section.type);
     assert.equal(context.record.maps[0].tabbed, true, 'the view is tabbed, not a page per feature');
     assert(!calls.includes('rules-content'), 'the read-only role must not be given the rules form');
     assert(!calls.includes('settings-content'), 'the read-only role must not be given the settings form');
+    // LuCI builds the page footer from these handlers after render(), so a
+    // session that may not write is offered no Save, Apply or Reset button.
+    for (const handler of ['handleSave', 'handleSaveApply', 'handleReset'])
+      assert.equal(view[handler], null, `${handler} must be dropped for the read-only role`);
   }
 
   // An administrator: the same reading tabs plus the two that write.

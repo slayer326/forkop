@@ -67,6 +67,13 @@ const EntryPoint = {
 
   async render(readonly) {
     if (readonly) {
+      // LuCI adds the page footer after render(): with no handlers left it
+      // offers this session no Save, Apply or Reset button at all, rather
+      // than three disabled ones.
+      this.handleSave = null;
+      this.handleSaveApply = null;
+      this.handleReset = null;
+
       const readonlyMap = new form.JSONMap(
         {
           dashboard: {},
