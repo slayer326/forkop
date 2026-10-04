@@ -61,6 +61,14 @@ grep -Fq 'subprocess.run([PUBLISH_COMMAND' "$SCRIPT" || {
   echo "release sync does not call the signed feed publisher" >&2
   exit 1
 }
+grep -Fq 'FORKOP_PUBLIC_BASE_URL:-https://mirror.infotechtg.ru/forkop' "$PUBLISH" || {
+  echo "release publisher does not default to the public mirror URL" >&2
+  exit 1
+}
+grep -Fq '"browser_download_url": "$PUBLIC_BASE_URL/updates/releases/$VERSION/' "$PUBLISH" || {
+  echo "release publisher does not emit absolute package URLs" >&2
+  exit 1
+}
 grep -Fq 'FORKOP_APK_PRIVATE_KEY=/mnt/storage/forkop-mirror/keys/forkop-apk.pem' "$SERVICE" || {
   echo "release service does not isolate its signing key path" >&2
   exit 1

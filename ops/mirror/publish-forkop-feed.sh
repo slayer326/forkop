@@ -9,6 +9,7 @@ fi
 BUILD_DIRECTORY="$1"
 VERSION="$2"
 MIRROR_ROOT="${MIRROR_ROOT:-/srv/mirror/public/forkop}"
+PUBLIC_BASE_URL="${FORKOP_PUBLIC_BASE_URL:-https://mirror.infotechtg.ru/forkop}"
 PRIVATE_KEY="${FORKOP_APK_PRIVATE_KEY:-/srv/mirror/keys/forkop-apk.pem}"
 APK_BIN="${APK_BIN:-/root/.cache/forkop/openwrt-sdk/extracted/apk/staging_dir/host/bin/apk}"
 STAGING="$MIRROR_ROOT/mirror/.${VERSION}.staging"
@@ -20,6 +21,11 @@ UPDATES_DESTINATION="$MIRROR_ROOT/updates/releases/$VERSION"
     echo "Invalid APK feed version: $VERSION" >&2
     exit 1
 }
+[[ "$PUBLIC_BASE_URL" == https://* ]] || {
+    echo "FORKOP_PUBLIC_BASE_URL must use HTTPS" >&2
+    exit 1
+}
+PUBLIC_BASE_URL="${PUBLIC_BASE_URL%/}"
 [[ -x "$APK_BIN" ]] || {
     echo "OpenWrt apk host tool is unavailable: $APK_BIN" >&2
     exit 1
@@ -75,14 +81,14 @@ printf '%s\n' "$VERSION" > "$MIRROR_ROOT/MIRROR_LATEST"
 cat > "$UPDATES_STAGING/release.json" <<EOF
 {
   "tag_name": "$VERSION",
-  "html_url": "/forkop/updates/releases/$VERSION/",
+  "html_url": "$PUBLIC_BASE_URL/updates/releases/$VERSION/",
   "assets": [
-    {"name": "forkop_$VERSION.apk", "browser_download_url": "/forkop/updates/releases/$VERSION/forkop_$VERSION.apk", "sha256": "$(sha256sum "$UPDATES_STAGING/forkop_$VERSION.apk" | awk '{print $1}')"},
-    {"name": "luci-app-forkop_$VERSION.apk", "browser_download_url": "/forkop/updates/releases/$VERSION/luci-app-forkop_$VERSION.apk", "sha256": "$(sha256sum "$UPDATES_STAGING/luci-app-forkop_$VERSION.apk" | awk '{print $1}')"},
-    {"name": "luci-i18n-forkop-ru_$VERSION.apk", "browser_download_url": "/forkop/updates/releases/$VERSION/luci-i18n-forkop-ru_$VERSION.apk", "sha256": "$(sha256sum "$UPDATES_STAGING/luci-i18n-forkop-ru_$VERSION.apk" | awk '{print $1}')"},
-    {"name": "forkop_$VERSION.ipk", "browser_download_url": "/forkop/updates/releases/$VERSION/forkop_$VERSION.ipk", "sha256": "$(sha256sum "$UPDATES_STAGING/forkop_$VERSION.ipk" | awk '{print $1}')"},
-    {"name": "luci-app-forkop_$VERSION.ipk", "browser_download_url": "/forkop/updates/releases/$VERSION/luci-app-forkop_$VERSION.ipk", "sha256": "$(sha256sum "$UPDATES_STAGING/luci-app-forkop_$VERSION.ipk" | awk '{print $1}')"},
-    {"name": "luci-i18n-forkop-ru_$VERSION.ipk", "browser_download_url": "/forkop/updates/releases/$VERSION/luci-i18n-forkop-ru_$VERSION.ipk", "sha256": "$(sha256sum "$UPDATES_STAGING/luci-i18n-forkop-ru_$VERSION.ipk" | awk '{print $1}')"}
+    {"name": "forkop_$VERSION.apk", "browser_download_url": "$PUBLIC_BASE_URL/updates/releases/$VERSION/forkop_$VERSION.apk", "sha256": "$(sha256sum "$UPDATES_STAGING/forkop_$VERSION.apk" | awk '{print $1}')"},
+    {"name": "luci-app-forkop_$VERSION.apk", "browser_download_url": "$PUBLIC_BASE_URL/updates/releases/$VERSION/luci-app-forkop_$VERSION.apk", "sha256": "$(sha256sum "$UPDATES_STAGING/luci-app-forkop_$VERSION.apk" | awk '{print $1}')"},
+    {"name": "luci-i18n-forkop-ru_$VERSION.apk", "browser_download_url": "$PUBLIC_BASE_URL/updates/releases/$VERSION/luci-i18n-forkop-ru_$VERSION.apk", "sha256": "$(sha256sum "$UPDATES_STAGING/luci-i18n-forkop-ru_$VERSION.apk" | awk '{print $1}')"},
+    {"name": "forkop_$VERSION.ipk", "browser_download_url": "$PUBLIC_BASE_URL/updates/releases/$VERSION/forkop_$VERSION.ipk", "sha256": "$(sha256sum "$UPDATES_STAGING/forkop_$VERSION.ipk" | awk '{print $1}')"},
+    {"name": "luci-app-forkop_$VERSION.ipk", "browser_download_url": "$PUBLIC_BASE_URL/updates/releases/$VERSION/luci-app-forkop_$VERSION.ipk", "sha256": "$(sha256sum "$UPDATES_STAGING/luci-app-forkop_$VERSION.ipk" | awk '{print $1}')"},
+    {"name": "luci-i18n-forkop-ru_$VERSION.ipk", "browser_download_url": "$PUBLIC_BASE_URL/updates/releases/$VERSION/luci-i18n-forkop-ru_$VERSION.ipk", "sha256": "$(sha256sum "$UPDATES_STAGING/luci-i18n-forkop-ru_$VERSION.ipk" | awk '{print $1}')"}
   ]
 }
 EOF
