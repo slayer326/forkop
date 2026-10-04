@@ -99,6 +99,9 @@ case "${3:-}" in
     if [ "${4:-}" = acquire-runtime-dir-lock-wait ] && [ -e "$WORK/lock.timeout" ]; then
       exit 1
     fi ;;
+  */service/lifecycle.uc)
+    [ "${4:-}" = reload ] && exec "$FORKOP_BIN" reload "${5:-}"
+    ;;
 esac
 exec "$REAL_UCODE" "$@"
 SH

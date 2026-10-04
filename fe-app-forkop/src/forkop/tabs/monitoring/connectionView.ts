@@ -40,6 +40,20 @@ export interface ConnectionPath {
 const BYPASS_TAG = 'bypass-out';
 const DIRECT_TAG = 'direct-out';
 
+export function formatEndpoint(
+  address?: string,
+  port?: string | number,
+): string {
+  const normalizedAddress = address == null ? '' : String(address).trim();
+  const normalizedPort = port == null ? '' : String(port).trim();
+
+  if (!normalizedAddress) return '-';
+  if (!normalizedPort) return normalizedAddress;
+  if (normalizedAddress.includes(':') && !normalizedAddress.startsWith('['))
+    return `[${normalizedAddress}]:${normalizedPort}`;
+  return `${normalizedAddress}:${normalizedPort}`;
+}
+
 export function routeTagFromRule(rule?: string): string {
   const match = String(rule || '').match(/=>\s*route\(([^)]+)\)/);
   return String(match?.[1] || '')

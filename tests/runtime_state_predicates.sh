@@ -7,6 +7,10 @@ STATE_UC="$ROOT_DIR/forkop/files/usr/lib/service/state.uc"
 NFT_UC="$ROOT_DIR/forkop/files/usr/lib/nft/apply.uc"
 UCODE_BIN="$(command -v ucode)"
 WORK_DIR="$(mktemp -d)"
+mkdir -p "$WORK_DIR/ipv6/all" "$WORK_DIR/ipv6/lo"
+printf '0\n' >"$WORK_DIR/ipv6/all/disable_ipv6"
+printf '0\n' >"$WORK_DIR/ipv6/lo/disable_ipv6"
+export FORKOP_IPV6_SYSCTL_DIR="$WORK_DIR/ipv6"
 export ZAPRET_DEFAULT_NFQWS_OPT="--default-zapret"
 export ZAPRET2_DEFAULT_NFQWS2_OPT="--default-zapret2"
 export BYEDPI_DEFAULT_CMD_OPTS="--default-bye"
@@ -239,6 +243,20 @@ stable_start_checks() {
     wait "$sing_box_pid" 2>/dev/null || true
     fail "stable-start fixture must expose configured Forkop networking"
   fi
+  sed '/::1:1602/d' "$WORK_DIR/sing-box.netstat" >"$WORK_DIR/sing-box.no-ipv6.netstat"
+  printf '1\n' >"$WORK_DIR/ipv6/all/disable_ipv6"
+  printf '1\n' >"$WORK_DIR/ipv6/lo/disable_ipv6"
+  if ! PATH="$WORK_DIR/stable-start-bin:$PATH" \
+    REAL_UCODE="$UCODE_BIN" \
+    SING_BOX_TEST_PID_FILE="$WORK_DIR/sing-box.pid" \
+    SING_BOX_TEST_NETSTAT_FILE="$WORK_DIR/sing-box.no-ipv6.netstat" \
+    state_ucode forkop-running forkop ForkopTable 0x00100000; then
+    kill "$sing_box_pid" >/dev/null 2>&1 || true
+    wait "$sing_box_pid" 2>/dev/null || true
+    fail "runtime state must not require an IPv6 listener when IPv6 is disabled"
+  fi
+  printf '0\n' >"$WORK_DIR/ipv6/all/disable_ipv6"
+  printf '0\n' >"$WORK_DIR/ipv6/lo/disable_ipv6"
   sed '/127.0.0.42:53/d' "$WORK_DIR/sing-box.netstat" >"$WORK_DIR/sing-box.no-dns.netstat"
   if PATH="$WORK_DIR/stable-start-bin:$PATH" \
     REAL_UCODE="$UCODE_BIN" \
@@ -606,6 +624,8 @@ cat >"$WORK_DIR/sing-box-signature.json" <<'JSON'
 JSON
 
 cat >"$WORK_DIR/sing-box-signature.expected" <<'EOF_SING_BOX_SIG'
+[runtime.ipv6_tproxy]
+1
 [settings.dns_type]
 tcp
 [settings.dns_strategy]

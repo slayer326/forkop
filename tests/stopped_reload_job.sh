@@ -23,6 +23,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LIB="$ROOT_DIR/forkop/files/usr/lib"
 REAL_INITD="$ROOT_DIR/forkop/files/etc/init.d/forkop"
+PUBLIC_CLI="$ROOT_DIR/forkop/files/usr/bin/forkop"
+REAL_UCODE="$(command -v ucode)"
 NAMESPACE=(unshare --user --map-root-user --mount --propagation private)
 
 namespaces() { printf '%s %s' "$(readlink /proc/self/ns/user)" "$(readlink /proc/self/ns/mnt)"; }
@@ -111,7 +113,7 @@ EOF
 STATE_DIR="$WORK_DIR/run/forkop"
 export TMPDIR="$WORK_DIR/tmp"
 export PATH="$WORK_DIR/bin:$PATH"
-export TEST_WORK="$WORK_DIR" EVENTS REAL_INITD
+export TEST_WORK="$WORK_DIR" EVENTS REAL_INITD REAL_UCODE
 export TEST_LIB="$LIB"
 export RC_PROCD_LOCK="$WORK_DIR/procd_forkop.lock"
 export STOP_MARKER="$STATE_DIR/stop.requested"
@@ -154,6 +156,18 @@ printf '#!/bin/sh\nprintf "%%s\\n" "$*" >>"$TEST_WORK/syslog"\n' >"$WORK_DIR/bin
 printf '#!/bin/sh\nexit 1\n' >"$WORK_DIR/bin/nft"
 printf '#!/bin/sh\nexit 0\n' >"$WORK_DIR/bin/ip"
 printf '#!/bin/sh\nexit 1\n' >"$WORK_DIR/bin/ubus"
+
+# initd now invokes lifecycle.uc directly once it owns reload.lock. Preserve
+# this test's lifecycle model, while calls made by the model itself still use
+# the real module.
+cat >"$WORK_DIR/bin/ucode" <<'SH'
+#!/bin/sh
+if [ "${3:-}" = "$TEST_LIB/service/lifecycle.uc" ] && [ "${4:-}" = reload ] &&
+   [ -e "$FORKOP_RELOAD_LOCK_DIR" ]; then
+  exec "$FORKOP_BIN" reload "${5:-}"
+fi
+exec "$REAL_UCODE" "$@"
+SH
 
 # `forkop`. A reload after a stop, or of a Forkop not started since boot (no
 # start record), runs the real lifecycle.uc, whose gate returns before it
@@ -278,11 +292,12 @@ wait_until 10 no_active_service_action || fail "the job of a reload skipped by t
 ui_start_accepted || fail "a UI start was refused after a reload skipped by the lifecycle gate"
 no_reload_health_event || fail "health recorded a reload that the lifecycle gate skipped"
 
-# 3. `forkop reload` outside init.d (no UI job yet): the gate is decided
-#    before the job is opened.
+# 3. The public CLI enters initd's gate before a UI job is opened.
 reset_case
-"$FORKOP_BIN" reload ruleset-cache || fail "a direct background reload after a stop failed"
-has_event "lifecycle reload ruleset-cache" || fail "the direct reload did not reach the lifecycle"
+"$REAL_UCODE" "$PUBLIC_CLI" reload ruleset-cache || fail "a direct background reload after a stop failed"
+if grep -q '^lifecycle reload\|^reload ran' "$EVENTS"; then
+  fail "the public CLI bypassed initd's stopped gate"
+fi
 no_active_service_action || fail "a direct background reload after a stop left a service action running"
 no_reload_health_event || fail "health recorded a direct background reload that a stop skipped"
 

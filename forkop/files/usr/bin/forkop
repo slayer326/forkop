@@ -45,6 +45,7 @@ function restore_dnsmasq_failsafe() {
 function restore_dnsmasq_failsafe_on_loader_failure(command) {
     command = as_string(command);
     if (command == "start" || command == "main" || command == "stop" || command == "restart" ||
+        command == "manual_restart" ||
         command == "reload" || command == "uninstall" ||
         command == "dnsmasq_restore" || command == "restore_dnsmasq")
         restore_dnsmasq_failsafe();
@@ -148,9 +149,14 @@ function command_spec(command) {
     let commands = {
         start: [ "service/lifecycle.uc", "start", 0 ],
         stop: [ "service/lifecycle.uc", "stop", 0 ],
-        reload: [ "service/lifecycle.uc", "reload", 1 ],
+        // Every public reload uses initd's runtime lock and durable queue.
+        // service/initd.uc invokes lifecycle directly after it owns the lock,
+        // so this does not recurse through this command.
+        reload: [ "service/initd.uc", "reload-service", 1 ],
         dns_failover_apply: [ "service/lifecycle.uc", "dns-failover-apply", 1 ],
         restart: [ "service/lifecycle.uc", "restart", 0 ],
+        // LuCI-only guarded restart: prepare remote data before stop/start.
+        manual_restart: [ "service/lifecycle.uc", "manual-restart", 0 ],
         enable: [ "service/lifecycle.uc", "enable", 0 ],
         disable: [ "service/lifecycle.uc", "disable", 0 ],
         uninstall: [ "service/lifecycle.uc", "uninstall", 0 ],
@@ -262,7 +268,7 @@ function run_spec(command, spec, user_args) {
 function main() {
     let command = ARGV[0] || "";
     if (fs.stat("/tmp/forkop-full-uninstall.lock") != null &&
-        index([ "start", "main", "restart", "reload", "enable", "service_action_async",
+        index([ "start", "main", "restart", "manual_restart", "reload", "enable", "service_action_async",
             "component_action", "component_action_async", "subscription_update",
             "subscription_update_async", "subscription_update_if_due", "list_update", "list_update_if_due",
             "autotune_run", "autotune_run_async", "autotune_if_due", "autotune_apply", "autotune_apply_async",

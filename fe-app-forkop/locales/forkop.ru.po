@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 04:16+0300\n"
-"PO-Revision-Date: 2026-10-03 04:16+0300\n"
+"POT-Creation-Date: 2026-10-04 14:30+0300\n"
+"PO-Revision-Date: 2026-10-04 14:30+0300\n"
 "Last-Translator: slayer\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -356,6 +356,9 @@ msgstr "Шла другая проверка."
 msgid "Another group was changed in this run; at most one change per run."
 msgstr "В этой проверке уже изменена другая группа; не больше одного изменения за проверку."
 
+msgid "Another service action is already running"
+msgstr "Другое действие с сервисом уже выполняется"
+
 msgid "Another snapshot operation is already in progress. Changes were not applied; try again in a moment."
 msgstr "Уже выполняется другая операция со снимками. Изменения не применены, повторите через минуту."
 
@@ -553,6 +556,9 @@ msgstr "Встроенные наборы правил"
 
 msgid "Built-in rule sets #2 are not supported for DNS rules. Remove them on the What tab or choose another action."
 msgstr "Встроенные наборы правил #2 не поддерживаются для DNS-правил. Удалите их на вкладке «Что» или выберите другое действие."
+
+msgid "Built-in subnets"
+msgstr "Встроенные подсети"
 
 msgid "By flag emoji from name"
 msgstr "По эмодзи флага из названия"
@@ -998,6 +1004,9 @@ msgstr "Отдельная cgroup недоступна"
 msgid "Default address for checking server availability and latency. URLTest uses its own address."
 msgstr "Адрес по умолчанию для проверки доступности и задержки серверов. Для URLTest используется собственный адрес."
 
+msgid "Default route"
+msgstr "Маршрут по умолчанию"
+
 msgid "default strategy"
 msgstr "стандартная стратегия"
 
@@ -1406,6 +1415,9 @@ msgstr "каждые %s"
 msgid "Every change made since the last known working configuration is undone, your own edits included. The current configuration is kept as a \"Before restore\" snapshot in History and recovery."
 msgstr "Все изменения, сделанные после последней рабочей конфигурации, будут отменены, включая ваши собственные правки. Текущая конфигурация сохранится как снимок «Перед восстановлением» в разделе «История и восстановление»."
 
+msgid "Exact match unavailable"
+msgstr "Точное совпадение недоступно"
+
 msgid "Except: %d"
 msgstr "Кроме: %d"
 
@@ -1561,6 +1573,9 @@ msgstr "Forkop X не смог применить изменение; подро
 
 msgid "Forkop X does not apply recommendations in this mode."
 msgstr "В этом режиме Forkop X не применяет рекомендации."
+
+msgid "Forkop X is busy updating data or applying settings. Wait for the operation to finish, then try restarting again."
+msgstr "Forkop X обновляет данные или применяет настройки. Дождитесь завершения операции и повторите перезапуск."
 
 msgid "Forkop X is busy with another operation: the change applies when it finishes."
 msgstr "Forkop X занят другой операцией: изменение применится, когда она завершится."
@@ -2432,6 +2447,9 @@ msgstr "Обычный режим"
 msgid "Not applied"
 msgstr "Не применено"
 
+msgid "Not available"
+msgstr "Нет данных"
+
 msgid "Not available for checking"
 msgstr "Недоступно для проверки"
 
@@ -2497,6 +2515,9 @@ msgstr "Наблюдается"
 
 msgid "Off"
 msgstr "Выключен"
+
+msgid "One of"
+msgstr "Один из"
 
 msgid "Only from the specified countries."
 msgstr "Только из указанных стран."
@@ -2987,6 +3008,9 @@ msgstr "Маршрут"
 msgid "Route main DNS requests through the selected section."
 msgstr "Маршрутизировать основные DNS-запросы через выбранную секцию."
 
+msgid "Route reason"
+msgstr "Причина маршрута"
+
 msgid "Route requests to this DNS server through another section."
 msgstr "Направлять запросы к этому DNS-серверу через другую секцию."
 
@@ -3193,6 +3217,9 @@ msgstr "Действия со службой"
 
 msgid "Service list"
 msgstr "Список сервисов"
+
+msgid "Service restart failed"
+msgstr "Не удалось перезапустить сервис"
 
 msgid "Service start"
 msgstr "Запуск службы"

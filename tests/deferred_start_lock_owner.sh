@@ -93,6 +93,9 @@ case "${3:-}" in
     exit 0
     ;;
   */dns/apply.uc | */nft/apply.uc | */config/validator.uc | */diagnostics/health.uc) exit 0 ;;
+  */service/lifecycle.uc)
+    [ "${4:-}" = reload ] && exec "$FORKOP_BIN" reload "${5:-}"
+    ;;
 esac
 exec "$REAL_UCODE" "$@"
 SH

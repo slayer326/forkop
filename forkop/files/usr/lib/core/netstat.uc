@@ -8,7 +8,8 @@ function sing_box_standard_ports_listening(netstat, dns_address, tproxy_port, tp
     let tproxy_suffix = ":" + tproxy_port;
     let tproxy4_ok = index(netstat, "0.0.0.0" + tproxy_suffix) >= 0 ||
         index(netstat, "127.0.0.1" + tproxy_suffix) >= 0;
-    let tproxy6_ok = index(netstat, tproxy6_address + tproxy_suffix) >= 0 ||
+    // An empty address explicitly disables the IPv6 listener requirement.
+    let tproxy6_ok = tproxy6_address == "" || index(netstat, tproxy6_address + tproxy_suffix) >= 0 ||
         index(netstat, "[" + tproxy6_address + "]" + tproxy_suffix) >= 0 ||
         index(netstat, "0:0:0:0:0:0:0:1" + tproxy_suffix) >= 0 ||
         index(netstat, ":::" + tproxy_port) >= 0;
@@ -60,4 +61,30 @@ function listen_port_in_use(netstat, listen, port) {
     return false;
 }
 
-return { sing_box_standard_ports_listening, listen_port_in_use };
+// Match only a TCP socket which is already in LISTEN state and is owned by
+// the exact process observed by the caller.  `netstat -lntp` prints the local
+// address in field 4 and `PID/program` in field 7 on BusyBox/net-tools.
+// Keeping this parser here also makes the ownership rule independently
+// testable without weakening the more permissive diagnostics helper above.
+function tcp_listen_port_owned(netstat, listen, port, pid) {
+    netstat = netstat == null ? "" : "" + netstat;
+    pid = int(pid || 0);
+    if (pid <= 0)
+        return false;
+
+    let expected_owner = "" + pid;
+    for (let line in split(netstat, "\n")) {
+        let fields = netstat_fields(line);
+        if (length(fields) < 7 || index(fields[0], "tcp") != 0 || fields[5] != "LISTEN")
+            continue;
+        if (!netstat_addr_matches(fields[3], listen, port))
+            continue;
+
+        let slash = index(fields[6], "/");
+        if (slash > 0 && substr(fields[6], 0, slash) == expected_owner)
+            return true;
+    }
+    return false;
+}
+
+return { sing_box_standard_ports_listening, listen_port_in_use, tcp_listen_port_owned };

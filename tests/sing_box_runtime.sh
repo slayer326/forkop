@@ -10,6 +10,10 @@ LIFECYCLE_UC="$FORKOP_LIB/service/lifecycle.uc"
 SINGBOX_RUNTIME_UC="$FORKOP_LIB/singbox/runtime.uc"
 SINGBOX_GENERATOR_UC="$FORKOP_LIB/singbox/generator.uc"
 WORK_DIR="$(mktemp -d)"
+mkdir -p "$WORK_DIR/ipv6/all" "$WORK_DIR/ipv6/lo"
+printf '0\n' >"$WORK_DIR/ipv6/all/disable_ipv6"
+printf '0\n' >"$WORK_DIR/ipv6/lo/disable_ipv6"
+export FORKOP_IPV6_SYSCTL_DIR="$WORK_DIR/ipv6"
 
 cleanup() {
   rm -rf "$WORK_DIR"
@@ -97,6 +101,11 @@ cat >"$WORK_DIR/bin/apk" <<'EOF_APK'
 exit 1
 EOF_APK
 chmod +x "$WORK_DIR/bin/apk"
+cat >"$WORK_DIR/bin/logger" <<'EOF_LOGGER'
+#!/bin/sh
+exit 0
+EOF_LOGGER
+chmod +x "$WORK_DIR/bin/logger"
 stable_variant="$({
   PATH="$WORK_DIR/bin:$PATH" \
     FORKOP_LIB="$FORKOP_LIB" \
@@ -160,6 +169,10 @@ grep -Fq '"tolerance":175' "$WORK_DIR/runtime-cache/proxy.json" ||
   fail "singbox/runtime.uc must publish generated URLTest dashboard metadata"
 [ ! -e "$WORK_DIR/tmp/generated.json.section-cache/proxy.json" ] ||
   fail "singbox/runtime.uc must consume the generated section cache after publish"
+[ "$(stat -c %a "$WORK_DIR/runtime-cache")" = 700 ] ||
+  fail "published section-cache directory must be private"
+[ "$(stat -c %a "$WORK_DIR/runtime-cache/proxy.json")" = 600 ] ||
+  fail "published section-cache metadata must be private"
 
 generate_config() {
   local fixture="$1"
@@ -258,6 +271,81 @@ grep -Fq '"example.org"' "$WORK_DIR/generated-from-uci.json" ||
   fail "singbox/generator.uc must read section matchers from core.uci"
 grep -Fq '"uci_proxy-out"' "$WORK_DIR/generated-from-uci.json" ||
   fail "singbox/generator.uc must read section names from core.uci"
+
+# Preparing a config stage must not mutate live dashboard metadata. Seed the
+# private stage from the live cache so offline country/name metadata remains
+# available, narrow legacy permissions, and publish it only on commit.
+mkdir -p "$WORK_DIR/staged-runtime/section-cache" "$WORK_DIR/staged-runtime/run" \
+  "$WORK_DIR/staged-runtime/tmp-rulesets" "$WORK_DIR/staged-runtime/tmp-subscriptions"
+chmod 0755 "$WORK_DIR/staged-runtime/section-cache"
+cat >"$WORK_DIR/staged-runtime/section-cache/legacy.json" <<'EOF_STAGE_CACHE'
+{"servers":{"secret-out":"proxy.example"},"outboundMetadata":{"countries":{"secret-out":"NL"},"shareLinks":{"secret-out":"vless://secret@example"}}}
+EOF_STAGE_CACHE
+chmod 0644 "$WORK_DIR/staged-runtime/section-cache/legacy.json"
+cat >"$WORK_DIR/staged-runtime/uci.state" <<EOF_STAGE_UCI
+forkop.settings=settings
+forkop.settings.dns_server=1.1.1.1
+forkop.settings.bootstrap_dns_server=1.1.1.1
+forkop.settings.config_path=$WORK_DIR/staged-runtime/live.json
+forkop.settings.cache_path=$WORK_DIR/staged-runtime/cache.db
+forkop.settings.log_level=warn
+forkop.settings.service_listen_address=127.0.0.1
+forkop.uci_proxy=section
+forkop.uci_proxy.enabled=1
+forkop.uci_proxy.action=connection
+forkop.uci_proxy.outbound_jsons={"type":"socks","tag":"stage-proxy","server":"192.0.2.90","server_port":1080}
+forkop.uci_proxy.domain_suffix=stage.example
+EOF_STAGE_UCI
+printf '{"old":true}\n' >"$WORK_DIR/staged-runtime/live.json"
+chmod 0644 "$WORK_DIR/staged-runtime/live.json"
+mkdir "$WORK_DIR/staged-runtime/private"
+chmod 0700 "$WORK_DIR/staged-runtime/private"
+stage="$WORK_DIR/staged-runtime/private/stage.json"
+backup="$WORK_DIR/staged-runtime/private/backup.json"
+PATH="$WORK_DIR/bin:$PATH" \
+FORKOP_LIB="$FORKOP_LIB" \
+FORKOP_UCI_STATE_FILE="$WORK_DIR/staged-runtime/uci.state" \
+FORKOP_RUNTIME_STATE_DIR="$WORK_DIR/staged-runtime/run" \
+FORKOP_SECTION_CACHE_DIR="$WORK_DIR/staged-runtime/section-cache" \
+TMP_RULESET_FOLDER="$WORK_DIR/staged-runtime/tmp-rulesets" \
+TMP_SUBSCRIPTION_FOLDER="$WORK_DIR/staged-runtime/tmp-subscriptions" \
+SB_VARIANT_STATE_FILE="$WORK_DIR/staged-runtime/sing-box-variant" \
+SB_VERSION_STATE_FILE="$WORK_DIR/staged-runtime/sing-box-version" \
+  ucode -L "$FORKOP_LIB" "$SINGBOX_RUNTIME_UC" prepare-config-stage \
+    0 1 1 already_deferred "$stage" >"$WORK_DIR/staged-runtime/deferred.out" ||
+  fail "real prepare-config-stage failed"
+[ "$(cat "$WORK_DIR/staged-runtime/section-cache/legacy.json")" = \
+  '{"servers":{"secret-out":"proxy.example"},"outboundMetadata":{"countries":{"secret-out":"NL"},"shareLinks":{"secret-out":"vless://secret@example"}}}' ] ||
+  fail "prepare-config-stage mutated live dashboard metadata"
+[ ! -e "$WORK_DIR/staged-runtime/section-cache/uci_proxy.json" ] ||
+  fail "prepare-config-stage published dashboard metadata before commit"
+grep -Fq '"countries":{"secret-out":"NL"}' "$stage.section-cache/legacy.json" ||
+  fail "prepare-config-stage did not seed cached country metadata"
+[ -s "$stage.section-cache/uci_proxy.json" ] ||
+  fail "prepare-config-stage did not create staged section metadata"
+[ "$(stat -c %a "$WORK_DIR/staged-runtime/section-cache")" = 700 ] ||
+  fail "prepare-config-stage did not narrow the live cache directory"
+[ "$(stat -c %a "$WORK_DIR/staged-runtime/section-cache/legacy.json")" = 600 ] ||
+  fail "prepare-config-stage did not narrow legacy cache metadata"
+[ "$(stat -c %a "$stage.section-cache")" = 700 ] ||
+  fail "prepared section-cache stage directory is not private"
+[ "$(stat -c %a "$stage.section-cache/legacy.json")" = 600 ] ||
+  fail "prepared section-cache stage file is not private"
+
+PATH="$WORK_DIR/bin:$PATH" \
+FORKOP_LIB="$FORKOP_LIB" \
+FORKOP_UCI_STATE_FILE="$WORK_DIR/staged-runtime/uci.state" \
+FORKOP_RUNTIME_STATE_DIR="$WORK_DIR/staged-runtime/run" \
+FORKOP_SECTION_CACHE_DIR="$WORK_DIR/staged-runtime/section-cache" \
+  ucode -L "$FORKOP_LIB" "$SINGBOX_RUNTIME_UC" commit-config-stage "$stage" "$backup" ||
+  fail "real staged config commit failed"
+[ -s "$WORK_DIR/staged-runtime/section-cache/uci_proxy.json" ] ||
+  fail "committed stage did not publish dashboard metadata"
+[ "$(stat -c %a "$WORK_DIR/staged-runtime/section-cache/uci_proxy.json")" = 600 ] ||
+  fail "committed dashboard metadata is not private"
+[ "$(stat -c %a "$WORK_DIR/staged-runtime/live.json")" = 600 ] ||
+  fail "committed sing-box config is not private"
+[ ! -e "$stage.section-cache" ] || fail "committed stage cache was not consumed"
 
 
 cat >"$WORK_DIR/disabled-updates-fixture.json" <<'JSON'
@@ -1500,7 +1588,14 @@ for (let rule_set in lists.route.rule_set || [])
     if (rule_set.tag == "proxy-lists-ruleset")
         local_ruleset = rule_set;
 assert(local_ruleset && local_ruleset.type == "local" && local_ruleset.format == "source", "domain_ip_lists local ruleset");
-assert(route_rule(lists, r => contains(r.rule_set, "proxy-lists-ruleset") && length(as_array(r.rule_set)) >= 2) != null, "domain_ip_lists and rule_set_with_subnets route");
+assert(route_rule(lists, r => r.outbound == "proxy-out" && contains(r.rule_set, "proxy-lists-ruleset")) != null, "domain_ip_lists route");
+for (let rule_set in lists.route.rule_set || []) {
+    if (rule_set.path == dir + "/with-subnets.json")
+        assert(route_rule(lists, r => r.outbound == "proxy-out" && contains(r.rule_set, rule_set.tag)) != null, "rule_set_with_subnets has its own route");
+}
+for (let rule in lists.route.rules || [])
+    if (rule.rule_set != null)
+        assert(length(as_array(rule.rule_set)) == 1, "route identifies one matching list");
 assert(dns_rule(lists, r => contains(r.rule_set, "proxy-lists-ruleset")) != null, "domain_ip_lists fakeip DNS rule");
 
 let generated_list = json(fs.readfile(dir + "/domain-ip-rulesets.json.rulesets/proxy-lists-ruleset.json"));

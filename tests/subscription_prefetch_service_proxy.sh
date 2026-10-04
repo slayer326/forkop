@@ -201,4 +201,30 @@ grep -Eq '^curl https://sub.test/alpha proxy=http://127\.0\.0\.1:[0-9]+ lock=hol
 rm -f "$PROXY_FAILING"
 finish_case
 
+# 3. Startup preparation must not turn an explicitly proxied HTTPS source
+#    into a direct request. It is returned as deferred so lifecycle can bring
+#    up the dependency-only temporary service proxy first.
+rm -f "$PROXY_UP" "$PROXY_FAILING"
+: >"$EVENTS"
+rm -rf "$WORK_DIR/sing-box" "$WORK_DIR/persistent" "${RUN:?}"/*
+output="$(env PATH="$WORK_DIR/bin:$PATH" TMPDIR="$WORK_DIR/tmp" \
+  FORKOP_LIB="$LIB" \
+  FORKOP_UCI_STATE_FILE="$WORK_DIR/uci.state" \
+  TMP_SING_BOX_FOLDER="$WORK_DIR/sing-box" \
+  TMP_RULESET_FOLDER="$WORK_DIR/sing-box/rulesets" \
+  TMP_SUBSCRIPTION_FOLDER="$SUBS" \
+  FORKOP_RUNTIME_STATE_DIR="$RUN" \
+  FORKOP_SUBSCRIPTION_UPDATE_LOCK_DIR="$RUN/subscription-update.lock" \
+  FORKOP_PENDING_RELOAD_FILE="$RUN/reload.pending" \
+  FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_DIR="$PERSISTENT" \
+  FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_FORMAT_FILE="$PERSISTENT/cache-format" \
+  SB_VARIANT_STATE_FILE="$WORK_DIR/sing-box-variant" \
+  SB_VERSION_STATE_FILE="$WORK_DIR/sing-box-version" \
+  ucode -L "$LIB" "$LIB/subscription/cache.uc" prepare-caches startup 0 0)" ||
+  fail "startup preparation rejected a recoverable proxied subscription"
+[ "$output" = alpha ] || fail "startup did not return the proxied subscription as deferred: '$output'"
+if grep -q '^curl ' "$EVENTS"; then
+  fail "startup downloaded an explicitly proxied subscription directly"
+fi
+
 printf 'subscription prefetch service proxy checks passed\n'

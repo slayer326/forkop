@@ -26,6 +26,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REAL_LIB="$ROOT_DIR/forkop/files/usr/lib"
 REAL_INITD="$ROOT_DIR/forkop/files/etc/init.d/forkop"
+REAL_UCODE="$(command -v ucode)"
 WORK_DIR="$(mktemp -d)"
 # shellcheck source=tests/helpers/wait.sh
 . "$ROOT_DIR/tests/helpers/wait.sh"
@@ -76,7 +77,7 @@ EOF
 STATE_DIR="$WORK_DIR/run/forkop"
 export TMPDIR="$WORK_DIR/tmp"
 export PATH="$WORK_DIR/bin:$PATH"
-export EVENTS REAL_LIB REAL_INITD LIB
+export EVENTS REAL_LIB REAL_INITD REAL_UCODE LIB
 export TEST_WORK="$WORK_DIR"
 export SING_BOX_STATE="$WORK_DIR/singbox.state"
 export NFT_TABLE_FILE="$WORK_DIR/nft.table"
@@ -239,6 +240,18 @@ case "$1" in
     ;;
 esac
 exit 0
+SH
+
+# initd owns reload.lock before it invokes lifecycle directly. Keep initd's
+# orchestration under test while retaining the explicit real-lifecycle cases
+# below, which call the module without that lock.
+cat >"$WORK_DIR/bin/ucode" <<'SH'
+#!/bin/sh
+if [ "${3:-}" = "$LIB/service/lifecycle.uc" ] && [ "${4:-}" = reload ] &&
+   [ -e "$FORKOP_RELOAD_LOCK_DIR" ]; then
+  exec "$FORKOP_BIN" reload "${5:-}"
+fi
+exec "$REAL_UCODE" "$@"
 SH
 
 # /etc/init.d/forkop as procd runs it: the real script behind rc.common.

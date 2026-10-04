@@ -12,9 +12,6 @@ let runtime_constants = require("singbox.constants");
 const CONFIG_NAME = getenv("FORKOP_CONFIG_NAME") || "forkop";
 const DNS_SOURCE_SET = "forkop_dns_sources";
 const DNS_SOURCE6_SET = "forkop_dns_sources6";
-// Where the kernel exposes the IPv6 switches; overridable so a test can
-// present a router without IPv6 without turning it off on the host.
-const IPV6_CONF_DIR = getenv("FORKOP_IPV6_CONF_DIR") || "/proc/sys/net/ipv6/conf";
 const NFT_BATCH_FILE = getenv("FORKOP_NFT_BATCH_FILE") || "";
 // Prepared elements of rule-set subnet imports (tmpfs), by the rule set's
 // content and the rule's port filter: a reload, and the final apply of a list
@@ -29,6 +26,7 @@ const NFT_CANDIDATE_FAIL_PHASE = getenv("FORKOP_NFT_CANDIDATE_FAIL_PHASE") || ""
 // point it into their work directory.
 const RT_TABLES_FILE = getenv("FORKOP_RT_TABLES") || "/etc/iproute2/rt_tables";
 const NFT_TRANSITION_GUARD_CHAIN = "forkop_transition_guard";
+const IPV6_TPROXY_ENABLED = core_ip.ipv6_tproxy_enabled();
 
 let common_read_json_file = common.read_json_file;
 let list_option = common.list_option;
@@ -501,6 +499,9 @@ function nft_create_chain(table, name, definition) {
 }
 
 function nft_add_rule(table, chain, args) {
+    // Every family-specific IPv6 interception rule carries the ip6 token.
+    if (!IPV6_TPROXY_ENABLED && index(args, "ip6") >= 0)
+        return true;
     let command = [ "nft", "add", "rule", "inet", table, chain ];
     for (let arg in args)
         push(command, arg);
@@ -508,6 +509,8 @@ function nft_add_rule(table, chain, args) {
 }
 
 function nft_insert_rule(table, chain, args) {
+    if (!IPV6_TPROXY_ENABLED && index(args, "ip6") >= 0)
+        return true;
     let command = [ "nft", "insert", "rule", "inet", table, chain ];
     for (let arg in args)
         push(command, arg);
@@ -983,8 +986,8 @@ function nft_create_runtime_output_rules(table, localv4_set, common_set, port_se
         nft_add_rule(table, "mangle_output", [ "ip", "daddr", ".", "udp", "dport", "@" + as_string(ip_port_set), "meta", "mark", "set", fakeip_mark, "counter" ]) &&
         nft_add_rule(table, "mangle_output", [ "ip6", "daddr", ".", "tcp", "dport", "@" + as_string(ip_port6_set), "meta", "mark", "set", fakeip_mark, "counter" ]) &&
         nft_add_rule(table, "mangle_output", [ "ip6", "daddr", ".", "udp", "dport", "@" + as_string(ip_port6_set), "meta", "mark", "set", fakeip_mark, "counter" ]) &&
-        nft_add_rule(table, "mangle_output", [ "tcp", "dport", "@" + as_string(port_set), "meta", "mark", "set", fakeip_mark, "counter" ]) &&
-        nft_add_rule(table, "mangle_output", [ "udp", "dport", "@" + as_string(port_set), "meta", "mark", "set", fakeip_mark, "counter" ]) &&
+        nft_add_rule(table, "mangle_output", append_array(IPV6_TPROXY_ENABLED ? [] : [ "meta", "nfproto", "ipv4" ], [ "tcp", "dport", "@" + as_string(port_set), "meta", "mark", "set", fakeip_mark, "counter" ])) &&
+        nft_add_rule(table, "mangle_output", append_array(IPV6_TPROXY_ENABLED ? [] : [ "meta", "nfproto", "ipv4" ], [ "udp", "dport", "@" + as_string(port_set), "meta", "mark", "set", fakeip_mark, "counter" ])) &&
         nft_add_rule(table, "mangle_output", [ "ip", "daddr", fakeip_range, "meta", "l4proto", "tcp", "meta", "mark", "set", fakeip_mark, "counter" ]) &&
         nft_add_rule(table, "mangle_output", [ "ip", "daddr", fakeip_range, "meta", "l4proto", "udp", "meta", "mark", "set", fakeip_mark, "counter" ]) &&
         nft_add_rule(table, "mangle_output", [ "ip6", "daddr", fakeip6_range, "meta", "l4proto", "tcp", "meta", "mark", "set", fakeip_mark, "counter" ]) &&
@@ -1424,18 +1427,6 @@ function ensure_rt_table_entry(path, table_id, table_name) {
 // half it had just built - the whole product, gone, for want of a protocol
 // that router was not using.
 //
-// Both places the kernel can refuse are checked: the module, which leaves no
-// /proc entry at all, and the switches for "all" and for the loopback itself,
-// which is where the route and the rule go.
-function ipv6_available() {
-    for (let scope in [ "all", "lo" ]) {
-        let data = fs.readfile(IPV6_CONF_DIR + "/" + scope + "/disable_ipv6");
-        if (data == null || trim(as_string(data)) != "0")
-            return false;
-    }
-    return true;
-}
-
 function tproxy_route4_present(table) {
     return has_local_default_route_text(command_output_quiet_from_args([ "ip", "route", "list", "table", table ]), 4);
 }
@@ -1445,7 +1436,7 @@ function tproxy_route6_present(table) {
 }
 
 function tproxy_route_present(table) {
-    return tproxy_route4_present(table) && (!ipv6_available() || tproxy_route6_present(table));
+    return tproxy_route4_present(table) && (!IPV6_TPROXY_ENABLED || tproxy_route6_present(table));
 }
 
 function tproxy_marking_rule4_present(table, mark) {
@@ -1458,7 +1449,7 @@ function tproxy_marking_rule6_present(table, mark) {
 
 function tproxy_marking_rule_present(table, mark) {
     return tproxy_marking_rule4_present(table, mark) &&
-        (!ipv6_available() || tproxy_marking_rule6_present(table, mark));
+        (!IPV6_TPROXY_ENABLED || tproxy_marking_rule6_present(table, mark));
 }
 
 function tproxy_route_rule_present(table, mark) {
@@ -1484,7 +1475,7 @@ function ensure_tproxy_route_rule(table, mark, rt_tables_path) {
         log_debug("IPv4 TPROXY route already exists");
     }
 
-    if (!ipv6_available()) {
+    if (!IPV6_TPROXY_ENABLED) {
         log_debug("IPv6 is unavailable; its TPROXY route and marking rule are not installed");
     }
     else if (!tproxy_route6_present(table)) {
@@ -1509,7 +1500,7 @@ function ensure_tproxy_route_rule(table, mark, rt_tables_path) {
         log_debug("IPv4 TPROXY marking rule already exists");
     }
 
-    if (!ipv6_available()) {
+    if (!IPV6_TPROXY_ENABLED) {
         return true;
     }
 
@@ -1603,6 +1594,8 @@ function nft_rule_signature_body(body, section) {
 
 function nft_runtime_signature_from_settings_and_sections(settings, sections) {
     let body = "";
+
+    body = signature_add_value(body, "runtime.ipv6_tproxy", IPV6_TPROXY_ENABLED ? "1" : "0");
 
     body = signature_add_value(body, "settings.source_network_interfaces", option(settings, "source_network_interfaces", "br-lan"));
     body = signature_add_value(body, "settings.exclude_ntp", bool_option(settings, "exclude_ntp", false) ? "1" : "0");

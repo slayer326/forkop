@@ -7,7 +7,6 @@ const SUBSCRIPTION_UPDATE_RPC_TIMEOUT_MS = 15000;
 const SUBSCRIPTION_UPDATE_POLL_INTERVAL_MS = 1500;
 const UI_ACTION_RPC_TIMEOUT_MS = 15000;
 const UI_ACTION_TRANSIENT_RPC_GRACE_MS = 30000;
-const SERVICE_ACTION_TIMEOUT_MS = 2 * 60 * 1000;
 const SERVICE_ACTION_POLL_INTERVAL_MS = 1000;
 const LATENCY_TEST_TIMEOUT_MS = 30 * 1000;
 const LATENCY_TEST_POLL_INTERVAL_MS = 1000;
@@ -28,6 +27,21 @@ function sleep(ms: number) {
 
 function translate(message: string) {
   return typeof _ === 'function' ? _(message) : message;
+}
+
+function localizeServiceActionMessage(message?: string) {
+  switch (message) {
+    case 'Forkop X is busy updating data or applying settings. Wait for the operation to finish, then try restarting again.':
+      return _(
+        'Forkop X is busy updating data or applying settings. Wait for the operation to finish, then try restarting again.',
+      );
+    case 'Service restart failed':
+      return _('Service restart failed');
+    case 'Another service action is already running':
+      return _('Another service action is already running');
+    default:
+      return message;
+  }
 }
 
 function parseJsonObjectOutput<T>(output: string): T | null {
@@ -521,6 +535,12 @@ export const ForkopShellMethods = {
     });
     const parsedResponse = parseUiActionStartResult(response);
 
+    if (parsedResponse) {
+      parsedResponse.message = localizeServiceActionMessage(
+        parsedResponse.message,
+      );
+    }
+
     if (
       (response.code ?? 0) !== 0 ||
       !parsedResponse?.success ||
@@ -575,6 +595,12 @@ export const ForkopShellMethods = {
     });
     const parsedResponse = parseServiceActionState(response);
 
+    if (parsedResponse) {
+      parsedResponse.message = localizeServiceActionMessage(
+        parsedResponse.message,
+      );
+    }
+
     if ((response.code ?? 0) !== 0 || !parsedResponse) {
       return uiActionFailure(
         response,
@@ -588,27 +614,35 @@ export const ForkopShellMethods = {
       data: parsedResponse,
     } as Forkop.MethodSuccessResponse<Forkop.ServiceActionState>;
   },
-  waitServiceActionJob: async (jobId: string, startedAt = Date.now()) => {
-    while (Date.now() - startedAt < SERVICE_ACTION_TIMEOUT_MS) {
+  waitServiceActionJob: async (jobId: string) => {
+    const transientRpc = createTransientRpcGraceTracker(
+      UI_ACTION_TRANSIENT_RPC_GRACE_MS,
+    );
+
+    // The backend owns the operation lifetime. A manual restart can validly
+    // spend more than two minutes fetching several lists before it performs
+    // the single runtime transition; timing out in the browser would re-enable
+    // controls while that restart was still going to happen.
+    while (true) {
       await sleep(SERVICE_ACTION_POLL_INTERVAL_MS);
 
       const response = await ForkopShellMethods.serviceActionStatus(jobId);
 
       if (!response.success) {
+        if (transientRpc.shouldContinue(response.error)) {
+          continue;
+        }
+
         return response;
       }
 
+      transientRpc.reset();
       if (response.data.running) {
         continue;
       }
 
       return response;
     }
-
-    return {
-      success: false,
-      error: _('Operation timed out'),
-    } as Forkop.MethodFailureResponse;
   },
   latencyTestStart: async (
     latencyType: Forkop.LatencyActionState['latency_type'],

@@ -154,6 +154,7 @@ let dpi_restart_plan = null;
 let dpi_nft_rollback_file = "";
 let dpi_nft_committed = false;
 let dpi_singbox_backup = "";
+let reload_singbox_transaction_dir = "";
 let dns_reload_backup = "";
 const DNSMASQ_CONFIG_FILE = getenv("FORKOP_DNSMASQ_CONFIG_FILE") || "/etc/config/dhcp";
 let dpi_guard_active = false;
@@ -369,6 +370,13 @@ function module_command(module_path, args) {
 
 function module_capture(module_path, args) {
     return command_capture(module_command(module_path, args));
+}
+
+function module_capture_with_env(module_path, args, overrides) {
+    let env = lifecycle_env();
+    for (let name, value in object_or_empty(overrides))
+        env[name] = as_string(value);
+    return command_capture(command_env(env) + " " + command_from_args(module_args(module_path, args)));
 }
 
 function module_status(module_path, args) {
@@ -812,10 +820,11 @@ function nft_candidate_begin() {
         log_message("Failed to create nft candidate batch: mktemp returned no path", "fatal");
         return false;
     }
-    remove_file(nft_candidate_batch_file);
     // fs.writefile() returns the byte count on OpenWrt. An empty seed is a
     // successful zero-byte write but is falsey, so keep a harmless nft comment
-    // as the first line of every candidate transaction.
+    // as the first line of every candidate transaction. Keep mktemp's
+    // root-owned file in place: unlinking and reopening its public /tmp name
+    // would introduce a symlink race.
     let created = write_file(nft_candidate_batch_file, "# Forkop nft candidate\n");
     if (!created)
         log_message("Failed to create nft candidate batch: ucode write_file returned false", "fatal");
@@ -1025,6 +1034,271 @@ function start_abandoned_for_stop(phase) {
     return true;
 }
 
+function private_bootstrap_paths(kind) {
+    let directory = trim(command_output_from_args([ "mktemp", "-d" ]));
+    if (directory == "" || !fs.chmod(directory, 0700)) {
+        if (directory != "")
+            command_success_from_args([ "rm", "-rf", directory ]);
+        log_message("Failed to create a private " + kind + " bootstrap directory", "fatal");
+        return null;
+    }
+    // The directory is mode 0700 and remains present for the whole
+    // transaction. Fixed names inside it cannot be replaced by another local
+    // user between generation, publication and rollback.
+    return {
+        directory,
+        stage: directory + "/stage.json",
+        backup: directory + "/backup.json"
+    };
+}
+
+function finish_reload_singbox_transaction(preserve) {
+    let directory = reload_singbox_transaction_dir;
+    if (directory == "")
+        return;
+
+    // A failed rollback deliberately leaves both the config backup and its
+    // section-cache snapshot in the same private 0700 directory.
+    if (preserve) {
+        log_message("Preserving the private sing-box reload recovery transaction at " + directory, "fatal");
+        reload_singbox_transaction_dir = "";
+        return;
+    }
+
+    discard_singbox_config_stage(directory + "/stage.json");
+    discard_singbox_config_stage(directory + "/backup.json");
+    if (!command_success_from_args([ "rm", "-rf", directory ]))
+        log_message("Failed to remove the completed sing-box reload transaction at " + directory, "warn");
+    reload_singbox_transaction_dir = "";
+}
+
+function finish_temporary_bootstrap(status, kind, stage, backup, config_path,
+                                    had_config, bootstrap_published, managed_started,
+                                    private_directory) {
+    let managed_stopped = true;
+    // Stop even after a failed/cancelled download or a partially failed start.
+    // Only after state.uc proves the exact procd child is gone may config.json
+    // be restored or removed.
+    if (managed_started || bootstrap_published) {
+        managed_stopped = module_status(STATE_UC, [ "stop-managed-sing-box-runtime", "15" ]) == 0;
+        if (!managed_stopped)
+            status = 1;
+    }
+    if (managed_stopped) {
+        if (fs.stat(backup) != null) {
+            if (!module_success(SINGBOX_UC, [ "restore-config-stage", backup ])) {
+                log_message("Failed to restore the previous sing-box configuration; recovery backup preserved at " + backup, "fatal");
+                status = 1;
+            }
+        }
+        else if (bootstrap_published && !had_config)
+            remove_file(config_path);
+    }
+    else {
+        log_message("The temporary " + kind + " runtime did not stop safely; its recovery configuration was preserved", "fatal");
+    }
+    discard_singbox_config_stage(stage);
+    // A successful restore consumes the backup by moving it into place.
+    // Restore failure and an unsafe stop deliberately retain it for recovery.
+    if (fs.stat(backup) == null)
+        command_success_from_args([ "rmdir", private_directory ]);
+    return status;
+}
+
+function deferred_section_count(value) {
+    let seen = {};
+    let count = 0;
+    for (let name in split(trim(as_string(value)), /[ \t\r\n]+/)) {
+        name = as_string(name);
+        if (name == "" || seen[name])
+            continue;
+        seen[name] = true;
+        count++;
+    }
+    return count;
+}
+
+function startup_required_deferred() {
+    let result = module_capture(LIB_DIR + "/singbox/generator.uc", [
+        "startup-required-deferred",
+        subscription_deferred_sections
+    ]);
+    return result.status == 0 ? trim(result.output) : null;
+}
+
+function prepare_deferred_subscriptions_for_cold_start() {
+    let required_sections = startup_required_deferred();
+    if (required_sections == null)
+        return 1;
+    if (required_sections == "")
+        return 0;
+    let config_path = config_get(CONFIG_NAME + ".settings.config_path", "");
+    let had_config = config_path != "" && fs.stat(config_path) != null;
+    let remaining = deferred_section_count(required_sections);
+    let max_passes = remaining;
+    let pass = 0;
+
+    // A dependency may itself be subscription-only. Recover at least one
+    // section per private runtime, then rebuild the next runtime with the
+    // newly available outbound/detour. The initial deferred count is a hard
+    // bound; no progress means a cycle or an unavailable dependency.
+    while (remaining > 0 && pass < max_passes) {
+        let before = remaining;
+        let paths = private_bootstrap_paths("subscription");
+        if (paths == null)
+            return 1;
+        let stage = paths.stage;
+        let backup = paths.backup;
+        let bootstrap_published = false;
+        let managed_started = false;
+        let status = module_status(SINGBOX_UC, [ "configure-service" ]);
+
+        if (status == 0 && start_abandoned_for_stop("the subscription bootstrap configuration"))
+            status = 1;
+        if (status == 0)
+            status = module_status(STATE_UC, [ "stop-managed-sing-box-runtime", "15" ]);
+        if (status == 0) {
+            let prepared = module_capture_with_env(SINGBOX_UC, [
+                "prepare-config-stage", "0", subscription_caches_prepared,
+                subscription_runtime_no_refresh, required_sections, stage
+            ], { FORKOP_LIFECYCLE_SUBSCRIPTION_BOOTSTRAP: "1" });
+            status = prepared.status;
+            if (status == 0)
+                subscription_caches_prepared = "1";
+        }
+        if (status == 0)
+            status = module_status(SINGBOX_UC, [ "validate-config-stage", stage ]);
+        if (status == 0 && start_abandoned_for_stop("the subscription bootstrap runtime"))
+            status = 1;
+        if (status == 0) {
+            let committed = module_capture_with_env(SINGBOX_UC, [
+                "commit-config-stage", stage, backup
+            ], { FORKOP_LIFECYCLE_SUBSCRIPTION_BOOTSTRAP: "1" });
+            status = committed.status;
+            bootstrap_published = status == 0;
+        }
+        if (status == 0 && start_abandoned_for_stop("the subscription bootstrap runtime"))
+            status = 1;
+        if (status == 0) {
+            status = module_status(STATE_UC, [ "start-managed-sing-box-runtime-unless-stopped", "15" ]);
+            managed_started = status == 0;
+        }
+        if (status == 0 && start_abandoned_for_stop("the deferred subscription download"))
+            status = 1;
+        if (status == 0)
+            status = module_status(STATE_UC, [
+                "wait-managed-sing-box-config-listeners", config_path, "15"
+            ]);
+        if (status == 0 && start_abandoned_for_stop("the deferred subscription download"))
+            status = 1;
+        if (status == 0)
+            status = prepare_subscription_caches("startup");
+
+        status = finish_temporary_bootstrap(status, "subscription bootstrap", stage, backup,
+            config_path, had_config, bootstrap_published, managed_started, paths.directory);
+        if (start_abandoned_for_stop("the initial list download"))
+            status = 1;
+        if (status != 0)
+            return status;
+
+        required_sections = startup_required_deferred();
+        if (required_sections == null)
+            return 1;
+        remaining = deferred_section_count(required_sections);
+        if (remaining >= before) {
+            log_message("Deferred subscription bootstrap made no progress; check for a dependency cycle or unavailable download section", "fatal");
+            return 1;
+        }
+        pass++;
+    }
+    return remaining == 0 ? 0 : 1;
+}
+
+// A cold start cannot use the normal list service proxy before sing-box is
+// running. Build a deliberately small configuration for the selected
+// download section, run it through the ordinary procd service, prepare the
+// list generation transactionally, then restore the exact previous file.
+// service/state.uc owns every process transition and verifies PID/starttime.
+function prepare_lists_for_cold_start() {
+    let proxy_result = module_capture(SINGBOX_UC, [ "service-proxy-address", "lists" ]);
+    let proxy = trim(proxy_result.output);
+    let proxy_required = setting_bool("download_lists_via_proxy", false);
+    if (proxy_result.status != 0 || (proxy_required && proxy == "")) {
+        log_message("The selected list download section has no usable service proxy", "fatal");
+        return 1;
+    }
+    if (start_abandoned_for_stop("the initial list download"))
+        return 1;
+
+    // Recover a subscription-only selected connection through its configured
+    // dependency before asking the list bootstrap generator to use it.
+    if (proxy != "" && prepare_deferred_subscriptions_for_cold_start() != 0)
+        return 1;
+
+    let paths = private_bootstrap_paths("list");
+    if (paths == null)
+        return 1;
+    let stage = paths.stage;
+    let backup = paths.backup;
+    let config_path = config_get(CONFIG_NAME + ".settings.config_path", "");
+    let had_config = config_path != "" && fs.stat(config_path) != null;
+    let bootstrap_published = false;
+    let managed_started = false;
+    let status = 0;
+
+    if (proxy != "") {
+        status = module_status(SINGBOX_UC, [ "configure-service" ]);
+        if (status == 0 && start_abandoned_for_stop("the initial list download configuration"))
+            status = 1;
+        if (status == 0)
+            status = module_status(STATE_UC, [ "stop-managed-sing-box-runtime", "15" ]);
+        if (status == 0) {
+            let prepared = module_capture_with_env(SINGBOX_UC, [
+                "prepare-config-stage", "0", subscription_caches_prepared,
+                subscription_runtime_no_refresh, subscription_deferred_sections, stage
+            ], { FORKOP_LIFECYCLE_LIST_BOOTSTRAP: "1" });
+            status = prepared.status;
+            if (status == 0) {
+                subscription_deferred_sections = trim(prepared.output);
+                subscription_caches_prepared = "1";
+            }
+        }
+        if (status == 0)
+            status = module_status(SINGBOX_UC, [ "validate-config-stage", stage ]);
+        if (status == 0 && start_abandoned_for_stop("the initial list download runtime"))
+            status = 1;
+        if (status == 0) {
+            let committed = module_capture_with_env(SINGBOX_UC, [
+                "commit-config-stage", stage, backup
+            ], { FORKOP_LIFECYCLE_LIST_BOOTSTRAP: "1" });
+            status = committed.status;
+            bootstrap_published = status == 0;
+        }
+        if (status == 0 && start_abandoned_for_stop("the initial list download runtime"))
+            status = 1;
+        if (status == 0) {
+            status = module_status(STATE_UC, [ "start-managed-sing-box-runtime-unless-stopped", "15" ]);
+            managed_started = status == 0;
+        }
+        if (status == 0 && start_abandoned_for_stop("the initial list download"))
+            status = 1;
+        if (status == 0)
+            status = module_status(STATE_UC, [
+                "wait-managed-sing-box-config-listeners", config_path, "15"
+            ]);
+        if (status == 0 && start_abandoned_for_stop("the initial list download"))
+            status = 1;
+    }
+    if (status == 0)
+        status = module_status(UPDATES_UC, [ "prepare-list-cache" ]);
+
+    status = finish_temporary_bootstrap(status, "list download", stage, backup,
+        config_path, had_config, bootstrap_published, managed_started, paths.directory);
+    if (start_abandoned_for_stop("the nftables policy"))
+        status = 1;
+    return status;
+}
+
 function start_main() {
     let status;
 
@@ -1061,9 +1335,17 @@ function start_main() {
     // policy may not start from missing or invalid list data: that would
     // silently turn protected IP traffic into final/direct traffic.
     let has_list_sources = module_success(STATE_UC, [ "has-list-update-sources" ]);
+    // Every retained final-runtime reference must have an outbound: list and
+    // component service proxies, global DNS, and outbound detour chains. Only
+    // recover the deferred subscription closure required by those roots;
+    // unrelated leaf rules stay deferred for the post-start retry worker.
+    if (prepare_deferred_subscriptions_for_cold_start() != 0) {
+        log_message("A required startup connection could not be recovered without bypassing its configured proxy", "fatal");
+        return 1;
+    }
     if (has_list_sources && !module_success(UPDATES_UC, [ "restore-list-cache" ])) {
         log_message("Preparing the initial list generation before starting routing", "info");
-        if (!module_success(UPDATES_UC, [ "prepare-list-cache" ]) ||
+        if (prepare_lists_for_cold_start() != 0 ||
             !module_success(UPDATES_UC, [ "restore-list-cache" ])) {
             log_message("No valid active list generation is available. Aborted rather than starting a partial routing policy.", "fatal");
             return 1;
@@ -1135,17 +1417,32 @@ function start_main() {
         return status;
     }
 
+    // Provider outbounds need their userspace processes before a deferred
+    // subscription can download through the final sing-box service proxy.
+    // Treat a configured provider failure as a failed start instead of
+    // silently letting the protected request time out or fall back direct.
+    if (start_abandoned_for_stop("the DPI providers"))
+        return 1;
+    status = module_status(ZAPRET_UC, [ "start-runtime" ]);
+    if (status != 0)
+        return status;
+    if (start_abandoned_for_stop("the DPI providers"))
+        return 1;
+    status = module_status(ZAPRET2_UC, [ "start-runtime" ]);
+    if (status != 0)
+        return status;
+    if (start_abandoned_for_stop("the deferred subscription download"))
+        return 1;
+
     status = module_status(SUBSCRIPTION_CACHE_UC, [ "run-deferred-bootstrap", subscription_deferred_sections ]);
     if (status != 0)
         return status;
 
     // The deferred bootstrap can download through sing-box for a while.
-    if (start_abandoned_for_stop("the DPI providers"))
+    if (start_abandoned_for_stop("the remaining startup work"))
         return 1;
 
     release_start_subscription_update_lock();
-    module_success(ZAPRET_UC, [ "start-runtime" ]);
-    module_success(ZAPRET2_UC, [ "start-runtime" ]);
 
     return 0;
 }
@@ -1447,9 +1744,10 @@ function abandon_reload_for_stop(stage_path, backup_path) {
     nft_candidate_finish(false);
     discard_singbox_config_stage(stage_path);
     if (as_string(backup_path) != "")
-        remove_file(backup_path);
-    if (dpi_singbox_backup != "")
-        remove_file(dpi_singbox_backup);
+        discard_singbox_config_stage(backup_path);
+    if (dpi_singbox_backup != "" && dpi_singbox_backup != as_string(backup_path))
+        discard_singbox_config_stage(dpi_singbox_backup);
+    finish_reload_singbox_transaction(false);
     discard_dpi_snapshot();
     discard_dnsmasq_reload_config();
     remove_file(RELOAD_STATE_SNAPSHOT_FILE);
@@ -1468,9 +1766,15 @@ function abort_reload(status, runtime_changed) {
     if (status == 0)
         status = 1;
 
+    // Before commit there is no recovery backup to retain.  All failures in
+    // that preparation window can discard the private transaction immediately.
+    if (reload_singbox_transaction_dir != "" && dpi_singbox_backup == "")
+        finish_reload_singbox_transaction(false);
+
     if (dpi_switch_started && !dpi_guard_active) {
         if (!module_success(NFT_UC, [ "install-dpi-transition-guard", NFT_TABLE_NAME ])) {
             log_message("Could not re-install the DPI guard for post-commit rollback; keeping the current runtime", "fatal");
+            finish_reload_singbox_transaction(true);
             remove_file(RELOAD_STATE_SNAPSHOT_FILE);
             return status;
         }
@@ -1480,12 +1784,13 @@ function abort_reload(status, runtime_changed) {
     if (!restore_dnsmasq_reload_config()) {
         if (dpi_switch_started) {
             log_message("Could not restore the previous dnsmasq configuration; preserving the DPI guard and rollback snapshot " + dpi_snapshot_dir, "fatal");
+            finish_reload_singbox_transaction(true);
             remove_file(RELOAD_STATE_SNAPSHOT_FILE);
             return status;
         }
         log_message("Could not restore the previous dnsmasq configuration; stopping the partial runtime", "fatal");
         if (dpi_singbox_backup != "")
-            remove_file(dpi_singbox_backup);
+            finish_reload_singbox_transaction(false);
         discard_dpi_snapshot();
         cleanup_failed_runtime();
         remove_file(RELOAD_STATE_SNAPSHOT_FILE);
@@ -1498,9 +1803,11 @@ function abort_reload(status, runtime_changed) {
             if (reload_stop_abandoned)
                 return abandon_reload_for_stop("", "");
             log_message("Post-commit sing-box rollback failed; retaining the fail-closed transition guard", "fatal");
+            finish_reload_singbox_transaction(true);
             remove_file(RELOAD_STATE_SNAPSHOT_FILE);
             return status;
         }
+        finish_reload_singbox_transaction(false);
     }
 
     let dpi_rollback_attempted = dpi_switch_started;
@@ -1545,8 +1852,10 @@ function abort_guarded_transition(status, stage_path, backup_path, guard_active)
     if (reload_gives_way_to_stop("its rollback"))
         return abandon_reload_for_stop("", backup_path);
 
-    if (!guard_active)
+    if (!guard_active) {
+        finish_reload_singbox_transaction(false);
         return abort_reload(status, false);
+    }
 
     // If the live config was never committed, the old runtime is still
     // coherent and the temporary packet guard can be removed directly. A
@@ -1556,12 +1865,17 @@ function abort_guarded_transition(status, stage_path, backup_path, guard_active)
             "remove-transition-guard",
             NFT_TABLE_NAME,
             NFT_FAKEIP_MARK
-        ]))
+        ])) {
+            finish_reload_singbox_transaction(false);
             return abort_reload(status, false);
+        }
+        finish_reload_singbox_transaction(false);
     }
 
-    if (fs.stat(backup_path) != null && restore_guarded_singbox_runtime(backup_path, true))
+    if (fs.stat(backup_path) != null && restore_guarded_singbox_runtime(backup_path, true)) {
+        finish_reload_singbox_transaction(false);
         return abort_reload(status, false);
+    }
     if (reload_stop_abandoned)
         return abandon_reload_for_stop("", backup_path);
 
@@ -1569,6 +1883,8 @@ function abort_guarded_transition(status, stage_path, backup_path, guard_active)
     // in the old table and drops classified traffic until an operator/retry can
     // restore a coherent pair; tearing down the table would create a direct
     // leak window.
+    if (fs.stat(backup_path) != null)
+        finish_reload_singbox_transaction(true);
     log_message("Cross-component transition rollback failed; retaining the fail-closed nft guard", "fatal");
     remove_file(RELOAD_STATE_SNAPSHOT_FILE);
     return status == 0 ? 1 : status;
@@ -2198,19 +2514,16 @@ function reload(reason) {
         sing_box_config_path = config_get(CONFIG_NAME + ".settings.config_path", "");
         sing_box_config_hash_before = file_md5(sing_box_config_path);
         sing_box_pid_before = sing_box_runtime_pid();
-        staged_singbox_config = trim(command_output_from_args([ "mktemp" ]));
-        staged_singbox_backup = trim(command_output_from_args([ "mktemp" ]));
-        if (staged_singbox_config == "" || staged_singbox_backup == "") {
-            discard_singbox_config_stage(staged_singbox_config);
-            remove_file(staged_singbox_backup);
+        let reload_paths = private_bootstrap_paths("reload");
+        if (reload_paths == null) {
             return abort_reload(1, false);
         }
-        // mktemp creates the backup path, while commit-config-stage requires
-        // copying the live config itself before it is changed.
-        remove_file(staged_singbox_backup);
+        reload_singbox_transaction_dir = reload_paths.directory;
+        staged_singbox_config = reload_paths.stage;
+        staged_singbox_backup = reload_paths.backup;
         status = singbox_prepare_config_stage(staged_singbox_config);
         if (status != 0) {
-            discard_singbox_config_stage(staged_singbox_config);
+            finish_reload_singbox_transaction(false);
             return abort_reload(status, false);
         }
     }
@@ -2349,7 +2662,7 @@ function reload(reason) {
         if (dpi_snapshot_dir != "")
             dpi_singbox_backup = staged_singbox_backup;
         else
-            remove_file(staged_singbox_backup);
+            finish_reload_singbox_transaction(false);
         runtime_changed = true;
     }
 
@@ -2391,7 +2704,7 @@ function reload(reason) {
     if (status != 0)
         return abort_reload(status, runtime_changed);
     if (dpi_singbox_backup != "")
-        remove_file(dpi_singbox_backup);
+        finish_reload_singbox_transaction(false);
     discard_dpi_snapshot();
     discard_dnsmasq_reload_config();
 
@@ -2467,8 +2780,19 @@ function reload_reason_fixture(reason) {
     print(reason, "\n");
 }
 
-function restart() {
+function restart(stop_sensitive, expected_fingerprint) {
+    stop_sensitive = stop_sensitive === true || stop_sensitive == "1";
     log_message("Restarting Forkop", "info");
+
+    if (stop_sensitive && manual_restart_stop_requested()) {
+        log_message("Manual restart abandoned before the runtime transition: Forkop is being stopped", "info");
+        return 1;
+    }
+    if (stop_sensitive && as_string(expected_fingerprint || "") != "" &&
+        external_config_fingerprint() != as_string(expected_fingerprint)) {
+        log_message("Manual restart abandoned before the runtime transition: the configuration changed during preflight", "warn");
+        return 1;
+    }
 
     // Do not let any restart caller bypass the same ownership check as cold
     // start. In particular, delayed startup recovery must never stop an
@@ -2483,10 +2807,23 @@ function restart() {
     if (status != 0)
         return status;
 
-    // An explicit restart is an explicit start: it ends an earlier explicit
-    // stop.
-    mark_explicit_start();
-    remove_file(STOP_REQUESTED_FILE);
+    if (stop_sensitive) {
+        // Do not clear or rewrite the explicit-start/stop markers in this
+        // path. A user Stop can time out waiting for our reload.lock and write
+        // its request while stop_impl() is at work; retaining that marker lets
+        // start_impl() abandon every subsequent start phase and keeps Stop the
+        // winner. The running service already had an explicit-start record.
+        if (manual_restart_stop_requested()) {
+            log_message("Manual restart abandoned after stopping the old runtime: a user Stop won the transition", "info");
+            return 1;
+        }
+    }
+    else {
+        // An ordinary explicit restart is an explicit start: it ends an
+        // earlier explicit stop.
+        mark_explicit_start();
+        remove_file(STOP_REQUESTED_FILE);
+    }
     status = start_impl();
     if (status != 0) {
         cleanup_failed_runtime();
@@ -2507,6 +2844,165 @@ function restart() {
     log_message("Restart verification failed after Forkop was started; stopping Forkop runtime", "fatal");
     cleanup_failed_runtime();
     return 1;
+}
+
+function manual_restart_stop_requested() {
+    return fs.stat(STOP_REQUESTED_FILE) != null;
+}
+
+function release_manual_restart_lock() {
+    module_success(STATE_UC, [
+        "release-runtime-dir-lock",
+        RELOAD_LOCK_DIR,
+        owner_pid()
+    ]);
+}
+
+function abort_manual_restart_for_stop() {
+    if (!manual_restart_stop_requested())
+        return false;
+
+    release_manual_restart_lock();
+    log_message("Manual restart abandoned: Forkop was stopped while remote data was being prepared", "info");
+    return true;
+}
+
+// Build and check the complete candidate while the current runtime still owns
+// traffic. The sing-box stage is private and the nft batch is validated with
+// `nft -c`; neither is published. A manual restart therefore never discovers
+// an invalid generated policy only after it has stopped the working process.
+function validate_manual_restart_candidate(expected_fingerprint) {
+    if (external_config_fingerprint() != as_string(expected_fingerprint)) {
+        log_message("Manual restart aborted: the configuration changed while remote data was prepared", "warn");
+        return false;
+    }
+
+    let status = validate_start_config();
+    if (status != 0)
+        return false;
+
+    let stage_directory = trim(command_output_from_args([ "mktemp", "-d" ]));
+    if (stage_directory == "") {
+        log_message("Manual restart aborted: a private sing-box validation stage could not be created", "error");
+        return false;
+    }
+    let stage = stage_directory + "/stage.json";
+    subscription_caches_prepared = "1";
+    subscription_deferred_sections = "";
+    status = singbox_prepare_config_stage(stage);
+    if (status == 0 && trim(subscription_deferred_sections) != "") {
+        log_message("Manual restart aborted: one or more subscription sections still have no usable cache", "error");
+        status = 1;
+    }
+    if (status == 0)
+        status = module_status(SINGBOX_UC, [ "validate-config-stage", stage ]);
+    discard_singbox_config_stage(stage);
+    command_success_from_args([ "rmdir", stage_directory ]);
+    if (status != 0) {
+        log_message("Manual restart aborted: the complete sing-box candidate is invalid; the running runtime was preserved", "error");
+        return false;
+    }
+
+    if (!nft_candidate_begin())
+        return false;
+    status = nft_rebuild_runtime();
+    if (status == 0)
+        status = nft_populate_runtime_sets();
+    let nft_valid = status == 0 && nft_candidate_validate();
+    nft_candidate_finish(false);
+    if (!nft_valid) {
+        log_message("Manual restart aborted: the complete nftables candidate is invalid; the running runtime was preserved", "error");
+        return false;
+    }
+
+    if (external_config_fingerprint() != as_string(expected_fingerprint)) {
+        log_message("Manual restart aborted: the configuration changed during candidate validation", "warn");
+        return false;
+    }
+    return true;
+}
+
+// LuCI's explicit restart prepares every remote data family while the old
+// runtime is still serving traffic. Cache writers publish atomically and do
+// not touch the live process; only one ordinary guarded restart follows after
+// all preparation succeeds. The reload lock spans that whole sequence so a
+// reload can only be queued, never interleave another runtime transition.
+function manual_restart() {
+    log_message("Preparing fresh remote data for manual Forkop restart", "info");
+
+    if (!module_success(STATE_UC, [
+        "acquire-runtime-dir-lock",
+        RELOAD_LOCK_DIR,
+        owner_pid()
+    ])) {
+        log_message("Manual restart deferred because another runtime transition is active", "warn");
+        return 75;
+    }
+
+    // Stop is recorded before it waits for reload.lock. Never erase a request
+    // that arrived while a network preflight was running.
+    if (abort_manual_restart_for_stop())
+        return 1;
+
+    let preflight_fingerprint = external_config_fingerprint();
+    if (validate_start_config() != 0) {
+        release_manual_restart_lock();
+        log_message("Manual restart aborted: the current configuration is invalid; the running runtime was preserved", "error");
+        return 1;
+    }
+
+    let prepare_env = { FORKOP_MANUAL_RESTART_LOCK_HELD: "1" };
+    let prepared = module_capture_with_env(UPDATES_UC, [
+        "subscription-prepare-only", "", ""
+    ], prepare_env);
+    if (prepared.status != 0) {
+        release_manual_restart_lock();
+        log_message("Manual restart aborted: subscriptions could not be prepared; the running runtime was preserved", "error");
+        return 1;
+    }
+    if (abort_manual_restart_for_stop())
+        return 1;
+
+    if (module_success(STATE_UC, [ "has-list-update-sources" ])) {
+        prepared = module_capture_with_env(UPDATES_UC, [ "prepare-list-cache" ], prepare_env);
+        if (prepared.status != 0) {
+            release_manual_restart_lock();
+            log_message("Manual restart aborted: lists could not be prepared; the running runtime was preserved", "error");
+            return 1;
+        }
+    }
+    if (abort_manual_restart_for_stop())
+        return 1;
+
+    let proxy_result = module_capture(SINGBOX_UC, [ "service-proxy-address", "lists" ]);
+    let ruleset_proxy_address = trim(proxy_result.output);
+    if (proxy_result.status != 0 ||
+        (setting_bool("download_lists_via_proxy", false) && ruleset_proxy_address == "")) {
+        release_manual_restart_lock();
+        log_message("Manual restart aborted: the selected remote-data download section has no usable service proxy; the running runtime was preserved", "error");
+        return 1;
+    }
+
+    let ruleset_status = module_status(RULESET_CACHE_UC, [ "refresh", ruleset_proxy_address ]);
+    if (ruleset_status > 1) {
+        release_manual_restart_lock();
+        log_message("Manual restart aborted: remote rule sets could not be prepared; the running runtime was preserved", "error");
+        return 1;
+    }
+    if (abort_manual_restart_for_stop())
+        return 1;
+
+    if (!validate_manual_restart_candidate(preflight_fingerprint)) {
+        release_manual_restart_lock();
+        return 1;
+    }
+    if (abort_manual_restart_for_stop())
+        return 1;
+
+    log_message("Remote data preparation completed; performing manual Forkop restart", "info");
+    let status = restart(true, preflight_fingerprint);
+    release_manual_restart_lock();
+    return status;
 }
 
 function package_manager_remove_if_installed(package_name) {
@@ -2599,6 +3095,13 @@ else if (mode == "dns-failover-apply")
     status = dns_failover_apply(ARGV[1] || "");
 else if (mode == "restart")
     status = restart();
+else if (mode == "manual-restart")
+    status = manual_restart();
+else if (mode == "cold-start-list-bootstrap-fixture") {
+    start_watches_stop_request = true;
+    subscription_deferred_sections = trim(as_string(ARGV[1] || ""));
+    status = prepare_lists_for_cold_start();
+}
 else if (mode == "refresh-rulesets-after-start") {
     refresh_rulesets_after_start();
     status = 0;

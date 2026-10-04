@@ -115,6 +115,10 @@ let subscription_outbounds_changed = false;
 let runtime_generation_commit_changed = false;
 let list_update_prepare_only = false;
 
+function manual_restart_lock_held() {
+    return as_string(getenv("FORKOP_MANUAL_RESTART_LOCK_HELD") || "0") == "1";
+}
+
 function routing_rulesets_module() {
     if (routing_rulesets_module_value == null)
         routing_rulesets_module_value = require("routing.rulesets");
@@ -3990,8 +3994,14 @@ function dns_probe_passed(proxy_address) {
 
 function list_update() {
     log_message("Starting lists update", "info");
-    if (!list_update_pid_begin())
+    if (!list_update_pid_begin()) {
+        // A manual restart must not interpret another worker's in-flight
+        // generation as its own successful preflight and tear down the old
+        // runtime before that worker has published a complete cache.
+        if (manual_restart_lock_held())
+            exit(1);
         exit(0);
+    }
 
     // The DNS probe and the downloads run before reload.lock is taken
     // (UC-057): the probe alone can take a minute on a dead resolver, and
@@ -4294,11 +4304,32 @@ function subscription_prepare_cache_request(force, target_section, target_source
     return { ok: true, updated, failed, unchanged, superseded };
 }
 
-function subscription_discard_config_stage(stage_path, backup_path) {
+function subscription_runtime_transaction_paths() {
+    let directory = trim(command_output_from_args([ "mktemp", "-d" ]));
+    if (directory == "" || !fs.chmod(directory, 0700)) {
+        if (directory != "")
+            command_success_from_args([ "rm", "-rf", directory ]);
+        return null;
+    }
+    return {
+        directory,
+        stage: directory + "/stage.json",
+        backup: directory + "/backup.json"
+    };
+}
+
+function subscription_discard_config_stage(stage_path, backup_path, private_directory, preserve_backup) {
     if (as_string(stage_path) != "")
         module_success([ LIB_DIR + "/singbox/runtime.uc", "discard-config-stage", stage_path ]);
+    if (preserve_backup) {
+        log_message("Subscription runtime rollback failed; private recovery transaction preserved at " + as_string(private_directory), "fatal");
+        return;
+    }
     if (as_string(backup_path) != "")
-        remove_file(backup_path);
+        module_success([ LIB_DIR + "/singbox/runtime.uc", "discard-config-stage", backup_path ]);
+    if (as_string(private_directory) != "" &&
+        !command_success_from_args([ "rm", "-rf", private_directory ]))
+        log_message("Failed to remove the completed subscription runtime transaction at " + as_string(private_directory), "warn");
 }
 
 // This update holds reload.lock, and a stop waits for it only for a bounded
@@ -4380,16 +4411,15 @@ function subscription_update_common_locked(force, target_section, target_source_
     if (!singbox_runtime_success([ "configure-service" ]))
         return false;
 
-    let staged_config_path = temp_path();
-    let backup_config_path = temp_path();
-    if (staged_config_path == "" || backup_config_path == "") {
-        subscription_discard_config_stage(staged_config_path, backup_config_path);
+    let transaction = subscription_runtime_transaction_paths();
+    if (transaction == null) {
         log_message("Cannot allocate temporary paths for the subscription runtime update", "error");
         return false;
     }
-    remove_file(backup_config_path);
+    let staged_config_path = transaction.stage;
+    let backup_config_path = transaction.backup;
     if (!singbox_runtime_success([ "prepare-config-stage", "0", "1", "1", "", staged_config_path ])) {
-        subscription_discard_config_stage(staged_config_path, backup_config_path);
+        subscription_discard_config_stage(staged_config_path, backup_config_path, transaction.directory, false);
         log_message("Failed to prepare sing-box configuration after subscription update", "error");
         return false;
     }
@@ -4398,7 +4428,7 @@ function subscription_update_common_locked(force, target_section, target_source_
     module_success([ PRIORITY_UC, "stop-runtime" ]);
     let transition_timeout = as_string(getenv("FORKOP_SING_BOX_RELOAD_PID_TIMEOUT") || "15");
     if (!service_state_success([ "stop-managed-sing-box-runtime", transition_timeout ])) {
-        subscription_discard_config_stage(staged_config_path, backup_config_path);
+        subscription_discard_config_stage(staged_config_path, backup_config_path, transaction.directory, false);
         subscription_start_auxiliary_runtimes();
         log_message("Refusing subscription runtime update: the previous sing-box runtime did not stop safely", "error");
         return false;
@@ -4406,7 +4436,8 @@ function subscription_update_common_locked(force, target_section, target_source_
 
     if (!singbox_runtime_success([ "commit-config-stage", staged_config_path, backup_config_path ])) {
         let restored = subscription_restore_previous_runtime(backup_config_path, transition_timeout);
-        subscription_discard_config_stage(staged_config_path, backup_config_path);
+        let preserve = !restored && file_exists_value(backup_config_path);
+        subscription_discard_config_stage(staged_config_path, backup_config_path, transaction.directory, preserve);
         if (restored)
             subscription_start_auxiliary_runtimes();
         else
@@ -4417,8 +4448,7 @@ function subscription_update_common_locked(force, target_section, target_source_
     // A stop requested while this update held reload.lock tears the runtime
     // down as soon as the lock is released: leave sing-box stopped.
     if (subscription_stop_requested()) {
-        remove_file(backup_config_path);
-        subscription_discard_config_stage(staged_config_path, "");
+        subscription_discard_config_stage(staged_config_path, backup_config_path, transaction.directory, false);
         log_message("Forkop is stopping; the updated subscriptions were saved and sing-box stays stopped", "info");
         return true;
     }
@@ -4428,7 +4458,8 @@ function subscription_update_common_locked(force, target_section, target_source_
     ])) {
         log_message("Failed to start sing-box after subscription update; restoring the previous runtime", "error");
         let restored = subscription_restore_previous_runtime(backup_config_path, transition_timeout);
-        subscription_discard_config_stage(staged_config_path, backup_config_path);
+        let preserve = !restored && file_exists_value(backup_config_path);
+        subscription_discard_config_stage(staged_config_path, backup_config_path, transaction.directory, preserve);
         if (restored)
             subscription_start_auxiliary_runtimes();
         else
@@ -4440,15 +4471,15 @@ function subscription_update_common_locked(force, target_section, target_source_
         log_message("Failed to restart auxiliary runtimes after subscription update; restoring the previous runtime", "error");
         subscription_stop_auxiliary_runtimes();
         let restored = subscription_restore_previous_runtime(backup_config_path, transition_timeout);
-        subscription_discard_config_stage(staged_config_path, backup_config_path);
+        let preserve = !restored && file_exists_value(backup_config_path);
+        subscription_discard_config_stage(staged_config_path, backup_config_path, transaction.directory, preserve);
         if (restored)
             subscription_start_auxiliary_runtimes();
         else
             log_message("Subscription runtime update rollback failed; sing-box remains stopped", "fatal");
         return false;
     }
-    remove_file(backup_config_path);
-    subscription_discard_config_stage(staged_config_path, "");
+    subscription_discard_config_stage(staged_config_path, backup_config_path, transaction.directory, false);
     // This update applied the sing-box configuration only. A reload queued
     // before or during it has not been applied (init.d queues every reload
     // while a list update runs, with or without reload.lock): recording the
@@ -4557,6 +4588,52 @@ function subscription_update_common(force, target_section, target_source_index) 
     if (ok && subscription_outbounds_changed)
         module_background([ DIAGNOSTICS_UC, "automatic-latency-test", "new" ]);
     return ok ? 0 : 1;
+}
+
+// Refresh subscription cache data without touching the running sing-box.
+// LuCI's manual restart already owns reload.lock; direct/internal callers take
+// it here. The existing prefetch/update-request path retains arbitrary HTTPS
+// URLs, provider-specific User-Agent/HWID handling and atomic cache commits.
+function subscription_prepare_only(target_section, target_source_index) {
+    if (!subscription_cache_success([ "ensure-runtime-dirs" ]))
+        exit(1);
+
+    let owns_reload_lock = !manual_restart_lock_held();
+    if (owns_reload_lock && !acquire_runtime_lock(RELOAD_LOCK_DIR, false)) {
+        log_message("Forkop reload is already running; manual restart preparation was not started", "warn");
+        exit(1);
+    }
+
+    subscription_prefetch_dir = subscription_prefetch(true, target_section, target_source_index);
+
+    // Lock order stays reload.lock -> subscription-update.lock. Do not wait:
+    // an existing updater still owns its transaction, so this preflight must
+    // preserve the current runtime and let the user retry later.
+    if (!acquire_runtime_lock(SUBSCRIPTION_UPDATE_LOCK_DIR, false)) {
+        subscription_prefetch_discard();
+        if (owns_reload_lock)
+            release_runtime_lock(RELOAD_LOCK_DIR);
+        log_message("Subscription update is already running; manual restart preparation was not started", "warn");
+        exit(1);
+    }
+
+    let prepared = subscription_prepare_cache_request(true, target_section, target_source_index);
+    subscription_prefetch_discard();
+    release_runtime_lock(SUBSCRIPTION_UPDATE_LOCK_DIR);
+    if (owns_reload_lock)
+        release_runtime_lock(RELOAD_LOCK_DIR);
+
+    // Manual restart is all-or-nothing. A normal update may apply the sources
+    // that succeeded and retain older caches for the rest, but stopping a
+    // known-working runtime after a mixed result could make a newly-added
+    // section disappear or make the next start fail.
+    if (!prepared.ok || prepared.failed > 0 || prepared.superseded > 0)
+        exit(1);
+
+    log_message(prepared.updated > 0 ?
+        "Subscription data was prepared for manual restart" :
+        "Subscription data was checked for manual restart; no changes detected", "info");
+    exit(0);
 }
 
 function subscription_update_if_due() {
@@ -4781,6 +4858,8 @@ else if (mode == "subscription-update-worker")
     subscription_update_worker(ARGV[1], ARGV[2], ARGV[3], ARGV[4]);
 else if (mode == "subscription-update")
     subscription_update(ARGV[1], ARGV[2]);
+else if (mode == "subscription-prepare-only")
+    subscription_prepare_only(ARGV[1], ARGV[2]);
 else if (mode == "subscription-update-if-due")
     subscription_update_if_due();
 else if (mode == "subscription-update-async")

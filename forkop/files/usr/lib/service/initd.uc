@@ -1147,6 +1147,22 @@ function reload_begin_value(reason, owner_pid, runtime_running_value, service_en
         return { action: "skip", job_id: "", stopped: true };
 
     active_service_action = active_service_action == null ? active_service_action_value() : as_string(active_service_action);
+    let running = runtime_running_value == null ? runtime_is_running() : bool_text(runtime_running_value);
+    let enabled = service_enabled_value == null ? service_is_enabled() : bool_text(service_enabled_value);
+    let queue_config_change = initd_should_queue_config_change_reload(reason, CONFIG_CHANGE_REASON, running, active_service_action);
+
+    if (!queue_config_change && initd_should_ignore_config_change_reload(reason, CONFIG_CHANGE_REASON, running, enabled))
+        return { action: "skip", job_id: "" };
+
+    // Only a reload that could run or be queued reaches the ownership gate.
+    // In particular, D-15 above keeps its `stopped` result even when an
+    // unrelated/foreign sing-box process exists, while an ignored config
+    // trigger remains a no-op. Never queue work with ambiguous ownership.
+    if (module_status(LIB_DIR + "/service/state.uc", [ "sing-box-process-conflict" ]) == 0) {
+        command_success_from_args([ "logger", "-t", SERVICE_NAME, "[fatal] Refusing Forkop reload: sing-box process ownership is ambiguous; preserving the existing runtime" ]);
+        return { action: "reject", job_id: "", conflict: true };
+    }
+
     if (reason == "pending" && active_service_action != "" && !ui_action_tracked()) {
         mark_pending_reload(PENDING_RELOAD_FILE, reason);
         return { action: "skip", job_id: "", queued: true };
@@ -1163,16 +1179,9 @@ function reload_begin_value(reason, owner_pid, runtime_running_value, service_en
         return { action: "run", job_id };
     }
 
-    let running = runtime_running_value == null ? runtime_is_running() : bool_text(runtime_running_value);
-    let enabled = service_enabled_value == null ? service_is_enabled() : bool_text(service_enabled_value);
-
-    if (initd_should_queue_config_change_reload(reason, CONFIG_CHANGE_REASON, running, active_service_action)) {
+    if (queue_config_change) {
         mark_pending_reload(PENDING_RELOAD_FILE, reason || "reload_queued");
         return { action: "skip", job_id: "", queued: true };
-    }
-
-    if (initd_should_ignore_config_change_reload(reason, CONFIG_CHANGE_REASON, running, enabled)) {
-        return { action: "skip", job_id: "" };
     }
 
     if (list_update_worker_running() || !acquire_runtime_dir_lock(RELOAD_LOCK_DIR, owner_pid || owner_pid_value())) {
@@ -1220,6 +1229,8 @@ function reload_finish(reason, job_id, status, owner_pid) {
 
 function reload_service(reason, owner_pid) {
     let plan = reload_begin_value(reason, owner_pid, null, null);
+    if (plan.conflict)
+        return 1;
     // The job of a UI reload (service/ui.uc) reports what happened to it as
     // well: a reload only queued behind the operation that holds reload.lock
     // is not a completed one (UC-061).
@@ -1239,7 +1250,10 @@ function reload_service(reason, owner_pid) {
         return 0;
     }
 
-    let status = command_status(command_from_args([ "env", "FORKOP_UI_ACTION_TRACKED=1", BIN_PATH, "reload", reason ]) + " >/dev/null 2>&1");
+    // The public CLI enters this function too. Once initd owns reload.lock,
+    // call lifecycle directly rather than re-entering `forkop reload`.
+    let status = command_status(command_from_args([ "env", "FORKOP_UI_ACTION_TRACKED=1", "ucode", "-L", LIB_DIR,
+        LIB_DIR + "/service/lifecycle.uc", "reload", reason ]) + " >/dev/null 2>&1");
     let finish = reload_finish_value(reason, plan.job_id, status, owner_pid || owner_pid_value());
     // A stop requested after the check above, or a runtime not started since
     // boot that went down after it: the lifecycle skipped the reload under

@@ -30,6 +30,7 @@ import { Forkop } from '../../types';
 import {
   connectionActions,
   connectionPath,
+  formatEndpoint,
   matchesPathFilter,
   pathKindLabel,
   pathSummary,
@@ -38,6 +39,11 @@ import {
   type PathKind,
   type RouteRule,
 } from './connectionView';
+import { formatRouteReason } from './routeReason';
+import {
+  expandRouteConditions,
+  type RuntimeRouteRule,
+} from './routeConditions';
 import { renderProvenance } from '../../ui/status';
 import { readMonitoringView, showMonitoringView } from './views';
 import {
@@ -62,6 +68,7 @@ interface ClashConnectionMetadata {
   destinationIP?: string;
   destinationPort?: string | number;
   host?: string;
+  sniffHost?: string;
   network?: string;
   processPath?: string;
   sourceIP?: string;
@@ -96,6 +103,35 @@ function normalizeConnectionsPayload(value: unknown): ClashConnectionsPayload {
   }
 
   return value as ClashConnectionsPayload;
+}
+
+let runtimeRouteRules: RuntimeRouteRule[] = [];
+const expandedRouteConditions = new Map<string, string>();
+
+function getFullRouteRule(connection: MonitoredConnection): string {
+  const rule = connection.rule || '';
+  if (!expandedRouteConditions.has(rule))
+    expandedRouteConditions.set(
+      rule,
+      expandRouteConditions(rule, runtimeRouteRules),
+    );
+  return expandedRouteConditions.get(rule) || rule;
+}
+
+async function loadRuntimeRouteRules(mountId: number) {
+  try {
+    const config = JSON.parse(await fs.read('/etc/sing-box/config.json'));
+    if (!monitoringMounted || mountId !== monitoringMountId) return;
+    runtimeRouteRules = Array.isArray(config.route?.rules)
+      ? config.route.rules
+      : [];
+    expandedRouteConditions.clear();
+    renderConnections();
+  } catch (error) {
+    // The original Clash rule remains usable when the runtime config is not
+    // readable (for example, before the first successful service start).
+    logger.warn('[MONITORING]', 'loadRuntimeRouteRules: failed', error);
+  }
 }
 
 const RENDER_INTERVAL_MS = 500;
@@ -180,29 +216,6 @@ function getUrlTestTag(sectionName: string, id: string) {
       ? `${sectionName}-urltest`
       : `${sectionName}-urltest-${id}`,
   );
-}
-
-function formatEndpoint(address?: string, port?: string | number): string {
-  const normalizedAddress = normalizeString(address);
-  const normalizedPort = normalizeString(port);
-
-  if (!normalizedAddress) {
-    return '-';
-  }
-
-  if (!normalizedPort) {
-    return normalizedAddress;
-  }
-
-  if (normalizedPort === '443') {
-    return normalizedAddress;
-  }
-
-  if (normalizedAddress.includes(':') && !normalizedAddress.startsWith('[')) {
-    return `[${normalizedAddress}]:${normalizedPort}`;
-  }
-
-  return `${normalizedAddress}:${normalizedPort}`;
 }
 
 function getDisplayName(section: Forkop.ConfigSection) {
@@ -397,6 +410,22 @@ function getNetwork(connection: MonitoredConnection): string {
   return normalizeString(connection.metadata?.network).toLowerCase() || '-';
 }
 
+function getRouteReason(connection: MonitoredConnection): string {
+  const labels: Record<string, string> = {
+    'Not available': _('Not available'),
+    'Default route': _('Default route'),
+    'Built-in subnets': _('Built-in subnets'),
+    'One of': _('One of'),
+    'Exact match unavailable': _('Exact match unavailable'),
+  };
+  return formatRouteReason(
+    getFullRouteRule(connection),
+    connection.rulePayload,
+    (value) => labels[value] || value,
+    connection.metadata,
+  );
+}
+
 function sortConnections(
   connections: MonitoredConnection[],
   tab: MonitoringTabId,
@@ -438,6 +467,7 @@ function getSearchValues(connection: MonitoredConnection): string[] {
   const target = getTargetCellParts(connection);
   const source = getSourceCellParts(connection);
   const path = pathSummary(getPath(connection));
+  const routeReason = getRouteReason(connection);
 
   return [
     connection.id,
@@ -446,6 +476,7 @@ function getSearchValues(connection: MonitoredConnection): string[] {
     path.kindLabel,
     path.primary,
     path.secondary,
+    routeReason,
     normalizeString(connection.rule),
     ...(connection.chains || []),
     source.searchValue,
@@ -908,11 +939,20 @@ function renderTableCell(label: string, children: (Node | string)[]) {
   return cell;
 }
 
-function renderSecondary(text: string) {
-  return E('span', { class: 'fkp_monitoring-page__secondary' }, text);
+function renderSecondary(text: string, className = '') {
+  return E(
+    'span',
+    {
+      class: ['fkp_monitoring-page__secondary', className]
+        .filter(Boolean)
+        .join(' '),
+      title: text,
+    },
+    text,
+  );
 }
 
-function renderPathCell(path: ConnectionPath) {
+function renderPathCell(path: ConnectionPath, reason: string) {
   const summary = pathSummary(path);
   return [
     E(
@@ -926,6 +966,7 @@ function renderPathCell(path: ConnectionPath) {
       ? [renderValue(summary.primary, 'fkp_monitoring-page__route')]
       : []),
     ...(summary.secondary ? [renderSecondary(summary.secondary)] : []),
+    ...(reason ? [renderSecondary(reason, 'fkp_monitoring-page__reason')] : []),
   ];
 }
 
@@ -978,7 +1019,10 @@ function renderConnectionRow(connection: MonitoredConnection) {
         renderValue(target.primary),
         renderSecondary(destinationMeta),
       ]),
-      renderTableCell(_('Path'), renderPathCell(getPath(connection))),
+      renderTableCell(
+        _('Path'),
+        renderPathCell(getPath(connection), getRouteReason(connection)),
+      ),
       renderTableCell(_('Traffic'), [
         renderValue(`\u2193 ${formatBytes(connection.download)}`),
         renderSecondary(`\u2191 ${formatBytes(connection.upload)}`),
@@ -1036,6 +1080,7 @@ function connectionDetails(connection: MonitoredConnection) {
         .filter(Boolean)
         .join(' · '),
     ],
+    [_('Route reason'), getRouteReason(connection)],
     [_('Duration'), formatConnectionDuration(connection)],
     [_('Download'), formatBytes(connection.download)],
     [_('Upload'), formatBytes(connection.upload)],
@@ -1111,6 +1156,14 @@ function renderConnectionDetailsPanel() {
             [path.kindLabel, path.primary, rawPath.node]
               .filter(Boolean)
               .join(' · '),
+            ' ',
+            renderProvenance('observed'),
+          ]),
+        ),
+        detailRow(
+          _('Route reason'),
+          E('span', {}, [
+            getRouteReason(connection),
             ' ',
             renderProvenance('observed'),
           ]),
@@ -2019,6 +2072,7 @@ function setServiceAvailability(next: ServiceAvailability) {
   if (next === 'running') {
     loading = true;
     failed = false;
+    void loadRuntimeRouteRules(monitoringMountId);
     startConnectionsUpdates();
   } else {
     stopConnectionsUpdates();
@@ -2093,6 +2147,9 @@ async function onPageMount() {
   monitoringMountId += 1;
   const mountId = monitoringMountId;
 
+  runtimeRouteRules = [];
+  expandedRouteConditions.clear();
+  void loadRuntimeRouteRules(mountId);
   resetMonitoringState();
   loadMonitoringPreferences();
   bindControls();

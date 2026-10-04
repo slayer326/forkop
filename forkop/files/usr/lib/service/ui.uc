@@ -1402,7 +1402,10 @@ function finish_service_action_after_command(action, job_id_value, status, spawn
         return 0;
 
     if (status != 0) {
-        write_finished_service_action_state(path, action, false, "Service " + as_string(action) + " failed", status);
+        let message = action == "restart" && status == 75
+            ? "Forkop X is busy updating data or applying settings. Wait for the operation to finish, then try restarting again."
+            : "Service " + as_string(action) + " failed";
+        write_finished_service_action_state(path, action, false, message, status);
         return 0;
     }
 
@@ -1477,8 +1480,19 @@ function mark_service_action_deferred(job_id_value) {
 }
 
 function service_action_worker(path, action, job_id_value, reason) {
-    let args = [ SERVICE_INIT, action ];
     reason = as_string(reason || "");
+
+    // The LuCI restart is synchronous and owns one guarded preflight/restart
+    // transaction. Ordinary init.d restart remains available to package and
+    // component workflows that must not perform network I/O.
+    if (action == "restart" && reason == "manual-ui-restart") {
+        let status = command_status("FORKOP_UI_ACTION_TRACKED=1 " +
+            command_from_args([ BIN_PATH, "manual_restart" ]) + " >/dev/null 2>&1");
+        finish_service_action_after_command(action, job_id_value, status, false);
+        return;
+    }
+
+    let args = [ SERVICE_INIT, action ];
     if (reason != "")
         push(args, reason);
     if (action != "start" && action != "restart") {
@@ -1534,7 +1548,7 @@ function service_action_async(action) {
         exit(1);
     }
 
-    let started = start_service_action(action, "ui", "");
+    let started = start_service_action(action, "ui", action == "restart" ? "manual-ui-restart" : "");
     if (!started.success && active_service_action_value() != "") {
         action_start_response(false, "", "Another service action is already running");
         exit(1);

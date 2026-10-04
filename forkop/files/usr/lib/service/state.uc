@@ -4,6 +4,7 @@ let fs = require("fs");
 let common = require("core.common");
 let uci_core = require("core.uci");
 let netstat = require("core.netstat");
+let core_ip = require("core.ip");
 let runtime_lock = require("core.runtime_lock");
 let process_identity = require("core.process_identity");
 let rule_config = require("config.rule");
@@ -22,6 +23,7 @@ const BYEDPI_DEFAULT_CMD_OPTS = getenv("BYEDPI_DEFAULT_CMD_OPTS") || "";
 const SB_DNS_INBOUND_ADDRESS = getenv("SB_DNS_INBOUND_ADDRESS") || "127.0.0.42";
 const SB_TPROXY_INBOUND_PORT = getenv("SB_TPROXY_INBOUND_PORT") || "1602";
 const SB_TPROXY_INBOUND6_ADDRESS = getenv("SB_TPROXY_INBOUND6_ADDRESS") || "::1";
+const SB_SERVICE_MIXED_INBOUND_ADDRESS = getenv("SB_SERVICE_MIXED_INBOUND_ADDRESS") || "127.0.0.1";
 const DIAGNOSTICS_RUNTIME_UC = LIB_DIR + "/diagnostics/runtime.uc";
 // Written by an explicit stop (service/initd.uc before it waits for
 // reload.lock, service/lifecycle.uc `forkop stop`) and removed only by an
@@ -611,6 +613,61 @@ function sing_box_current_owned_service_runtime() {
         process_start_ticks_for_pid(provenance.pid) == provenance.start_ticks;
 }
 
+// A procd PID can appear before sing-box has bound every preparation proxy.
+// Keep proving the exact sole owned process on every observation and require
+// every TCP listener to belong to that PID.  A foreign process or a UDP socket
+// on the same port must never make a temporary bootstrap runtime look ready.
+function wait_managed_sing_box_config_listeners(config_path, timeout) {
+    let config = object_or_empty(read_json_file(config_path));
+    let inbounds = type(config.inbounds) == "array" ? config.inbounds : [];
+    let listeners = [];
+    for (let inbound in inbounds) {
+        inbound = object_or_empty(inbound);
+        if (as_string(inbound.type) != "mixed" || int(inbound.listen_port || 0) <= 0)
+            continue;
+        push(listeners, {
+            listen: as_string(inbound.listen || SB_SERVICE_MIXED_INBOUND_ADDRESS),
+            port: as_string(inbound.listen_port)
+        });
+    }
+    if (length(listeners) == 0)
+        return false;
+
+    timeout = int(timeout || 15);
+    let expected = sing_box_runtime_provenance();
+    if (expected == null || !pid_has_current_sing_box_exe(expected.pid))
+        return false;
+    while (timeout >= 0) {
+        let current = sing_box_runtime_provenance();
+        if (current == null || current.pid != expected.pid ||
+            current.start_ticks != expected.start_ticks ||
+            !pid_has_current_sing_box_exe(current.pid))
+            return false;
+        let snapshot = command_output_from_args([ "netstat", "-lntp" ]);
+        let ready = true;
+        for (let listener in listeners)
+            if (!netstat.tcp_listen_port_owned(snapshot, listener.listen, listener.port, expected.pid)) {
+                ready = false;
+                break;
+            }
+        if (ready) {
+            // Close the snapshot race: prove that the socket owner is still
+            // the same sole managed executable after inspecting netstat.
+            current = sing_box_runtime_provenance();
+            if (current != null && current.pid == expected.pid &&
+                current.start_ticks == expected.start_ticks &&
+                pid_has_current_sing_box_exe(current.pid))
+                return true;
+            return false;
+        }
+        if (timeout <= 0)
+            break;
+        command_success_from_args([ "sleep", "1" ]);
+        timeout--;
+    }
+    return false;
+}
+
 function sing_box_deleted_owned_service_runtime() {
     let provenance = sing_box_runtime_provenance();
     return provenance != null && pid_has_deleted_sing_box_exe(provenance.pid) &&
@@ -833,6 +890,19 @@ function start_managed_sing_box_and_verify(timeout) {
     return false;
 }
 
+function start_managed_sing_box_unless_stopped(timeout) {
+    if (stop_requested())
+        return false;
+    if (!start_managed_sing_box_and_verify(timeout))
+        return false;
+    if (!stop_requested())
+        return true;
+    // Stop may land in the narrow check-to-procd-start window.  Remove the
+    // exact managed child immediately and report that startup lost the race.
+    stop_managed_sing_box_and_wait(timeout);
+    return false;
+}
+
 function controlled_replace_managed_sing_box_runtime(timeout) {
     if (!stop_managed_sing_box_and_wait(timeout))
         return false;
@@ -948,7 +1018,7 @@ function sing_box_runtime_ports_ready() {
         command_output_from_args([ "netstat", "-ln" ]),
         SB_DNS_INBOUND_ADDRESS,
         SB_TPROXY_INBOUND_PORT,
-        SB_TPROXY_INBOUND6_ADDRESS
+        core_ip.ipv6_tproxy_enabled() ? SB_TPROXY_INBOUND6_ADDRESS : ""
     );
 }
 
@@ -1280,6 +1350,8 @@ function section_rule_condition_csv(section, key, kind) {
 
 function nft_runtime_signature_body(settings, sections) {
     let body = "";
+
+    body = signature_add_value(body, "runtime.ipv6_tproxy", core_ip.ipv6_tproxy_enabled() ? "1" : "0");
 
     body = signature_add_value(body, "settings.source_network_interfaces", option(settings, "source_network_interfaces", "br-lan"));
     body = signature_add_value(body, "settings.exclude_ntp", bool_option(settings, "exclude_ntp", false) ? "1" : "0");
@@ -1687,6 +1759,8 @@ function append_sing_box_rule_signature_body(body, section, sections) {
 function sing_box_signature_body(settings, sections, mwan3_active) {
     settings = object_or_empty(settings);
     let body = "";
+
+    body = signature_add_value(body, "runtime.ipv6_tproxy", core_ip.ipv6_tproxy_enabled() ? "1" : "0");
 
     body = signature_add_value(body, "settings.dns_type", option(settings, "dns_type", "doh"));
     body = signature_add_value(body, "settings.dns_strategy", option(settings, "dns_strategy", "prefer_ipv4"));
@@ -2153,6 +2227,8 @@ else if (mode == "sing-box-single-owned-service-runtime")
     exit(sing_box_single_owned_service_runtime() ? 0 : 1);
 else if (mode == "sing-box-current-owned-service-runtime")
     exit(sing_box_current_owned_service_runtime() ? 0 : 1);
+else if (mode == "wait-managed-sing-box-config-listeners")
+    exit(wait_managed_sing_box_config_listeners(ARGV[1], ARGV[2]) ? 0 : 1);
 else if (mode == "sing-box-deleted-owned-service-runtime")
     exit(sing_box_deleted_owned_service_runtime() ? 0 : 1);
 else if (mode == "sing-box-process-conflict")
@@ -2189,6 +2265,8 @@ else if (mode == "sing-box-reload-previous-pid-fixture")
     print(sing_box_reload_previous_pid(ARGV[1], ARGV[2], ARGV[3]), "\n");
 else if (mode == "sing-box-runtime-reload-needed-fixture")
     exit(sing_box_runtime_reload_needed(ARGV[1], ARGV[2], ARGV[3]) ? 0 : 1);
+else if (mode == "start-managed-sing-box-runtime-unless-stopped")
+    exit(start_managed_sing_box_unless_stopped(ARGV[1]) ? 0 : 1);
 else if (mode == "forkop-running")
     exit(forkop_running(ARGV[1], ARGV[2], ARGV[3]) ? 0 : 1);
 else if (mode == "forkop-stably-running")

@@ -31,6 +31,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$ROOT_DIR/tests/helpers/wait.sh"
 LIB="$ROOT_DIR/forkop/files/usr/lib"
 REAL_INITD="$ROOT_DIR/forkop/files/etc/init.d/forkop"
+REAL_UCODE="$(command -v ucode)"
 WORK_DIR="$(mktemp -d)"
 
 cleanup() {
@@ -64,7 +65,7 @@ EOF
 STATE_DIR="$WORK_DIR/run/forkop"
 export TMPDIR="$WORK_DIR/tmp"
 export PATH="$WORK_DIR/bin:$PATH"
-export TEST_WORK="$WORK_DIR" EVENTS REAL_INITD
+export TEST_WORK="$WORK_DIR" EVENTS REAL_INITD REAL_UCODE
 export TEST_LIB="$LIB"
 export RC_PROCD_LOCK="$WORK_DIR/procd_forkop.lock"
 export STOP_MARKER="$STATE_DIR/stop.requested"
@@ -103,6 +104,16 @@ printf '#!/bin/sh\nprintf "%%s\\n" "$*" >>"$TEST_WORK/syslog"\n' >"$WORK_DIR/bin
 printf '#!/bin/sh\nexit 1\n' >"$WORK_DIR/bin/nft"
 printf '#!/bin/sh\nexit 0\n' >"$WORK_DIR/bin/ip"
 printf '#!/bin/sh\nexit 1\n' >"$WORK_DIR/bin/ubus"
+
+# service/initd.uc calls lifecycle directly after taking reload.lock. The
+# lifecycle itself is outside this UI result contract, so record that call.
+cat >"$WORK_DIR/bin/ucode" <<'SH'
+#!/bin/sh
+if [ "${3:-}" = "$TEST_LIB/service/lifecycle.uc" ] && [ "${4:-}" = reload ]; then
+  exec "$FORKOP_BIN" reload "${5:-}"
+fi
+exec "$REAL_UCODE" "$@"
+SH
 
 # `forkop`: a reload only records that it ran; get_status reports the
 # runtime as running while runtime.up exists.

@@ -75,6 +75,19 @@ function write_json(path, value) {
     return write_file(path, sprintf("%J", value) + "\n");
 }
 
+function write_private_json(path, value) {
+    let fh = fs.open(as_string(path), "w", 0600);
+    if (fh == null)
+        return false;
+    if (!fs.chmod(as_string(path), 0600)) {
+        fh.close();
+        return false;
+    }
+    let written = fh.write(sprintf("%J", value) + "\n");
+    fh.close();
+    return written != null;
+}
+
 function write_stdout_json(value) {
     print(sprintf("%J", value), "\n");
 }
@@ -630,6 +643,20 @@ function ensure_runtime_dirs() {
     ensure_dir(FORKOP_SUBSCRIPTION_METADATA_DIR);
     ensure_dir(FORKOP_OUTBOUND_METADATA_DIR);
     ensure_dir(FORKOP_SECTION_CACHE_DIR);
+    if (!fs.chmod(FORKOP_SECTION_CACHE_DIR, 0700)) {
+        log_message("Cannot secure the subscription section-cache directory", "error");
+        exit(1);
+    }
+    let entries = fs.lsdir(FORKOP_SECTION_CACHE_DIR);
+    if (type(entries) == "array")
+        for (let entry in entries) {
+            entry = as_string(entry);
+            if (match(entry, /^[A-Za-z0-9_-]+\.json$/) != null &&
+                !fs.chmod(FORKOP_SECTION_CACHE_DIR + "/" + entry, 0600)) {
+                log_message("Cannot secure subscription section-cache metadata", "error");
+                exit(1);
+            }
+        }
 }
 
 function clear_subscription_runtime_cache() {
@@ -906,6 +933,39 @@ function subscription_download_target_section_is_ready(sections, download_sectio
     return provider_action_is_available(action);
 }
 
+// A cacheless subscription-only section may download through another
+// cacheless subscription-only section, as long as the chain eventually
+// reaches a ready manual/provider transport. Follow that dependency graph
+// without treating an intermediate blocked node as an immediate failure.
+function subscription_download_dependency_is_ready(sections, section_name_value, startup_blocked_sections, default_user_agent, visiting) {
+    section_name_value = as_string(section_name_value);
+    if (section_name_value == "" || visiting[section_name_value])
+        return false;
+    if (!state_list_contains(startup_blocked_sections, section_name_value))
+        return subscription_download_target_section_is_ready(
+            sections, section_name_value, startup_blocked_sections, default_user_agent);
+
+    let section = find_section(sections, section_name_value);
+    if (!bool_option(section, "enabled", true) ||
+        !connections.is_connections_action(option(section, "action", "")))
+        return false;
+
+    visiting[section_name_value] = true;
+    for (let entry in connections.subscription_urls(section)) {
+        let parsed = subscription_source_profile(section, entry);
+        let target = as_string(object_or_empty(parsed).download_section);
+        if (target == "" || target == section_name_value)
+            continue;
+        if (subscription_download_dependency_is_ready(
+            sections, target, startup_blocked_sections, default_user_agent, visiting)) {
+            delete visiting[section_name_value];
+            return true;
+        }
+    }
+    delete visiting[section_name_value];
+    return false;
+}
+
 function subscription_bootstrap_download_section_is_ready(sections, startup_blocked_sections, default_user_agent) {
     let any_target = false;
 
@@ -920,14 +980,17 @@ function subscription_bootstrap_download_section_is_ready(sections, startup_bloc
                 continue;
             any_target = true;
 
-            if (subscription_download_target_section_is_ready(sections, download_section, startup_blocked_sections, default_user_agent)) {
+            if (subscription_download_dependency_is_ready(
+                sections, download_section, startup_blocked_sections, default_user_agent, {})) {
                 source_can_retry = true;
                 break;
             }
         }
 
-        if (!source_can_retry)
+        if (!source_can_retry) {
+            log_message("Subscription startup dependency for rule '" + section_name_value + "' has no ready terminal transport or contains a cycle", "error");
             return false;
+        }
     }
 
     if (!any_target)
@@ -1128,12 +1191,14 @@ function save_cache(cache_dir, section, format_version, cache) {
     let stamp = clock();
     let tmp_path = sprintf("%s.%d.%d.tmp", path, stamp[0], stamp[1]);
 
-    if (!write_json(tmp_path, cache))
+    if (!write_private_json(tmp_path, cache))
         exit(1);
     if (!fs.rename(tmp_path, path)) {
         fs.unlink(tmp_path);
         exit(1);
     }
+    if (!fs.chmod(path, 0600))
+        exit(1);
 }
 
 function write_outbound_metadata(cache_dir, format_version, section, names_path, countries_path, servers_path) {
@@ -1736,10 +1801,10 @@ function get_subscription_download_proxy_address(section_name_value, sections, p
 
     if (!sing_box_service_running()) {
         if (phase == "startup")
-            log_message("Subscription source for rule '" + section_name_value + "' is configured to download via rule '" + download_section + "', but sing-box is not running yet; downloading it directly during startup", "warn");
+            log_message("Subscription source for rule '" + section_name_value + "' is configured to download via rule '" + download_section + "'; deferring it until the selected service proxy is ready", "warn");
         else
-            log_message("Subscription source for rule '" + section_name_value + "' is configured to download via rule '" + download_section + "', but sing-box service proxy is not running; downloading it directly", "warn");
-        return "";
+            log_message("Subscription source for rule '" + section_name_value + "' is configured to download via rule '" + download_section + "', but its service proxy is not running; the source was not downloaded directly", "warn");
+        return null;
     }
 
     let address = SB_SERVICE_MIXED_INBOUND_ADDRESS + ":" + as_string(port);
@@ -1958,6 +2023,8 @@ function update_subscription_source(section_name_value, index_value, entry, phas
     }
 
     let proxy = get_subscription_download_proxy_address(section_name_value, sections, parsed, phase || "runtime");
+    if (proxy == null)
+        return 1;
     return download_subscription_into_cache(
         section_name_value,
         parsed.url,
@@ -2386,6 +2453,8 @@ function ensure_subscription_source_for_prepare(state, section, source_index, en
 
     let metadata_output_path = metadata_tmpfile != "" ? temp_path(TMP_SUBSCRIPTION_FOLDER, source_section, "metadata-output") : "";
     let proxy = get_subscription_download_proxy_address(section_name_value, state.sections, parsed, state.phase);
+    if (proxy == null)
+        return false;
     let update_result = download_subscription_into_cache(
         section_name_value,
         parsed.url,
@@ -2825,6 +2894,12 @@ else if (mode == "prefetch-request") {
 }
 else if (mode == "prepare-caches") {
     exit(prepare_subscription_caches(ARGV[1] || "startup", ARGV[2] || "0", ARGV[3] || "0"));
+}
+else if (mode == "subscription-bootstrap-ready-fixture") {
+    let data = object_or_empty(read_json(ARGV[1]));
+    connections.set_item_sections_from_data(data);
+    exit(subscription_bootstrap_download_section_is_ready(
+        fixture_section_list(data), ARGV[2] || "", ARGV[3] || "sing-box") ? 0 : 1);
 }
 else if (mode == "run-deferred-bootstrap") {
     run_deferred_subscription_bootstrap(ARGV[1] || "");

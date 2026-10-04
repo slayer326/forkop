@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   connectionActions,
   connectionPath,
+  formatEndpoint,
   matchesPathFilter,
   pathSummary,
   routeTagFromRule,
@@ -95,6 +96,14 @@ describe('connection path', () => {
 });
 
 describe('connection view controls', () => {
+  it('shows destination ports, including HTTPS and IPv6 endpoints', () => {
+    expect(formatEndpoint('example.org', 443)).toBe('example.org:443');
+    expect(formatEndpoint('192.0.2.1', '8443')).toBe('192.0.2.1:8443');
+    expect(formatEndpoint('2001:db8::1', 443)).toBe('[2001:db8::1]:443');
+    expect(formatEndpoint('example.org')).toBe('example.org');
+    expect(formatEndpoint('', 443)).toBe('-');
+  });
+
   it('sorts by the requested traffic metric', () => {
     const connection = { download: 20, upload: 5 };
     expect(trafficSortValue(connection, 'download')).toBe(20);

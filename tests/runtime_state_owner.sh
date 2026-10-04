@@ -10,6 +10,7 @@ UPDATES_RUNTIME="$ROOT_DIR/forkop/files/usr/lib/updates_runtime.sh"
 LIFECYCLE_UC="$ROOT_DIR/forkop/files/usr/lib/service/lifecycle.uc"
 UPDATES_UC="$ROOT_DIR/forkop/files/usr/lib/components/updates.uc"
 STATE_UC="$ROOT_DIR/forkop/files/usr/lib/service/state.uc"
+INITD_UC="$ROOT_DIR/forkop/files/usr/lib/service/initd.uc"
 NFT_UC="$ROOT_DIR/forkop/files/usr/lib/nft/apply.uc"
 
 fail() {
@@ -48,6 +49,13 @@ grep -Fq '#!/usr/bin/ucode' "$FORKOP_BIN" ||
   fail "forkop entrypoint must be a direct ucode executable"
 grep -Fq 'service/lifecycle.uc' "$CLI_UC" ||
   fail "service/cli.uc must dispatch lifecycle orchestration through service/lifecycle.uc"
+grep -Fq 'reload: [ "service/initd.uc", "reload-service", 1 ]' "$CLI_UC" ||
+  fail "public reload must enter initd runtime serialization"
+grep -Fq 'LIB_DIR + "/service/lifecycle.uc", "reload", reason' "$INITD_UC" ||
+  fail "initd must invoke lifecycle directly after taking reload.lock"
+if grep -Fq 'BIN_PATH, "reload", reason' "$INITD_UC"; then
+  fail "initd reload must not recurse through the public CLI"
+fi
 grep -Fq 'refresh-cron-from-uci' "$LIFECYCLE_UC" ||
   fail "service/lifecycle.uc start/reload must call the ucode cron refresh operation"
 grep -Fq 'remove-cron-jobs' "$LIFECYCLE_UC" ||

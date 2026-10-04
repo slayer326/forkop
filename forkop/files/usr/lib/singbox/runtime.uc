@@ -18,6 +18,10 @@ const SUBSCRIPTION_LINKS_DIR = getenv("FORKOP_SUBSCRIPTION_LINKS_DIR") || RUNTIM
 const SUBSCRIPTION_METADATA_DIR = getenv("FORKOP_SUBSCRIPTION_METADATA_DIR") || RUNTIME_STATE_DIR + "/subscription-metadata";
 const OUTBOUND_METADATA_DIR = getenv("FORKOP_OUTBOUND_METADATA_DIR") || RUNTIME_STATE_DIR + "/outbound-metadata";
 const SECTION_CACHE_DIR = getenv("FORKOP_SECTION_CACHE_DIR") || RUNTIME_STATE_DIR + "/section-cache";
+// Test-only fault boundary for the directory-swap transaction below.  Each
+// runtime invocation sees one immutable phase, so production has no mutable
+// hook or partially armed transaction state.
+const SECTION_CACHE_FAIL_PHASE = getenv("FORKOP_SECTION_CACHE_FAIL_PHASE") || "";
 const RUNTIME_CACHE_FORMAT_FILE = getenv("FORKOP_RUNTIME_CACHE_FORMAT_FILE") || RUNTIME_STATE_DIR + "/cache-format";
 const RUNTIME_CACHE_FORMAT = getenv("FORKOP_RUNTIME_CACHE_FORMAT") || "10";
 const PERSISTENT_SUBSCRIPTION_CACHE_DIR = getenv("FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_DIR") || "/etc/forkop/subscription-cache";
@@ -183,6 +187,53 @@ function ensure_dir(path) {
 function ensure_parent_dir(path) {
     let dir = parent_dir(path);
     return dir == "" || dir == "." || ensure_dir(dir);
+}
+
+function write_private_file(path, value) {
+    path = as_string(path);
+    value = as_string(value);
+    let fh = fs.open(path, "w", 0600);
+    if (fh == null)
+        return false;
+    if (!fs.chmod(path, 0600)) {
+        fh.close();
+        return false;
+    }
+    let written = fh.write(value);
+    fh.close();
+    return written != null;
+}
+
+function secure_section_cache_dir(path) {
+    path = as_string(path);
+    if (path == "" || !ensure_dir(path) || !fs.chmod(path, 0700))
+        return false;
+    let entries = fs.lsdir(path);
+    if (type(entries) != "array")
+        return false;
+    for (let entry in entries) {
+        entry = as_string(entry);
+        if (match(entry, /^[A-Za-z0-9_-]+\.json$/) != null &&
+            !fs.chmod(path + "/" + entry, 0600))
+            return false;
+    }
+    return true;
+}
+
+function seed_section_cache(target_dir) {
+    if (!secure_section_cache_dir(SECTION_CACHE_DIR) ||
+        !secure_section_cache_dir(target_dir))
+        return false;
+    let entries = fs.lsdir(SECTION_CACHE_DIR);
+    for (let entry in entries) {
+        entry = as_string(entry);
+        if (match(entry, /^[A-Za-z0-9_-]+\.json$/) == null)
+            continue;
+        let data = fs.readfile(SECTION_CACHE_DIR + "/" + entry);
+        if (data == null || !write_private_file(target_dir + "/" + entry, data))
+            return false;
+    }
+    return true;
 }
 
 function temp_path() {
@@ -704,41 +755,165 @@ function discard_config_stage(stage_path) {
     return true;
 }
 
-function restore_config_stage(backup_path) {
-    let config_path = option(uci_settings(), "config_path", "");
-    backup_path = as_string(backup_path);
-    return config_path != "" && file_exists(backup_path) &&
-        command_success_from_args([ "mv", "-f", backup_path, config_path ]);
-}
-
-function publish_section_cache(temp_config_path) {
-    let source_dir = as_string(temp_config_path) + ".section-cache";
+function copy_section_cache_tree(source_dir, target_dir) {
+    source_dir = as_string(source_dir);
+    target_dir = as_string(target_dir);
     let entries = fs.lsdir(source_dir);
-    if (type(entries) != "array")
-        return true;
-    if (!ensure_dir(SECTION_CACHE_DIR))
+    if (type(entries) != "array" || !secure_section_cache_dir(source_dir) ||
+        !secure_section_cache_dir(target_dir))
         return false;
 
     for (let entry in entries) {
         entry = as_string(entry);
         if (match(entry, /^[A-Za-z0-9_-]+\.json$/) == null)
             continue;
-
-        let source = source_dir + "/" + entry;
-        let data = fs.readfile(source);
-        if (data == null)
+        let data = fs.readfile(source_dir + "/" + entry);
+        if (data == null || !write_private_file(target_dir + "/" + entry, data))
             return false;
+    }
+    return true;
+}
 
-        let target = SECTION_CACHE_DIR + "/" + entry;
-        let temporary = target + ".tmp";
-        if (fs.writefile(temporary, data) == null || !fs.rename(temporary, target)) {
-            remove_file(temporary);
-            return false;
-        }
-        remove_file(source);
+function private_section_cache_transaction_dir() {
+    let parent = parent_dir(SECTION_CACHE_DIR);
+    if (parent == "" || !ensure_dir(parent))
+        return "";
+    let directory = trim(command_output_from_args([
+        "mktemp", "-d", parent + "/.section-cache-transaction.XXXXXX"
+    ]));
+    if (directory == "" || !fs.chmod(directory, 0700)) {
+        if (directory != "")
+            command_success_from_args([ "rm", "-rf", directory ]);
+        return "";
+    }
+    return directory;
+}
+
+function rollback_section_cache_swap(swap) {
+    if (swap == null || !swap.changed)
+        return true;
+
+    let rejected = swap.directory + "/rejected";
+    if (swap.published && fs.stat(SECTION_CACHE_DIR) != null &&
+        !fs.rename(SECTION_CACHE_DIR, rejected)) {
+        log_message("Failed to withdraw a section-cache candidate during rollback; recovery data preserved at " + swap.directory, "fatal");
+        return false;
+    }
+    if (swap.had_previous && (fs.stat(swap.previous) == null ||
+        !fs.rename(swap.previous, SECTION_CACHE_DIR))) {
+        // Keep a coherent live cache when the previous directory could not be
+        // restored.  The complete old cache remains in the private directory.
+        if (swap.published && fs.stat(rejected) != null)
+            fs.rename(rejected, SECTION_CACHE_DIR);
+        log_message("Failed to restore the previous section-cache; recovery data preserved at " + swap.directory, "fatal");
+        return false;
+    }
+    if (!command_success_from_args([ "rm", "-rf", swap.directory ])) {
+        log_message("Failed to remove a rolled-back section-cache transaction at " + swap.directory, "warn");
+        return false;
+    }
+    return true;
+}
+
+function begin_section_cache_swap(source_dir, allow_faults) {
+    source_dir = as_string(source_dir);
+    if (type(fs.lsdir(source_dir)) != "array")
+        return { ok: true, changed: false, source: source_dir };
+
+    let directory = private_section_cache_transaction_dir();
+    if (directory == "")
+        return null;
+    let swap = {
+        ok: true,
+        changed: true,
+        directory,
+        candidate: directory + "/candidate",
+        previous: directory + "/previous",
+        source: source_dir,
+        had_previous: fs.stat(SECTION_CACHE_DIR) != null,
+        published: false
+    };
+
+    if (!copy_section_cache_tree(source_dir, swap.candidate) ||
+        (allow_faults && SECTION_CACHE_FAIL_PHASE == "candidate-copy")) {
+        command_success_from_args([ "rm", "-rf", directory ]);
+        return null;
     }
 
-    command_success_from_args([ "rmdir", source_dir ]);
+    if (swap.had_previous && !fs.rename(SECTION_CACHE_DIR, swap.previous)) {
+        command_success_from_args([ "rm", "-rf", directory ]);
+        return null;
+    }
+    if (allow_faults && SECTION_CACHE_FAIL_PHASE == "after-live-move") {
+        if (!rollback_section_cache_swap(swap))
+            log_message("Injected section-cache failure could not be rolled back", "fatal");
+        return null;
+    }
+    if (!fs.rename(swap.candidate, SECTION_CACHE_DIR)) {
+        if (!rollback_section_cache_swap(swap))
+            log_message("Failed section-cache publication could not be rolled back", "fatal");
+        return null;
+    }
+    swap.published = true;
+    if (allow_faults && SECTION_CACHE_FAIL_PHASE == "after-publish") {
+        if (!rollback_section_cache_swap(swap))
+            log_message("Injected published section-cache failure could not be rolled back", "fatal");
+        return null;
+    }
+    return swap;
+}
+
+function finish_section_cache_swap(swap, consume_source) {
+    if (swap == null || !swap.changed)
+        return true;
+    if (consume_source && !command_success_from_args([ "rm", "-rf", swap.source ]))
+        return false;
+    if (!command_success_from_args([ "rm", "-rf", swap.directory ])) {
+        log_message("Failed to remove committed section-cache transaction at " + swap.directory, "warn");
+        return false;
+    }
+    return true;
+}
+
+function snapshot_section_cache(backup_path) {
+    let snapshot_dir = as_string(backup_path) + ".section-cache";
+    if (fs.stat(snapshot_dir) != null || !secure_section_cache_dir(snapshot_dir))
+        return false;
+    if (fs.stat(SECTION_CACHE_DIR) == null)
+        return true;
+    return copy_section_cache_tree(SECTION_CACHE_DIR, snapshot_dir);
+}
+
+function restore_config_stage(backup_path) {
+    let config_path = option(uci_settings(), "config_path", "");
+    backup_path = as_string(backup_path);
+    if (config_path == "" || !file_exists(backup_path))
+        return false;
+
+    let snapshot_dir = backup_path + ".section-cache";
+    let cache_swap = type(fs.lsdir(snapshot_dir)) == "array"
+        ? begin_section_cache_swap(snapshot_dir, false)
+        : { ok: true, changed: false, source: snapshot_dir };
+    if (cache_swap == null)
+        return false;
+    if (!command_success_from_args([ "mv", "-f", backup_path, config_path ])) {
+        rollback_section_cache_swap(cache_swap);
+        return false;
+    }
+    if (!finish_section_cache_swap(cache_swap, true))
+        log_message("The previous sing-box configuration was restored, but its section-cache transaction left private recovery files behind", "warn");
+    return true;
+}
+
+function publish_section_cache(temp_config_path) {
+    let source_dir = as_string(temp_config_path) + ".section-cache";
+    let swap = begin_section_cache_swap(source_dir, true);
+    if (swap == null)
+        return false;
+    if (!swap.changed)
+        return true;
+    if (!finish_section_cache_swap(swap, true))
+        return false;
     return true;
 }
 
@@ -749,14 +924,33 @@ function commit_config_stage(stage_path, backup_path) {
     if (config_path == "" || !file_exists(stage_path) || backup_path == "")
         return false;
 
+    let list_bootstrap = getenv("FORKOP_LIFECYCLE_LIST_BOOTSTRAP") == "1" ||
+        getenv("FORKOP_LIFECYCLE_SUBSCRIPTION_BOOTSTRAP") == "1";
     // The reload lifecycle creates this backup before the first live config
     // change. It is consumed only after nft and sing-box reach the same state.
-    // cp -p keeps the mode, so the live config is narrowed first (UC-037).
-    fs.chmod(config_path, 0600);
-    if (!command_success_from_args([ "cp", "-p", config_path, backup_path ]))
+    if (file_exists(config_path)) {
+        // A temporary list bootstrap restores the exact previous content and
+        // mode. Normal runtime publication keeps the UC-037 narrowing rule.
+        if (!list_bootstrap)
+            fs.chmod(config_path, 0600);
+        if (fs.stat(backup_path) != null ||
+            (!list_bootstrap && !snapshot_section_cache(backup_path)) ||
+            !command_success_from_args([ "cp", "-p", config_path, backup_path ])) {
+            if (!list_bootstrap)
+                discard_config_stage(backup_path);
+            return false;
+        }
+    }
+    else if (!list_bootstrap)
         return false;
     if (!save_config_file(stage_path, config_path))
         return false;
+    // This section cache describes only the temporary selected transport and
+    // must never replace dashboard metadata for the full configuration.
+    if (list_bootstrap) {
+        discard_config_stage(stage_path);
+        return true;
+    }
     if (!publish_section_cache(stage_path))
         return false;
     return true;
@@ -860,15 +1054,25 @@ function init_config(populate_nft, caches_prepared, no_refresh, prepared_deferre
             exit(1);
     }
 
+    // `stage_path` may itself be a plain mktemp file in /tmp during reload,
+    // not a private directory. Keep generation on its own unpredictable
+    // mktemp path; the sibling metadata directory is explicitly mode 0700.
     let temp_config = temp_path();
     let runtime_log = temp_path();
+    let generated_section_cache = temp_config + ".section-cache";
     if (temp_config == "" || runtime_log == "") {
         remove_files([ temp_config, runtime_log ]);
         exit(1);
     }
+    if (!seed_section_cache(generated_section_cache)) {
+        log_message("Failed to prepare the private sing-box dashboard cache stage. Aborted.", "fatal");
+        discard_config_stage(temp_config);
+        remove_file(runtime_log);
+        exit(1);
+    }
 
     let generate_status = command_status(
-        module_command([
+        command_env({ FORKOP_SECTION_CACHE_DIR: generated_section_cache }) + " " + module_command([
             LIB_DIR + "/singbox/generator.uc",
             "generate-config",
             temp_config,
@@ -884,7 +1088,8 @@ function init_config(populate_nft, caches_prepared, no_refresh, prepared_deferre
     if (generate_status != 0) {
         let reason = generator_failure_reason(runtime_log, generate_status);
         log_message("Failed to generate sing-box configuration: " + reason, "fatal");
-        remove_files([ temp_config, runtime_log ]);
+        discard_config_stage(temp_config);
+        remove_file(runtime_log);
         exit(1);
     }
     log_file_lines(runtime_log, "warn", "sing-box config generator: ");
@@ -892,9 +1097,12 @@ function init_config(populate_nft, caches_prepared, no_refresh, prepared_deferre
     // Configuration generation must be deterministic and network-free. Missing
     // remote rule sets are represented by an empty local placeholder and are
     // refreshed only by the serialized post-start/update worker.
-    if (!module_success([ RULESET_CACHE_UC, "materialize-config", temp_config, "cache-only" ])) {
+    if (getenv("FORKOP_LIFECYCLE_LIST_BOOTSTRAP") != "1" &&
+        getenv("FORKOP_LIFECYCLE_SUBSCRIPTION_BOOTSTRAP") != "1" &&
+        !module_success([ RULESET_CACHE_UC, "materialize-config", temp_config, "cache-only" ])) {
         log_message("Failed to materialize remote rule sets into the persistent local cache. Aborted.", "fatal");
-        remove_files([ temp_config, runtime_log ]);
+        discard_config_stage(temp_config);
+        remove_file(runtime_log);
         exit(1);
     }
 
@@ -903,7 +1111,8 @@ function init_config(populate_nft, caches_prepared, no_refresh, prepared_deferre
         : sing_box_check(temp_config, runtime_log);
     if (check_result.status != 0) {
         log_message("Generated sing-box configuration is invalid: " + check_result.reason + ". Aborted.", "fatal");
-        remove_files([ temp_config, runtime_log ]);
+        discard_config_stage(temp_config);
+        remove_file(runtime_log);
         exit(1);
     }
 
@@ -924,12 +1133,20 @@ function init_config(populate_nft, caches_prepared, no_refresh, prepared_deferre
         NFT_LOCALV6_SET_NAME
     ])) {
         log_message("Failed to update nftables runtime sets from the generated sing-box configuration. Aborted.", "fatal");
-        remove_files([ temp_config, runtime_log ]);
+        discard_config_stage(temp_config);
+        remove_file(runtime_log);
         exit(1);
     }
 
     if (as_string(stage_path) != "") {
-        if (!ensure_parent_dir(stage_path) || !command_success_from_args([ "mv", "-f", temp_config, stage_path ])) {
+        let stage_cache = as_string(stage_path) + ".section-cache";
+        command_success_from_args([ "rm", "-rf", stage_cache ]);
+        if (!ensure_parent_dir(stage_path) ||
+            !command_success_from_args([ "mv", "-f", temp_config, stage_path ]) ||
+            (file_exists(generated_section_cache) &&
+                !command_success_from_args([ "mv", "-f", generated_section_cache, stage_cache ]))) {
+            discard_config_stage(temp_config);
+            discard_config_stage(stage_path);
             remove_file(runtime_log);
             exit(1);
         }
@@ -939,11 +1156,13 @@ function init_config(populate_nft, caches_prepared, no_refresh, prepared_deferre
     }
 
     if (!save_config_file(temp_config, config_path)) {
+        discard_config_stage(temp_config);
         remove_file(runtime_log);
         exit(1);
     }
     if (!publish_section_cache(temp_config)) {
         log_message("Failed to publish sing-box dashboard cache", "error");
+        discard_config_stage(temp_config);
         remove_file(runtime_log);
         exit(1);
     }

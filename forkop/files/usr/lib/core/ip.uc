@@ -1,5 +1,17 @@
 #!/usr/bin/env ucode
 
+let fs = require("fs");
+
+// A local IPv6 TPROXY route needs IPv6 in the kernel and on loopback.  Keep
+// the old test override as an alias while sharing this decision with nft,
+// sing-box generation and runtime readiness checks.
+function ipv6_tproxy_enabled() {
+    let root = getenv("FORKOP_IPV6_SYSCTL_DIR") || getenv("FORKOP_IPV6_CONF_DIR") || "/proc/sys/net/ipv6/conf";
+    let all = fs.readfile(root + "/all/disable_ipv6");
+    let lo = fs.readfile(root + "/lo/disable_ipv6");
+    return all != null && lo != null && trim(all) == "0" && trim(lo) == "0";
+}
+
 function as_string(value) {
     return value == null ? "" : "" + value;
 }
@@ -203,6 +215,7 @@ function discord_voice_port_matchers() {
 }
 
 return {
+    ipv6_tproxy_enabled,
     valid_ipv4,
     valid_ipv4_cidr,
     valid_ipv6,

@@ -14,6 +14,7 @@ LIB="$ROOT/forkop/files/usr/lib"
 INITD_UC="$LIB/service/initd.uc"
 STATE_UC="$LIB/service/state.uc"
 INITD="$ROOT/forkop/files/etc/init.d/forkop"
+PUBLIC_CLI="$ROOT/forkop/files/usr/bin/forkop"
 REAL_UCODE="$(command -v ucode)"
 WORK="$(mktemp -d)"
 holder=""
@@ -30,22 +31,43 @@ export FORKOP_BIN="$WORK/bin/forkop"
 export FORKOP_RUNTIME_STATE_DIR="$WORK/run/forkop"
 export FORKOP_PENDING_RELOAD_FILE="$WORK/run/forkop/reload.pending"
 export FORKOP_RELOAD_LOCK_DIR="$WORK/run/forkop.reload.lock"
+export FORKOP_EXPLICIT_START_FILE="$WORK/run/forkop/start.explicit"
+export FORKOP_STOP_REQUESTED_FILE="$WORK/run/forkop/stop.requested"
+export FORKOP_SERVICE_TRIGGER_SYNC_FILE="$WORK/run/forkop/service-triggers.sync"
+export FORKOP_TEST_RUNTIME_DOWN="$WORK/run/runtime.down"
 export FORKOP_SERVICE_INIT="$WORK/init.d"
 export PATH="$WORK/bin:$PATH"
+: > "$FORKOP_EXPLICIT_START_FILE"
 
 # UI state and dnsmasq failsafe are outside this contract.
 cat > "$WORK/bin/ucode" <<'STUB'
 #!/bin/sh
 case "${3:-}" in
   */service/ui.uc|*/dns/apply.uc) exit 0 ;;
+  */service/state.uc)
+    if [ "${4:-}" = sing-box-process-conflict ] &&
+       [ "${FORKOP_TEST_PROCESS_CONFLICT:-0}" = 1 ]; then
+      exit 0
+    fi
+    ;;
+  */service/lifecycle.uc)
+    [ "${4:-}" = reload ] || exit 97
+    printf 'lifecycle reload %s\n' "${5:-}" >> "$FORKOP_RUNTIME_STATE_DIR/runtime.log"
+    exit "${FORKOP_TEST_LIFECYCLE_STATUS:-0}"
+    ;;
 esac
 exec "$REAL_UCODE" "$@"
 STUB
 cat > "$WORK/bin/forkop" <<'STUB'
 #!/bin/sh
 case "$1" in
-  get_status) echo '{"running":true}' ;;
-  reload) echo "runtime reload $*" >> "$FORKOP_RUNTIME_STATE_DIR/runtime.log" ;;
+  get_status)
+    if [ -e "$FORKOP_TEST_RUNTIME_DOWN" ]; then
+      echo '{"running":false}'
+    else
+      echo '{"running":true}'
+    fi
+    ;;
 esac
 exit 0
 STUB
@@ -100,6 +122,15 @@ out="$("$WORK/init.d" reload)" || fail "init.d changed the status of an ordinary
 [ -z "$out" ] || fail "init.d printed '$out' for an ordinary reload"
 [ ! -e "$FORKOP_RUNTIME_STATE_DIR/runtime.log" ] || fail "a queued request reached the runtime"
 
+# 3b. The public CLI enters the same queue. It must not bypass reload.lock or
+#     reach lifecycle while another transition owns the runtime.
+rm -f "$FORKOP_PENDING_RELOAD_FILE"
+out="$("$REAL_UCODE" "$PUBLIC_CLI" reload direct-cli)" || fail "direct CLI reload changed the queued status"
+[ -z "$out" ] || fail "direct ordinary reload printed '$out' while queued"
+[ "$(sed -n 1p "$FORKOP_PENDING_RELOAD_FILE")" = "reason=direct-cli" ] ||
+  fail "direct CLI reload did not preserve its queued reason"
+[ ! -e "$FORKOP_RUNTIME_STATE_DIR/runtime.log" ] || fail "direct queued reload bypassed reload.lock"
+
 # 4. Every queued request leaves a distinct marker, also within one second
 #    and with the same reason (initd.uc and state.uc writers alike).
 for _ in 1 2 3; do
@@ -114,13 +145,51 @@ for _ in 1 2 3; do
   [ "$(sed -n 1p "$FORKOP_PENDING_RELOAD_FILE")" = "reason=reload_busy" ] || fail "state.uc marker lost its reason"
 done
 
-# 5. A free lock runs the reload: no token, the runtime reload happens.
+# 5. A free lock runs the reload through lifecycle directly: no recursion
+#    through the public CLI and no lock leak.
 kill "$holder"; wait "$holder" 2>/dev/null || true; holder=""
 rm -f "$FORKOP_RELOAD_LOCK_DIR/pid"; rmdir "$FORKOP_RELOAD_LOCK_DIR"
 rm -f "$FORKOP_PENDING_RELOAD_FILE"
 out="$("$WORK/init.d" reload config-restore)" || fail "a completed restore reload failed"
 [ -z "$out" ] || fail "a completed restore reload printed '$out'"
-grep -q '^runtime reload reload config-restore$' "$FORKOP_RUNTIME_STATE_DIR/runtime.log" || fail "restore reload did not run"
+grep -q '^lifecycle reload config-restore$' "$FORKOP_RUNTIME_STATE_DIR/runtime.log" || fail "restore reload did not run lifecycle directly"
 [ ! -e "$FORKOP_RELOAD_LOCK_DIR" ] || fail "reload lock not released"
+
+# 6. The public CLI keeps initd's sync acknowledgement after a completed
+#    config-change reload.
+: > "$FORKOP_SERVICE_TRIGGER_SYNC_FILE"
+printf '1\n' > "$FORKOP_SERVICE_TRIGGER_SYNC_FILE"
+out="$("$REAL_UCODE" "$PUBLIC_CLI" reload on_config_change)" || fail "direct completed reload failed"
+[ "$out" = sync ] || fail "direct completed reload lost the sync token (got '$out')"
+grep -q '^lifecycle reload on_config_change$' "$FORKOP_RUNTIME_STATE_DIR/runtime.log" ||
+  fail "direct completed reload did not reach lifecycle"
+[ ! -e "$FORKOP_RELOAD_LOCK_DIR" ] || fail "direct completed reload leaked reload.lock"
+
+# 7. Ambiguous sing-box ownership is rejected before a request can be queued
+#    or lifecycle can change the active policy.
+rm -f "$FORKOP_PENDING_RELOAD_FILE"
+before="$(wc -l < "$FORKOP_RUNTIME_STATE_DIR/runtime.log")"
+if FORKOP_TEST_PROCESS_CONFLICT=1 "$REAL_UCODE" "$PUBLIC_CLI" reload conflict; then
+  fail "direct reload accepted ambiguous sing-box ownership"
+fi
+[ ! -e "$FORKOP_PENDING_RELOAD_FILE" ] || fail "ownership conflict was turned into a queued reload"
+[ "$(wc -l < "$FORKOP_RUNTIME_STATE_DIR/runtime.log")" = "$before" ] ||
+  fail "ownership conflict reached lifecycle"
+[ ! -e "$FORKOP_RELOAD_LOCK_DIR" ] || fail "ownership conflict leaked reload.lock"
+
+# 8. D-15 remains intact for the public CLI: after an explicit stop, reload
+#    does not start or touch the runtime. Transaction callers retain the
+#    `stopped` acknowledgement.
+rm -f "$FORKOP_EXPLICIT_START_FILE" "$FORKOP_PENDING_RELOAD_FILE"
+: > "$FORKOP_STOP_REQUESTED_FILE"
+: > "$FORKOP_TEST_RUNTIME_DOWN"
+before="$(wc -l < "$FORKOP_RUNTIME_STATE_DIR/runtime.log")"
+out="$(FORKOP_TEST_PROCESS_CONFLICT=1 "$REAL_UCODE" "$PUBLIC_CLI" reload config-restore)" ||
+  fail "stopped direct reload failed while foreign sing-box was present"
+[ "$out" = stopped ] || fail "stopped direct reload lost the stopped token (got '$out')"
+[ "$(wc -l < "$FORKOP_RUNTIME_STATE_DIR/runtime.log")" = "$before" ] ||
+  fail "stopped direct reload reached lifecycle"
+[ ! -e "$FORKOP_PENDING_RELOAD_FILE" ] || fail "stopped direct reload was queued"
+[ ! -e "$FORKOP_RELOAD_LOCK_DIR" ] || fail "stopped direct reload leaked reload.lock"
 
 printf 'reload_queue_ack: PASS\n'

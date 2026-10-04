@@ -26,6 +26,8 @@ let runtime_ruleset_folder = runtime_constants.TMP_RULESET_FOLDER;
 let runtime_supports_xhttp = true;
 let runtime_supports_dns_response_matching = false;
 let provider_urltest_start_seed = "";
+let subscription_bootstrap_dns_section = "";
+const IPV6_TPROXY_ENABLED = core_ip.ipv6_tproxy_enabled();
 
 let as_string = common.as_string;
 let read_json_file = common.read_json_file;
@@ -33,7 +35,6 @@ let read_stdin = common.read_stdin;
 let read_stdin_json = common.read_stdin_json;
 let write_json = common.write_json;
 let csv_to_json_array = common.csv_to_json_array;
-let write_json_file = common.write_json_file;
 let strip_internal_fields = common.strip_internal_fields;
 let array_or_empty = common.array_or_empty;
 let object_or_empty = common.object_or_empty;
@@ -84,23 +85,33 @@ function ensure_dir(path) {
     return fs.mkdir(path, 0755) || fs.stat(path) != null;
 }
 
-function ensure_parent_dir(path) {
-    return ensure_dir(parent_dir(path));
+function ensure_private_dir(path) {
+    path = as_string(path);
+    if (path == "" || path == "/")
+        return false;
+    if (fs.stat(path) == null) {
+        let parent = parent_dir(path);
+        if (parent != "" && !ensure_dir(parent))
+            return false;
+        if (!fs.mkdir(path, 0700) && fs.stat(path) == null)
+            return false;
+    }
+    return !!fs.chmod(path, 0700);
 }
 
-function atomic_write_json_file(path, value) {
+function atomic_write_private_json_file(path, value) {
     let stamp = clock();
     let tmp_path = sprintf("%s.%d.%d.tmp", path, stamp[0], stamp[1]);
 
-    if (!ensure_parent_dir(path))
+    if (!ensure_private_dir(parent_dir(path)))
         return false;
-    if (!write_json_file(tmp_path, value))
+    if (!common.write_private_json_file(tmp_path, value))
         return false;
     if (!fs.rename(tmp_path, path)) {
         fs.unlink(tmp_path);
         return false;
     }
-    return true;
+    return !!fs.chmod(path, 0600);
 }
 
 function fixture_section_list(type_name) {
@@ -433,7 +444,9 @@ function cli_bool(value) {
 }
 
 function tproxy_inbound_matcher() {
-    return [ runtime_constants.TPROXY_INBOUND_TAG, runtime_constants.TPROXY_INBOUND6_TAG ];
+    return IPV6_TPROXY_ENABLED
+        ? [ runtime_constants.TPROXY_INBOUND_TAG, runtime_constants.TPROXY_INBOUND6_TAG ]
+        : [ runtime_constants.TPROXY_INBOUND_TAG ];
 }
 
 function source_dns_inbound_matcher() {
@@ -475,10 +488,11 @@ function base_config(settings, service_address, runtime_context) {
 
     runtime_context = object_or_empty(runtime_context);
     let inbounds = [
-        { type: "tproxy", tag: runtime_constants.TPROXY_INBOUND_TAG, listen: runtime_constants.TPROXY_INBOUND_ADDRESS, listen_port: runtime_constants.TPROXY_INBOUND_PORT, tcp_fast_open: true, udp_fragment: true },
-        { type: "tproxy", tag: runtime_constants.TPROXY_INBOUND6_TAG, listen: runtime_constants.TPROXY_INBOUND6_ADDRESS, listen_port: runtime_constants.TPROXY_INBOUND_PORT, tcp_fast_open: true, udp_fragment: true },
-        { type: "direct", tag: runtime_constants.DNS_INBOUND_TAG, listen: runtime_constants.DNS_INBOUND_ADDRESS, listen_port: runtime_constants.DNS_INBOUND_PORT }
+        { type: "tproxy", tag: runtime_constants.TPROXY_INBOUND_TAG, listen: runtime_constants.TPROXY_INBOUND_ADDRESS, listen_port: runtime_constants.TPROXY_INBOUND_PORT, tcp_fast_open: true, udp_fragment: true }
     ];
+    if (IPV6_TPROXY_ENABLED)
+        push(inbounds, { type: "tproxy", tag: runtime_constants.TPROXY_INBOUND6_TAG, listen: runtime_constants.TPROXY_INBOUND6_ADDRESS, listen_port: runtime_constants.TPROXY_INBOUND_PORT, tcp_fast_open: true, udp_fragment: true });
+    push(inbounds, { type: "direct", tag: runtime_constants.DNS_INBOUND_TAG, listen: runtime_constants.DNS_INBOUND_ADDRESS, listen_port: runtime_constants.DNS_INBOUND_PORT });
     if (runtime_context.source_aware_dns)
         push(inbounds, { type: "direct", tag: runtime_constants.SOURCE_DNS_INBOUND_TAG, listen: runtime_constants.SOURCE_DNS_INBOUND_ADDRESS, listen_port: runtime_constants.SOURCE_DNS_INBOUND_PORT });
     for (let inbound in dns_config.inbounds)
@@ -1591,9 +1605,15 @@ function add_global_download_service_mixed_proxy(config, settings, purpose) {
     );
 }
 
-function add_subscription_download_service_mixed_proxies(config, sections) {
-    for (let target in connections.subscription_download_targets(sections)) {
-        let port = connections.subscription_download_target_port(sections, target, runtime_constants.SERVICE_MIXED_INBOUND_PORT);
+function add_subscription_download_service_mixed_proxies(config, configured, available) {
+    for (let target in connections.subscription_download_targets(configured)) {
+        // The source section may be deferred, but its selected transport can
+        // already be part of this runtime. Expose that stable port so the
+        // post-start recovery worker can fetch the missing subscription
+        // without ever falling back to a direct request.
+        if (section_by_name(available, target) == null)
+            continue;
+        let port = connections.subscription_download_target_port(configured, target, runtime_constants.SERVICE_MIXED_INBOUND_PORT);
         if (port <= 0)
             runtime_generate_unsupported("subscription download proxy port could not be resolved");
 
@@ -1606,13 +1626,14 @@ function add_subscription_download_service_mixed_proxies(config, sections) {
     }
 }
 
-function add_service_mixed_proxy(config, settings, sections) {
-    if (!download_via_proxy_any_enabled(settings, sections))
+function add_service_mixed_proxy(config, settings, sections, configured) {
+    configured = configured || sections;
+    if (!download_via_proxy_any_enabled(settings, configured))
         return;
 
     add_global_download_service_mixed_proxy(config, settings, "lists");
     add_global_download_service_mixed_proxy(config, settings, "components");
-    add_subscription_download_service_mixed_proxies(config, sections);
+    add_subscription_download_service_mixed_proxies(config, configured, sections);
 
     if (download_via_proxy_enabled(settings, "lists") && download_detour_tag(settings, "lists") == "")
         runtime_generate_unsupported("download lists via proxy section is not set");
@@ -2325,7 +2346,7 @@ function add_connections_outbound(config, section, taken) {
     state.urltestCandidateTags = unique_string_array(urltest_candidate_tags);
     runtime_subscription.resolve_urltest_profile_aliases(state);
     add_proxy_selector(config, section, selector_tags, urltest_candidate_tags, state);
-    if (!atomic_write_json_file(runtime_subscription.section_cache_path(section_name), state))
+    if (!atomic_write_private_json_file(runtime_subscription.section_cache_path(section_name), state))
         runtime_generate_unsupported("failed to write section cache for " + section_name);
 }
 
@@ -3144,14 +3165,22 @@ function add_combined_route_for_section(config, section) {
         let rule_set_rule = {
             action: target.action,
             inbound: tproxy_inbound_matcher(),
-            rule_set: single_or_array(rule_set_tags)
+            rule_set: null
         };
         if (target.outbound)
             rule_set_rule.outbound = target.outbound;
         if (length(source_ip_cidr) > 0)
             rule_set_rule.source_ip_cidr = source_ip_cidr;
         add_port_matchers(rule_set_rule, section);
-        push_section_route_rule(config, section, rule_set_rule);
+        // Keep the same OR semantics and order while giving Clash metadata one
+        // exact matching list instead of the whole combined list collection.
+        for (let tag_name in rule_set_tags) {
+            let alternative = {};
+            for (let key, value in rule_set_rule)
+                alternative[key] = value;
+            alternative.rule_set = tag_name;
+            push_section_route_rule(config, section, alternative);
+        }
     }
 
     let rewrite_ttl = int_option(runtime_settings(), "dns_rewrite_ttl", "60");
@@ -3293,6 +3322,225 @@ function section_by_name(sections, name) {
     return null;
 }
 
+// Return only the unavailable subscription sections that are structural
+// dependencies of the final runtime. Those sections must be recovered before
+// generation: otherwise a surviving outbound, DNS detour, or service download
+// proxy would reference an outbound that was removed with the deferred rule.
+// Unrelated deferred leaf rules remain disabled for the ordinary post-start
+// recovery worker and must not block a valid cold start.
+function startup_required_deferred(deferred_sections) {
+    let configured = enabled_sections("");
+    let deferred = deferred_section_set(deferred_sections);
+    let settings = runtime_settings();
+    let result = [];
+    let included = {};
+    let visited = {};
+
+    function visit(name) {
+        name = as_string(name);
+        if (name == "" || visited[name])
+            return;
+        visited[name] = true;
+        let section = section_by_name(configured, name);
+        if (section == null)
+            return;
+
+        if (deferred[name] && !included[name]) {
+            included[name] = true;
+            push(result, name);
+        }
+        if (bool_option(section, "outbound_detour_enabled", false))
+            visit(option(section, "outbound_detour_section", ""));
+        if (bool_option(section, "dns_detour_enabled", false))
+            visit(option(section, "dns_detour_section", ""));
+        if (deferred[name])
+            for (let source in connections.subscription_urls(section)) {
+                let target = connections.subscription_download_section(section, source);
+                if (target != "" && target != name)
+                    visit(target);
+            }
+    }
+
+    // Both service proxy inbounds are part of the full configuration whenever
+    // their setting is enabled, including configurations with no list source.
+    if (download_via_proxy_enabled(settings, "lists"))
+        visit(download_via_proxy_section(settings, "lists"));
+    if (download_via_proxy_enabled(settings, "components"))
+        visit(download_via_proxy_section(settings, "components"));
+
+    if (bool_option(settings, "dns_detour_enabled", false))
+        visit(option(settings, "dns_detour_section", ""));
+
+    // A non-deferred section is retained in the final runtime. Its complete
+    // outbound-detour chain therefore has to be retained as well.
+    for (let section in configured) {
+        let name = as_string(section[".name"]);
+        if (!deferred[name])
+            visit(name);
+    }
+
+    return join(" ", result);
+}
+
+// The list bootstrap exposes only the selected download section.  Include a
+// configured outbound detour chain because the selected outbound cannot dial
+// without it, but omit every unrelated routing section.
+function bootstrap_sections(sections, target_name, settings) {
+    let result = [];
+    let included = {};
+    let visiting = {};
+
+    function include(name) {
+        name = as_string(name);
+        if (included[name])
+            return;
+        if (name == "" || visiting[name])
+            runtime_generate_unsupported("list download section has an invalid outbound detour chain");
+
+        let section = section_by_name(sections, name);
+        if (section == null)
+            runtime_generate_unsupported("list download section has no usable connection");
+        if (!connections.is_connections_action(option(section, "action", "")))
+            runtime_generate_unsupported("initial list download through a section requires a Connection/VPN rule");
+
+        visiting[name] = true;
+        if (bool_option(section, "outbound_detour_enabled", false))
+            include(option(section, "outbound_detour_section", ""));
+        delete visiting[name];
+        included[name] = true;
+        push(result, section);
+    }
+
+    let target_section = section_by_name(sections, target_name);
+    if (target_section == null)
+        runtime_generate_unsupported("list download section has no usable connection");
+    // Provider actions depend on their own processes and, for Zapret, on the
+    // production nft policy which deliberately does not exist during this
+    // fail-closed pre-start phase. Cached starts keep working; a cacheless
+    // bootstrap must use an actual Connection/VPN section.
+    if (!connections.is_connections_action(option(target_section, "action", "")))
+        runtime_generate_unsupported("initial list download through a section requires a Connection/VPN rule");
+    include(target_name);
+    // The ordinary DNS server may itself be routed through a dedicated
+    // section.  base_config keeps that detour in the short-lived bootstrap,
+    // so its complete outbound chain must be present too or sing-box check
+    // would reject an otherwise valid cold start.
+    if (bool_option(settings, "dns_detour_enabled", false))
+        include(option(settings, "dns_detour_section", ""));
+    return result;
+}
+
+function subscription_bootstrap_targets(sections, deferred_sections) {
+    let deferred = deferred_section_set(deferred_sections);
+    let result = [];
+    let seen = {};
+    for (let section in sections) {
+        let section_name = as_string(section[".name"]);
+        if (!deferred[section_name])
+            continue;
+        for (let source in connections.subscription_urls(section)) {
+            let target = connections.subscription_download_section(section, source);
+            if (target == "" || target == section_name || seen[target])
+                continue;
+            seen[target] = true;
+            push(result, target);
+        }
+    }
+    return result;
+}
+
+// A subscription-only list connection can itself need another connection for
+// its HTTPS subscription.  Before the list bootstrap, expose only those
+// already-available dependency sections on their stable service-proxy ports.
+function subscription_bootstrap_sections(configured, available, deferred_sections, settings) {
+    let result = [];
+    let included = {};
+    let visiting = {};
+    subscription_bootstrap_dns_section = "";
+
+    function include(name) {
+        name = as_string(name);
+        if (included[name])
+            return true;
+        if (name == "" || visiting[name])
+            runtime_generate_unsupported("subscription bootstrap has an invalid outbound detour chain");
+        let section = section_by_name(available, name);
+        if (section == null)
+            return false;
+        if (!connections.is_connections_action(option(section, "action", "")))
+            runtime_generate_unsupported("subscription bootstrap requires Connection/VPN dependency rules");
+        visiting[name] = true;
+        if (bool_option(section, "outbound_detour_enabled", false) &&
+            !include(option(section, "outbound_detour_section", ""))) {
+            delete visiting[name];
+            return false;
+        }
+        delete visiting[name];
+        included[name] = true;
+        push(result, section);
+        return true;
+    }
+
+    function include_ready_dependency(name, dependency_visiting) {
+        name = as_string(name);
+        if (name == "" || dependency_visiting[name])
+            return "";
+        dependency_visiting[name] = true;
+        if (include(name)) {
+            delete dependency_visiting[name];
+            return name;
+        }
+
+        let section = section_by_name(configured, name);
+        if (section != null)
+            for (let source in connections.subscription_urls(section)) {
+                let target = connections.subscription_download_section(section, source);
+                if (target == "" || target == name)
+                    continue;
+                let ready = include_ready_dependency(target, dependency_visiting);
+                if (ready != "") {
+                    delete dependency_visiting[name];
+                    return ready;
+                }
+            }
+        delete dependency_visiting[name];
+        return "";
+    }
+
+    for (let target in subscription_bootstrap_targets(configured, deferred_sections))
+        include(target);
+    if (bool_option(settings, "dns_detour_enabled", false)) {
+        let dns_target = option(settings, "dns_detour_section", "");
+        subscription_bootstrap_dns_section = include_ready_dependency(dns_target, {});
+        if (subscription_bootstrap_dns_section == "")
+            runtime_generate_unsupported("subscription bootstrap DNS detour is unavailable");
+    }
+    if (length(result) == 0)
+        runtime_generate_unsupported("deferred subscriptions have no available download connection");
+    return result;
+}
+
+function add_subscription_bootstrap_service_proxies(config, configured, selected, deferred_sections) {
+    let count = 0;
+    for (let target in subscription_bootstrap_targets(configured, deferred_sections)) {
+        if (section_by_name(selected, target) == null)
+            continue;
+        let port = connections.subscription_download_target_port(
+            configured, target, runtime_constants.SERVICE_MIXED_INBOUND_PORT);
+        if (port <= 0)
+            runtime_generate_unsupported("subscription download proxy port could not be resolved");
+        add_service_mixed_proxy_inbound(
+            config,
+            runtime_constants.inbound_tag("service-subscription-" + target),
+            port,
+            outbound_tag(target)
+        );
+        count++;
+    }
+    if (count == 0)
+        runtime_generate_unsupported("deferred subscriptions have no available service proxy");
+}
+
 function generate_config(output_path, service_address, mwan3_active, supports_xhttp, deferred_sections, sing_box_version) {
     runtime_supports_xhttp = supports_xhttp == null || as_string(supports_xhttp) == ""
         ? true
@@ -3302,11 +3550,26 @@ function generate_config(output_path, service_address, mwan3_active, supports_xh
     runtime_settings_cache = object_or_empty(cursor.get_all(CONFIG_NAME, "settings"));
     let settings = runtime_settings_cache;
 
-    let sections = enabled_sections(deferred_sections);
-    if (length(sections) == 0 && trim(as_string(deferred_sections)) == "")
+    let all_sections = enabled_sections(deferred_sections);
+    if (length(all_sections) == 0 && trim(as_string(deferred_sections)) == "")
         runtime_generate_unsupported("no enabled sections");
 
-    let source_aware_dns = source_aware_dns_sources(sections);
+    let bootstrap_lists = getenv("FORKOP_LIFECYCLE_LIST_BOOTSTRAP") == "1";
+    let bootstrap_subscriptions = getenv("FORKOP_LIFECYCLE_SUBSCRIPTION_BOOTSTRAP") == "1";
+    let all_configured_sections = enabled_sections("");
+    let configured_sections = bootstrap_subscriptions ? all_configured_sections : all_sections;
+    let sections = bootstrap_lists
+        ? bootstrap_sections(all_sections, download_via_proxy_section(settings, "lists"), settings)
+        : (bootstrap_subscriptions
+            ? subscription_bootstrap_sections(configured_sections, all_sections, deferred_sections, settings)
+            : all_sections);
+    // When the configured global DNS detour is itself the deferred section we
+    // are recovering, resolve that subscription through the first ready
+    // dependency in its explicitly configured chain. This preserves the DNS
+    // detour guarantee without a direct fallback or a circular outbound.
+    if (bootstrap_subscriptions && subscription_bootstrap_dns_section != "")
+        settings.dns_detour_section = subscription_bootstrap_dns_section;
+    let source_aware_dns = (bootstrap_lists || bootstrap_subscriptions) ? [] : source_aware_dns_sources(sections);
     let config = base_config(settings, service_address, {
         mwan3_active: cli_bool(mwan3_active),
         source_aware_dns: length(source_aware_dns) > 0
@@ -3321,15 +3584,41 @@ function generate_config(output_path, service_address, mwan3_active, supports_xh
     let taken = reserved_runtime_tag_set(config.outbounds);
     reserve_section_outbound_tags(sections, taken);
     for (let section in sections)
-        add_outbound_for_section(config, section, taken, sections);
-    add_direct_proxy(config, settings, service_address);
-    add_service_route_rules(config, sections);
-    for (let section in sections)
-        add_route_for_section(config, section);
-    add_source_aware_dns_fallback(config, source_aware_dns);
-    add_service_mixed_proxy(config, settings, sections);
-    for (let section in sections)
-        add_mixed_proxy_for_section(config, section, service_address);
+        add_outbound_for_section(config, section, taken, configured_sections);
+    if (bootstrap_lists || bootstrap_subscriptions) {
+        // No interception, DNS listener, Clash API, rule sets, or shared
+        // runtime cache exists in this short-lived transport configuration.
+        config.inbounds = [];
+        config.route.rules = [];
+        delete config.route.rule_set;
+        config.dns.rules = [];
+        delete config.experimental;
+
+        if (bootstrap_lists) {
+            let target = download_detour_tag(settings, "lists");
+            let found = false;
+            for (let outbound in config.outbounds)
+                if (as_string(outbound.tag) == target)
+                    found = true;
+            if (target == "" || !found)
+                runtime_generate_unsupported("list download section has no usable connection");
+            add_global_download_service_mixed_proxy(config, settings, "lists");
+        }
+        else {
+            add_subscription_bootstrap_service_proxies(
+                config, configured_sections, sections, deferred_sections);
+        }
+    }
+    else {
+        add_direct_proxy(config, settings, service_address);
+        add_service_route_rules(config, sections);
+        for (let section in sections)
+            add_route_for_section(config, section);
+        add_source_aware_dns_fallback(config, source_aware_dns);
+        add_service_mixed_proxy(config, settings, sections, all_configured_sections);
+        for (let section in sections)
+            add_mixed_proxy_for_section(config, section, service_address);
+    }
 
     assert_unique_outbound_tags(config);
     strip_internal_fields(config);
@@ -3344,6 +3633,11 @@ function generate_config_fixture(fixture_path, output_path, service_address, mwa
     runtime_subscription.set_section_cache_dir(output_path + ".section-cache");
     runtime_ruleset_folder = output_path + ".rulesets";
     generate_config(output_path, service_address, mwan3_active, supports_xhttp, deferred_sections, sing_box_version);
+}
+
+function startup_required_deferred_fixture(fixture_path, deferred_sections) {
+    use_fixture_cursor(fixture_path);
+    print(startup_required_deferred(deferred_sections), "\n");
 }
 
 function stdin_length() {
@@ -3460,6 +3754,10 @@ if (mode == "generate-config")
     generate_config(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5] || "", ARGV[6] || "");
 else if (mode == "generate-config-fixture")
     generate_config_fixture(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6] || "", ARGV[7] || "");
+else if (mode == "startup-required-deferred" || mode == "list-bootstrap-required-deferred")
+    print(startup_required_deferred(ARGV[1] || ""), "\n");
+else if (mode == "startup-required-deferred-fixture" || mode == "list-bootstrap-required-deferred-fixture")
+    startup_required_deferred_fixture(ARGV[1], ARGV[2] || "");
 else if (mode == "stdin-length")
     stdin_length();
 else if (mode == "stdin-contains")

@@ -2465,7 +2465,6 @@ var SUBSCRIPTION_UPDATE_RPC_TIMEOUT_MS = 15e3;
 var SUBSCRIPTION_UPDATE_POLL_INTERVAL_MS = 1500;
 var UI_ACTION_RPC_TIMEOUT_MS = 15e3;
 var UI_ACTION_TRANSIENT_RPC_GRACE_MS = 3e4;
-var SERVICE_ACTION_TIMEOUT_MS = 2 * 60 * 1e3;
 var SERVICE_ACTION_POLL_INTERVAL_MS = 1e3;
 var LATENCY_TEST_TIMEOUT_MS = 30 * 1e3;
 var LATENCY_TEST_POLL_INTERVAL_MS = 1e3;
@@ -2483,6 +2482,20 @@ function sleep(ms) {
 }
 function translate(message) {
   return typeof _ === "function" ? _(message) : message;
+}
+function localizeServiceActionMessage(message) {
+  switch (message) {
+    case "Forkop X is busy updating data or applying settings. Wait for the operation to finish, then try restarting again.":
+      return _(
+        "Forkop X is busy updating data or applying settings. Wait for the operation to finish, then try restarting again."
+      );
+    case "Service restart failed":
+      return _("Service restart failed");
+    case "Another service action is already running":
+      return _("Another service action is already running");
+    default:
+      return message;
+  }
 }
 function parseJsonObjectOutput(output) {
   if (!output) {
@@ -2846,6 +2859,11 @@ var ForkopShellMethods = {
       timeout: UI_ACTION_RPC_TIMEOUT_MS
     });
     const parsedResponse = parseUiActionStartResult(response);
+    if (parsedResponse) {
+      parsedResponse.message = localizeServiceActionMessage(
+        parsedResponse.message
+      );
+    }
     if ((response.code ?? 0) !== 0 || !parsedResponse?.success || !parsedResponse.job_id) {
       return uiActionFailure(
         response,
@@ -2884,6 +2902,11 @@ var ForkopShellMethods = {
       timeout: UI_ACTION_RPC_TIMEOUT_MS
     });
     const parsedResponse = parseServiceActionState(response);
+    if (parsedResponse) {
+      parsedResponse.message = localizeServiceActionMessage(
+        parsedResponse.message
+      );
+    }
     if ((response.code ?? 0) !== 0 || !parsedResponse) {
       return uiActionFailure(
         response,
@@ -2896,22 +2919,25 @@ var ForkopShellMethods = {
       data: parsedResponse
     };
   },
-  waitServiceActionJob: async (jobId, startedAt = Date.now()) => {
-    while (Date.now() - startedAt < SERVICE_ACTION_TIMEOUT_MS) {
+  waitServiceActionJob: async (jobId) => {
+    const transientRpc = createTransientRpcGraceTracker(
+      UI_ACTION_TRANSIENT_RPC_GRACE_MS
+    );
+    while (true) {
       await sleep(SERVICE_ACTION_POLL_INTERVAL_MS);
       const response = await ForkopShellMethods.serviceActionStatus(jobId);
       if (!response.success) {
+        if (transientRpc.shouldContinue(response.error)) {
+          continue;
+        }
         return response;
       }
+      transientRpc.reset();
       if (response.data.running) {
         continue;
       }
       return response;
     }
-    return {
-      success: false,
-      error: _("Operation timed out")
-    };
   },
   latencyTestStart: async (latencyType, section, tag, timeout) => {
     const response = await executeShellCommand({
@@ -10971,6 +10997,15 @@ function trafficSortValue(connection, mode) {
 }
 var BYPASS_TAG = "bypass-out";
 var DIRECT_TAG = "direct-out";
+function formatEndpoint(address, port) {
+  const normalizedAddress = address == null ? "" : String(address).trim();
+  const normalizedPort = port == null ? "" : String(port).trim();
+  if (!normalizedAddress) return "-";
+  if (!normalizedPort) return normalizedAddress;
+  if (normalizedAddress.includes(":") && !normalizedAddress.startsWith("["))
+    return `[${normalizedAddress}]:${normalizedPort}`;
+  return `${normalizedAddress}:${normalizedPort}`;
+}
 function routeTagFromRule(rule) {
   const match = String(rule || "").match(/=>\s*route\(([^)]+)\)/);
   return String(match?.[1] || "").trim().replace(/^['"]|['"]$/g, "");
@@ -13710,12 +13745,225 @@ function render3() {
   );
 }
 
+// src/forkop/tabs/monitoring/matchedConditions.ts
+function addressBytes(address) {
+  if (!address.includes(":")) {
+    const parts = address.split(".");
+    if (parts.length !== 4 || parts.some((part) => !/^\d{1,3}$/.test(part) || Number(part) > 255))
+      return;
+    return parts.map(Number);
+  }
+  if (address.includes(".")) {
+    const colon = address.lastIndexOf(":");
+    const tail = addressBytes(address.slice(colon + 1));
+    if (!tail) return;
+    address = `${address.slice(0, colon)}:${(tail[0] << 8 | tail[1]).toString(16)}:${(tail[2] << 8 | tail[3]).toString(16)}`;
+  }
+  const halves = address.split("::");
+  if (halves.length > 2) return;
+  const left = halves[0] ? halves[0].split(":") : [];
+  const right = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
+  const missing = 8 - left.length - right.length;
+  if (halves.length === 1 ? missing !== 0 : missing < 1) return;
+  const words = [...left, ...Array(missing).fill("0"), ...right];
+  if (words.some((word) => !/^[\da-f]{1,4}$/i.test(word))) return;
+  return words.flatMap((word) => {
+    const value = parseInt(word, 16);
+    return [value >> 8, value & 255];
+  });
+}
+function inSubnet(address, subnet) {
+  const parts = subnet.split("/");
+  const ip = addressBytes(address);
+  const network = addressBytes(parts[0]);
+  if (!ip || !network || ip.length !== network.length || parts.length > 2)
+    return false;
+  const bits = parts.length === 1 ? ip.length * 8 : Number(parts[1]);
+  if (parts.length === 2 && !/^\d+$/.test(parts[1])) return false;
+  if (bits < 0 || bits > ip.length * 8) return false;
+  return ip.every((byte, index) => {
+    const remaining = Math.max(0, Math.min(8, bits - index * 8));
+    const mask = 255 << 8 - remaining & 255;
+    return (byte & mask) === (network[index] & mask);
+  });
+}
+function matchedConditions(rule, metadata) {
+  if (/\b(?:rule_set|invert)=|^\s*\(|\s(?:&&|\|\|)\s/.test(
+    rule.replace(/\s*=>.*$/, "")
+  ))
+    return;
+  const host = (metadata.sniffHost || metadata.host || "").toLowerCase().replace(/\.$/, "");
+  const matches = [];
+  const conditions = rule.replace(/\s*=>.*$/, "");
+  const fields = [...conditions.matchAll(/(?:^|\s)([a-z_]+)=/g)];
+  for (const [index, field3] of fields.entries()) {
+    const kind = field3[1];
+    if (![
+      "domain",
+      "domain_suffix",
+      "domain_keyword",
+      "domain_regex",
+      "ip_cidr"
+    ].includes(kind))
+      continue;
+    const raw = conditions.slice(
+      field3.index + field3[0].length,
+      fields[index + 1]?.index ?? conditions.length
+    ).trim();
+    const values = raw.startsWith("[") && raw.endsWith("]") ? raw.slice(1, -1).split(/\s+/) : [raw];
+    for (const value of values) {
+      if (!value || value.includes("...") || value.includes("\u2026")) continue;
+      const domain = value.toLowerCase().replace(/\.$/, "");
+      let matched = false;
+      if (kind === "ip_cidr")
+        matched = inSubnet(metadata.destinationIP || "", value);
+      else if (host) {
+        if (kind === "domain") matched = host === domain;
+        if (kind === "domain_suffix")
+          matched = host === domain || host.endsWith(domain.startsWith(".") ? domain : `.${domain}`);
+        if (kind === "domain_keyword") matched = host.includes(domain);
+        if (kind === "domain_regex" && value.length <= 2048 && host.length <= 253 && !/\(\?|\)[*+{?]|\\[1-9]|\\[pP]|\[\[:/.test(value)) {
+          try {
+            matched = new RegExp(value).test(
+              metadata.sniffHost || metadata.host || ""
+            );
+          } catch {
+          }
+        }
+      }
+      if (matched) matches.push(`${kind}=${value}`);
+    }
+  }
+  return matches.length ? [...new Set(matches)].join("; ") : void 0;
+}
+
+// src/forkop/tabs/monitoring/routeReason.ts
+var BUILT_IN_LISTS = [
+  "russia_inside",
+  "russia_outside",
+  "ukraine_inside",
+  "ads_hagezi_pro",
+  "google_play",
+  "google_ai",
+  "digitalocean",
+  "cloudflare",
+  "cloudfront",
+  "geoblock",
+  "telegram",
+  "discord",
+  "youtube",
+  "twitter",
+  "github",
+  "supercell",
+  "hetzner",
+  "roblox",
+  "hdrezka",
+  "tiktok",
+  "anime",
+  "hodca",
+  "meta",
+  "news",
+  "porn",
+  "block",
+  "ovh"
+];
+function builtInListLabel(name) {
+  if (name === "google_ai") return "Google AI";
+  if (name === "github") return "GitHub";
+  if (name === "geoblock") return "Geo Block";
+  return name.replace(/_/g, " ").replace(/^./, (char) => char.toUpperCase());
+}
+function formatRouteReason(rule = "", payload = "", translate2 = (value) => value, metadata) {
+  const text = rule.trim();
+  if (!text) return translate2("Not available");
+  if (/^(?:final|match|default)$/i.test(text))
+    return translate2("Default route");
+  const tags = [...text.matchAll(/rule_set=(?:\[([^\]]*)\]|([^\s)]+))/g)].flatMap((match) => (match[1] || match[2]).split(/[\s,]+/)).filter(Boolean);
+  if (tags.length) {
+    const labels = [...new Set(tags)].map((tag) => {
+      if (tag.match(/-(.+)-community-ruleset$/)) {
+        const service = BUILT_IN_LISTS.find(
+          (name) => tag.endsWith(`-${name}-community-ruleset`)
+        );
+        if (service) return builtInListLabel(service);
+      }
+      if (tag.endsWith("-community-subnets-lists-ruleset"))
+        return translate2("Built-in subnets");
+      return tag;
+    });
+    return labels.length === 1 ? labels[0] : `${translate2("One of")}: ${labels.join(", ")}`;
+  }
+  const conditions = text.replace(/\s*=>\s*.*$/, "").trim();
+  const matched = metadata && matchedConditions(text, metadata);
+  if (matched) return matched;
+  if (metadata && !payload && /\b(?:domain|domain_suffix|domain_keyword|domain_regex|ip_cidr)=/.test(
+    conditions
+  ))
+    return translate2("Exact match unavailable");
+  return payload ? `${conditions}: ${payload}` : conditions;
+}
+
+// src/forkop/tabs/monitoring/routeConditions.ts
+function expandRouteConditions(reported2, rules) {
+  if (!reported2.includes("...") && !reported2.includes("\u2026")) return reported2;
+  const outbound = reported2.match(/=>\s*route\(([^)]+)\)\s*$/)?.[1];
+  if (!outbound) return reported2;
+  const conditions = reported2.replace(/\s*=>.*$/, "");
+  if (/^\s*\(|\b(?:invert|rule_set)=/.test(conditions)) return reported2;
+  const fields = [...conditions.matchAll(/(?:^|\s)([a-z_]+)=/g)];
+  if (!fields.length) return reported2;
+  const candidates = rules.filter((rule2) => {
+    if (rule2.outbound !== outbound || rule2.type === "logical" || rule2.invert)
+      return false;
+    return fields.every((field3, index) => {
+      const value = rule2[field3[1]];
+      if (value === void 0 || value === null) return false;
+      const raw = conditions.slice(
+        field3.index + field3[0].length,
+        fields[index + 1]?.index ?? conditions.length
+      ).trim();
+      const preview = raw.startsWith("[") && raw.endsWith("]") ? raw.slice(1, -1) : raw;
+      const full = Array.isArray(value) ? value.join(" ") : String(value);
+      const truncated = /(?:\.\.\.|…)$/u.test(preview);
+      return truncated ? full.startsWith(preview.replace(/(?:\.\.\.|…)$/u, "")) : full === preview;
+    });
+  });
+  if (candidates.length !== 1) return reported2;
+  const rule = candidates[0];
+  return fields.map((field3) => {
+    const value = rule[field3[1]];
+    return `${field3[1]}=${Array.isArray(value) ? `[${value.join(" ")}]` : String(value)}`;
+  }).join(" ") + ` => route(${outbound})`;
+}
+
 // src/forkop/tabs/monitoring/initController.ts
 function normalizeConnectionsPayload(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
   }
   return value;
+}
+var runtimeRouteRules = [];
+var expandedRouteConditions = /* @__PURE__ */ new Map();
+function getFullRouteRule(connection) {
+  const rule = connection.rule || "";
+  if (!expandedRouteConditions.has(rule))
+    expandedRouteConditions.set(
+      rule,
+      expandRouteConditions(rule, runtimeRouteRules)
+    );
+  return expandedRouteConditions.get(rule) || rule;
+}
+async function loadRuntimeRouteRules(mountId3) {
+  try {
+    const config = JSON.parse(await fs.read("/etc/sing-box/config.json"));
+    if (!monitoringMounted || mountId3 !== monitoringMountId) return;
+    runtimeRouteRules = Array.isArray(config.route?.rules) ? config.route.rules : [];
+    expandedRouteConditions.clear();
+    renderConnections();
+  } catch (error) {
+    logger.warn("[MONITORING]", "loadRuntimeRouteRules: failed", error);
+  }
 }
 var RENDER_INTERVAL_MS = 500;
 var CONNECTIONS_RPC_POLL_INTERVAL_MS = 1500;
@@ -13778,23 +14026,6 @@ function getUrlTestTag2(sectionName, id) {
   return getOutboundTagBySection(
     id === "urltest" ? `${sectionName}-urltest` : `${sectionName}-urltest-${id}`
   );
-}
-function formatEndpoint(address, port) {
-  const normalizedAddress = normalizeString(address);
-  const normalizedPort = normalizeString(port);
-  if (!normalizedAddress) {
-    return "-";
-  }
-  if (!normalizedPort) {
-    return normalizedAddress;
-  }
-  if (normalizedPort === "443") {
-    return normalizedAddress;
-  }
-  if (normalizedAddress.includes(":") && !normalizedAddress.startsWith("[")) {
-    return `[${normalizedAddress}]:${normalizedPort}`;
-  }
-  return `${normalizedAddress}:${normalizedPort}`;
 }
 function getDisplayName2(section) {
   return normalizeString(section.label) || section[".name"];
@@ -13941,6 +14172,21 @@ function getPath(connection) {
 function getNetwork(connection) {
   return normalizeString(connection.metadata?.network).toLowerCase() || "-";
 }
+function getRouteReason(connection) {
+  const labels = {
+    "Not available": _("Not available"),
+    "Default route": _("Default route"),
+    "Built-in subnets": _("Built-in subnets"),
+    "One of": _("One of"),
+    "Exact match unavailable": _("Exact match unavailable")
+  };
+  return formatRouteReason(
+    getFullRouteRule(connection),
+    connection.rulePayload,
+    (value) => labels[value] || value,
+    connection.metadata
+  );
+}
 function sortConnections(connections, tab) {
   return [...connections].sort((a, b) => {
     const aTraffic = trafficSortValue(a, sortMode);
@@ -13968,6 +14214,7 @@ function getSearchValues(connection) {
   const target = getTargetCellParts(connection);
   const source = getSourceCellParts(connection);
   const path = pathSummary(getPath(connection));
+  const routeReason = getRouteReason(connection);
   return [
     connection.id,
     target.searchValue,
@@ -13975,6 +14222,7 @@ function getSearchValues(connection) {
     path.kindLabel,
     path.primary,
     path.secondary,
+    routeReason,
     normalizeString(connection.rule),
     ...connection.chains || [],
     source.searchValue
@@ -14343,10 +14591,17 @@ function renderTableCell(label, children) {
   cell.setAttribute("data-label", label);
   return cell;
 }
-function renderSecondary(text) {
-  return E("span", { class: "fkp_monitoring-page__secondary" }, text);
+function renderSecondary(text, className = "") {
+  return E(
+    "span",
+    {
+      class: ["fkp_monitoring-page__secondary", className].filter(Boolean).join(" "),
+      title: text
+    },
+    text
+  );
 }
-function renderPathCell(path) {
+function renderPathCell(path, reason) {
   const summary = pathSummary(path);
   return [
     E(
@@ -14357,7 +14612,8 @@ function renderPathCell(path) {
       summary.kindLabel
     ),
     ...summary.primary ? [renderValue(summary.primary, "fkp_monitoring-page__route")] : [],
-    ...summary.secondary ? [renderSecondary(summary.secondary)] : []
+    ...summary.secondary ? [renderSecondary(summary.secondary)] : [],
+    ...reason ? [renderSecondary(reason, "fkp_monitoring-page__reason")] : []
   ];
 }
 function renderConnectionRow(connection) {
@@ -14404,7 +14660,10 @@ function renderConnectionRow(connection) {
         renderValue(target.primary),
         renderSecondary(destinationMeta)
       ]),
-      renderTableCell(_("Path"), renderPathCell(getPath(connection))),
+      renderTableCell(
+        _("Path"),
+        renderPathCell(getPath(connection), getRouteReason(connection))
+      ),
       renderTableCell(_("Traffic"), [
         renderValue(`\u2193 ${formatBytes2(connection.download)}`),
         renderSecondary(`\u2191 ${formatBytes2(connection.upload)}`)
@@ -14451,6 +14710,7 @@ function connectionDetails(connection) {
       _("Path"),
       [path.kindLabel, path.primary, path.secondary].filter(Boolean).join(" \xB7 ")
     ],
+    [_("Route reason"), getRouteReason(connection)],
     [_("Duration"), formatConnectionDuration(connection)],
     [_("Download"), formatBytes2(connection.download)],
     [_("Upload"), formatBytes2(connection.upload)],
@@ -14511,6 +14771,14 @@ function renderConnectionDetailsPanel() {
           _("Route"),
           E("span", {}, [
             [path.kindLabel, path.primary, rawPath.node].filter(Boolean).join(" \xB7 "),
+            " ",
+            renderProvenance("observed")
+          ])
+        ),
+        detailRow(
+          _("Route reason"),
+          E("span", {}, [
+            getRouteReason(connection),
             " ",
             renderProvenance("observed")
           ])
@@ -15211,6 +15479,7 @@ function setServiceAvailability(next) {
   if (next === "running") {
     loading = true;
     failed = false;
+    void loadRuntimeRouteRules(monitoringMountId);
     startConnectionsUpdates();
   } else {
     stopConnectionsUpdates();
@@ -15275,6 +15544,9 @@ async function onPageMount3() {
   monitoringMounted = true;
   monitoringMountId += 1;
   const mountId3 = monitoringMountId;
+  runtimeRouteRules = [];
+  expandedRouteConditions.clear();
+  void loadRuntimeRouteRules(mountId3);
   resetMonitoringState();
   loadMonitoringPreferences();
   bindControls();
@@ -15886,6 +16158,16 @@ var styles5 = `
     color: var(--text-color-medium);
     font-size: 12px;
     line-height: 1.25;
+}
+
+.fkp_monitoring-page__reason {
+    display: block;
+    margin-top: 4px;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    color: var(--text-color-medium, #bbb);
+    font-size: 11px;
 }
 
 .fkp_monitoring-page__path-kind {

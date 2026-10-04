@@ -100,6 +100,9 @@ case "${3:-}" in
   */diagnostics/health.uc) echo "health:$5:$6" >> "$STATE/events"; exit 0 ;;
   */service/ui.uc|*/dns/apply.uc) exit 0 ;;
   */singbox/ruleset_cache.uc) exit 1 ;;
+  */service/lifecycle.uc)
+    [ "${4:-}" = reload ] && exec "$FORKOP_BIN" reload "${5:-}"
+    ;;
 esac
 exec "$REAL_UCODE" "$@"
 STUB
