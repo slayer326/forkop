@@ -184,7 +184,10 @@ const inbound = c.inbounds.find(i => i.type === 'mixed' && i.listen_port === 453
 ok(inbound, 'stable deferred-subscription service inbound is missing');
 const route = c.route.rules.find(r => r.inbound === inbound.tag);
 ok(route, 'deferred-subscription service route is missing');
-ok(c.outbounds.some(o => o.tag === route.outbound && o.server === '192.0.2.40'),
+const selector = c.outbounds.find(o => o.tag === route.outbound);
+ok(selector && selector.type === 'selector' && Array.isArray(selector.outbounds) &&
+  selector.outbounds.some(tag => c.outbounds.some(o =>
+    o.tag === tag && o.server === '192.0.2.40')),
   'deferred-subscription service route does not use its configured transport');
 ok(!JSON.stringify(c).includes('subscriptions.example'),
   'deferred subscription source leaked into the initial full config');

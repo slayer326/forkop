@@ -53,6 +53,7 @@ case "${3:-}" in
   */service/lifecycle.uc)
     [ "${4:-}" = reload ] || exit 97
     printf 'lifecycle reload %s\n' "${5:-}" >> "$FORKOP_RUNTIME_STATE_DIR/runtime.log"
+    [ "${5:-}" != on_config_change ] || printf '1\n' > "$FORKOP_SERVICE_TRIGGER_SYNC_FILE"
     exit "${FORKOP_TEST_LIFECYCLE_STATUS:-0}"
     ;;
 esac
@@ -157,8 +158,7 @@ grep -q '^lifecycle reload config-restore$' "$FORKOP_RUNTIME_STATE_DIR/runtime.l
 
 # 6. The public CLI keeps initd's sync acknowledgement after a completed
 #    config-change reload.
-: > "$FORKOP_SERVICE_TRIGGER_SYNC_FILE"
-printf '1\n' > "$FORKOP_SERVICE_TRIGGER_SYNC_FILE"
+rm -f "$FORKOP_SERVICE_TRIGGER_SYNC_FILE"
 out="$("$REAL_UCODE" "$PUBLIC_CLI" reload on_config_change)" || fail "direct completed reload failed"
 [ "$out" = sync ] || fail "direct completed reload lost the sync token (got '$out')"
 grep -q '^lifecycle reload on_config_change$' "$FORKOP_RUNTIME_STATE_DIR/runtime.log" ||
