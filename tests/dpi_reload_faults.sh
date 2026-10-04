@@ -23,6 +23,7 @@ let dpi_restart_plan = null;
 let dpi_nft_rollback_file = "";
 let dpi_nft_committed = false;
 let dpi_singbox_backup = "";
+let reload_singbox_transaction_dir = "";
 let dpi_guard_active = false;
 let restored = 0;
 let owned_stops = 0;
@@ -41,6 +42,7 @@ function log_message(message, level) {}
 function module_success(path, args) { return true; }
 function cleanup_failed_runtime() { cleaned++; }
 function restore_dnsmasq_reload_config() { return dns_restore_ok; }
+function finish_reload_singbox_transaction(preserve) { reload_singbox_transaction_dir = ""; }
 // No stop is requested while these rollbacks run
 // (tests/reload_overtaken_by_stop.sh covers the reload that gives way to one).
 let reload_stop_abandoned = false;

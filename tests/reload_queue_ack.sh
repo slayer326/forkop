@@ -25,7 +25,7 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 
-mkdir -p "$WORK/bin" "$WORK/run"
+mkdir -p "$WORK/bin" "$WORK/run/forkop"
 export FORKOP_LIB="$LIB" TEST_LIB="$LIB" REAL_INITD="$INITD" REAL_UCODE
 export FORKOP_BIN="$WORK/bin/forkop"
 export FORKOP_RUNTIME_STATE_DIR="$WORK/run/forkop"

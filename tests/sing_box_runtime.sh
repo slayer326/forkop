@@ -276,7 +276,9 @@ grep -Fq '"uci_proxy-out"' "$WORK_DIR/generated-from-uci.json" ||
 # private stage from the live cache so offline country/name metadata remains
 # available, narrow legacy permissions, and publish it only on commit.
 mkdir -p "$WORK_DIR/staged-runtime/section-cache" "$WORK_DIR/staged-runtime/run" \
-  "$WORK_DIR/staged-runtime/tmp-rulesets" "$WORK_DIR/staged-runtime/tmp-subscriptions"
+  "$WORK_DIR/staged-runtime/tmp-rulesets" "$WORK_DIR/staged-runtime/tmp-subscriptions" \
+  "$WORK_DIR/staged-runtime/ruleset-cache" "$WORK_DIR/staged-runtime/ruleset-runtime-cache" \
+  "$WORK_DIR/staged-runtime/list-cache"
 chmod 0755 "$WORK_DIR/staged-runtime/section-cache"
 cat >"$WORK_DIR/staged-runtime/section-cache/legacy.json" <<'EOF_STAGE_CACHE'
 {"servers":{"secret-out":"proxy.example"},"outboundMetadata":{"countries":{"secret-out":"NL"},"shareLinks":{"secret-out":"vless://secret@example"}}}
@@ -309,6 +311,10 @@ FORKOP_RUNTIME_STATE_DIR="$WORK_DIR/staged-runtime/run" \
 FORKOP_SECTION_CACHE_DIR="$WORK_DIR/staged-runtime/section-cache" \
 TMP_RULESET_FOLDER="$WORK_DIR/staged-runtime/tmp-rulesets" \
 TMP_SUBSCRIPTION_FOLDER="$WORK_DIR/staged-runtime/tmp-subscriptions" \
+FORKOP_RULESET_CACHE_DIR="$WORK_DIR/staged-runtime/ruleset-cache" \
+FORKOP_RULESET_RUNTIME_CACHE_DIR="$WORK_DIR/staged-runtime/ruleset-runtime-cache" \
+FORKOP_RULESET_RUNTIME_MANIFEST="$WORK_DIR/staged-runtime/run/ruleset-cache-runtime.json" \
+FORKOP_PERSISTENT_LIST_CACHE_DIR="$WORK_DIR/staged-runtime/list-cache" \
 SB_VARIANT_STATE_FILE="$WORK_DIR/staged-runtime/sing-box-variant" \
 SB_VERSION_STATE_FILE="$WORK_DIR/staged-runtime/sing-box-version" \
   ucode -L "$FORKOP_LIB" "$SINGBOX_RUNTIME_UC" prepare-config-stage \

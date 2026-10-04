@@ -36,7 +36,7 @@ awk '
 
 # restart() already gated cold-start recovery; keep it that way.
 awk '
-  /^function restart\(\) \{/ { inside = 1 }
+  /^function restart\([^)]*\) \{/ { inside = 1 }
   inside && /"sing-box-process-conflict"/ { gate_line = NR }
   inside && /^}/ { done = 1; exit }
   END { exit done && gate_line ? 0 : 1 }

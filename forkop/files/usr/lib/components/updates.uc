@@ -115,6 +115,10 @@ let subscription_outbounds_changed = false;
 let runtime_generation_commit_changed = false;
 let list_update_prepare_only = false;
 
+function as_string(value) {
+    return value == null ? "" : "" + value;
+}
+
 function manual_restart_lock_held() {
     return as_string(getenv("FORKOP_MANUAL_RESTART_LOCK_HELD") || "0") == "1";
 }
@@ -129,10 +133,6 @@ function singbox_rulesets_module() {
     if (singbox_rulesets_module_value == null)
         singbox_rulesets_module_value = require("singbox.rulesets");
     return singbox_rulesets_module_value;
-}
-
-function as_string(value) {
-    return value == null ? "" : "" + value;
 }
 
 function read_stdin() {

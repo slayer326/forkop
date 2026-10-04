@@ -28,7 +28,7 @@ cat >"$WORK/fixture.json" <<'JSON'
     "config_path": "/tmp/sing-box/config.json",
     "dns_server": "1.1.1.1",
     "dns_detour_enabled": "1",
-    "dns_detour_section": "dns-path",
+    "dns_detour_section": "dns_path",
     "service_listen_address": "127.0.0.1",
     "download_lists_via_proxy": "1",
     "download_lists_via_proxy_section": "selected"
@@ -46,7 +46,7 @@ cat >"$WORK/fixture.json" <<'JSON'
       "domain_suffix": ["unrelated.example"]
     },
     {
-      ".name": "dns-path", ".type": "section", "enabled": "1", "action": "outbound",
+      ".name": "dns_path", ".type": "section", "enabled": "1", "action": "outbound",
       "outbound_json": "{\"type\":\"socks\",\"server\":\"192.0.2.30\",\"server_port\":1080}",
       "domain_suffix": ["dns.example"]
     }
@@ -391,7 +391,7 @@ NODE
   node - "$WORK/fixture.json" "$WORK/dns-provider-$provider.json" "$provider" <<'NODE'
 const fs = require('fs');
 const input = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-const dnsPath = input.section.find(section => section['.name'] === 'dns-path');
+const dnsPath = input.section.find(section => section['.name'] === 'dns_path');
 dnsPath.action = process.argv[4];
 delete dnsPath.outbound_json;
 fs.writeFileSync(process.argv[3], JSON.stringify(input));

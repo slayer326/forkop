@@ -128,7 +128,7 @@ forkop.alpha.subscription_url_settings={"https://sub.test/alpha":{"download_via_
 forkop.bravo=section
 forkop.bravo.enabled=1
 forkop.bravo.action=connection
-forkop.bravo.proxy_string=vless://00000000-0000-4000-8000-000000000002@bravo.example.com:443?type=tcp&encryption=none&security=tls&sni=example.com#bravo
+forkop.bravo.selector_proxy_links=vless://00000000-0000-4000-8000-000000000002@bravo.example.com:443?type=tcp&encryption=none&security=tls&sni=example.com#bravo
 UCI
   sleep 600 &
   HOLDER=$!

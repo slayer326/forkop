@@ -196,6 +196,14 @@ function section_enabled(section) {
     return bool_option(section, "enabled", true);
 }
 
+function section_by_name(sections, name) {
+    name = as_string(name);
+    for (let section in sections)
+        if (as_string(section[".name"]) == name)
+            return section;
+    return null;
+}
+
 function runtime_settings() {
     if (runtime_settings_cache == null)
         runtime_settings_cache = object_or_empty(uci_cursor().get_all(CONFIG_NAME, "settings"));
@@ -3312,14 +3320,6 @@ function enabled_sections(deferred_sections) {
             push(result, section);
     });
     return result;
-}
-
-function section_by_name(sections, name) {
-    name = as_string(name);
-    for (let section in sections)
-        if (as_string(section[".name"]) == name)
-            return section;
-    return null;
 }
 
 // Return only the unavailable subscription sections that are structural

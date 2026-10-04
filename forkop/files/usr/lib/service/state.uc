@@ -890,6 +890,10 @@ function start_managed_sing_box_and_verify(timeout) {
     return false;
 }
 
+function stop_requested() {
+    return fs.stat(STOP_REQUESTED_FILE) != null;
+}
+
 function start_managed_sing_box_unless_stopped(timeout) {
     if (stop_requested())
         return false;
@@ -1044,10 +1048,6 @@ function forkop_stably_running(rt_table, nft_table, mark, min_age) {
     return sing_box_current_owned_service_runtime() && sing_box_service_stable(min_age) &&
         sing_box_runtime_ports_ready() && sing_box_clash_api_ready() &&
         forkop_runtime_network_configured(rt_table, nft_table, mark);
-}
-
-function stop_requested() {
-    return fs.stat(STOP_REQUESTED_FILE) != null;
 }
 
 // Whether work that holds reload.lock (a subscription update, a DNS-failover

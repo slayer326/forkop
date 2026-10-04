@@ -5,6 +5,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FORKOP_LIB="$ROOT_DIR/forkop/files/usr/lib"
 NFT_RUNTIME="$ROOT_DIR/forkop/files/usr/lib/nft/apply.uc"
 WORK_DIR="$(mktemp -d)"
+mkdir -p "$WORK_DIR/ipv6/all" "$WORK_DIR/ipv6/lo"
+printf '0\n' >"$WORK_DIR/ipv6/all/disable_ipv6"
+printf '0\n' >"$WORK_DIR/ipv6/lo/disable_ipv6"
+export FORKOP_IPV6_SYSCTL_DIR="$WORK_DIR/ipv6"
 NFT_LOG="$WORK_DIR/nft.log"
 LOGGER_LOG="$WORK_DIR/logger.log"
 IP_LOG="$WORK_DIR/ip.log"
@@ -657,6 +661,8 @@ cat >"$WORK_DIR/signature-fixture.json" <<'JSON'
 JSON
 
 cat >"$WORK_DIR/signature-expected.txt" <<'EOF_EXPECTED'
+[runtime.ipv6_tproxy]
+1
 [settings.source_network_interfaces]
 br-lan tun0
 [settings.exclude_ntp]
@@ -727,6 +733,8 @@ forkop.enabled.rule_set_with_subnets=/tmp/local.json
 forkop.enabled.domain_ip_lists=https://example.com/mixed.lst
 EOF_UCI
 cat >"$WORK_DIR/signature-uci-expected.txt" <<'EOF_EXPECTED'
+[runtime.ipv6_tproxy]
+1
 [settings.source_network_interfaces]
 br-lan tun0
 [settings.exclude_ntp]
@@ -761,6 +769,8 @@ cat >"$WORK_DIR/signature-defaults-fixture.json" <<'JSON'
 {}
 JSON
 cat >"$WORK_DIR/signature-defaults-expected.txt" <<'EOF_EXPECTED'
+[runtime.ipv6_tproxy]
+1
 [settings.source_network_interfaces]
 br-lan
 [settings.exclude_ntp]

@@ -2780,6 +2780,10 @@ function reload_reason_fixture(reason) {
     print(reason, "\n");
 }
 
+function manual_restart_stop_requested() {
+    return fs.stat(STOP_REQUESTED_FILE) != null;
+}
+
 function restart(stop_sensitive, expected_fingerprint) {
     stop_sensitive = stop_sensitive === true || stop_sensitive == "1";
     log_message("Restarting Forkop", "info");
@@ -2844,10 +2848,6 @@ function restart(stop_sensitive, expected_fingerprint) {
     log_message("Restart verification failed after Forkop was started; stopping Forkop runtime", "fatal");
     cleanup_failed_runtime();
     return 1;
-}
-
-function manual_restart_stop_requested() {
-    return fs.stat(STOP_REQUESTED_FILE) != null;
 }
 
 function release_manual_restart_lock() {

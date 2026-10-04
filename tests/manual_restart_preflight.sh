@@ -38,7 +38,7 @@ for required in \
   '"prepare-list-cache"' \
   '"service-proxy-address", "lists"' \
   '"refresh", ruleset_proxy_address' \
-  'let status = restart(true);'; do
+  'let status = restart(true, preflight_fingerprint);'; do
   grep -Fq "$required" <<<"$manual_body" ||
     fail "manual restart is missing: $required"
 done
@@ -54,7 +54,7 @@ runtime_apply_line="$(grep -nF '[ SERVICE_INIT, "reload", "list-content" ]' <<<"
 subscription_line="$(grep -nF '"subscription-prepare-only"' <<<"$manual_body" | head -n1 | cut -d: -f1)"
 list_line="$(grep -nF '"prepare-list-cache"' <<<"$manual_body" | head -n1 | cut -d: -f1)"
 ruleset_line="$(grep -nF '"refresh", ruleset_proxy_address' <<<"$manual_body" | head -n1 | cut -d: -f1)"
-restart_line="$(grep -nF 'let status = restart(true);' <<<"$manual_body" | head -n1 | cut -d: -f1)"
+restart_line="$(grep -nF 'let status = restart(true, preflight_fingerprint);' <<<"$manual_body" | head -n1 | cut -d: -f1)"
 [ "$subscription_line" -lt "$list_line" ] &&
   [ "$list_line" -lt "$ruleset_line" ] &&
   [ "$ruleset_line" -lt "$restart_line" ] ||
@@ -62,7 +62,7 @@ restart_line="$(grep -nF 'let status = restart(true);' <<<"$manual_body" | head 
 
 [ "$(grep -cF 'if (abort_manual_restart_for_stop())' <<<"$manual_body")" -ge 4 ] ||
   fail "manual restart does not give way to Stop after every network phase"
-[ "$(grep -cF 'restart(true);' <<<"$manual_body")" -eq 1 ] ||
+[ "$(grep -cF 'restart(true, preflight_fingerprint);' <<<"$manual_body")" -eq 1 ] ||
   fail "manual preflight must perform exactly one guarded restart"
 
 grep -Fq 'if (stop_sensitive && manual_restart_stop_requested())' <<<"$restart_body" ||
