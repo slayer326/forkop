@@ -88,14 +88,25 @@ PATH="$WORK_DIR/bin:$PATH" \
 [ "$(mode_of "$WORK_DIR/backup.json")" = 600 ] || fail "the config backup must be 0600"
 
 # The mode is narrowed before any content is written, not after: a reader
-# must never see the new secrets in a file that is still world-readable.
-awk '/^function write_private_json_file\(/ { copy=1 } copy { print } copy && /^}/ { exit }' \
+# must never see new secrets in a file that is still world-readable. The JSON
+# writer delegates to the shared private-file helper used by other caches.
+awk '/^function open_private_file\(/ { copy=1 } copy { print } copy && /^}/ { exit }' \
+  "$FORKOP_LIB/core/common.uc" >"$WORK_DIR/open_private.uc"
+awk '/^function write_private_file\(/ { copy=1 } copy { print } copy && /^}/ { exit }' \
   "$FORKOP_LIB/core/common.uc" >"$WORK_DIR/write_private.uc"
-chmod_line="$(grep -n 'fs.chmod(path, 0600)' "$WORK_DIR/write_private.uc" | head -n1 | cut -d: -f1)"
-write_line="$(grep -n 'fh.write(' "$WORK_DIR/write_private.uc" | head -n1 | cut -d: -f1)"
-[ -n "$chmod_line" ] && [ -n "$write_line" ] && [ "$chmod_line" -lt "$write_line" ] ||
-  fail "write_private_json_file must narrow the mode before writing the content"
-grep -Fq 'fs.open(path, "w", 0600)' "$WORK_DIR/write_private.uc" ||
-  fail "write_private_json_file must create the file 0600"
+awk '/^function write_private_json_file\(/ { copy=1 } copy { print } copy && /^}/ { exit }' \
+  "$FORKOP_LIB/core/common.uc" >"$WORK_DIR/write_private_json.uc"
+grep -Fq 'fs.open(path, "w", 0600)' "$WORK_DIR/open_private.uc" ||
+  fail "private writer must create files 0600"
+chmod_line="$(grep -n 'fs.chmod(path, 0600)' "$WORK_DIR/open_private.uc" | head -n1 | cut -d: -f1 || true)"
+return_line="$(grep -n 'return fh;' "$WORK_DIR/open_private.uc" | head -n1 | cut -d: -f1 || true)"
+[ -n "$chmod_line" ] && [ -n "$return_line" ] && [ "$chmod_line" -lt "$return_line" ] ||
+  fail "private writer must narrow the mode before returning the file handle"
+open_line="$(grep -n 'open_private_file(path)' "$WORK_DIR/write_private.uc" | head -n1 | cut -d: -f1 || true)"
+write_line="$(grep -n 'fh.write(' "$WORK_DIR/write_private.uc" | head -n1 | cut -d: -f1 || true)"
+[ -n "$open_line" ] && [ -n "$write_line" ] && [ "$open_line" -lt "$write_line" ] ||
+  fail "private writer must secure the file before writing the content"
+grep -Fq 'return write_private_file(path, sprintf("%J\n", value));' "$WORK_DIR/write_private_json.uc" ||
+  fail "JSON writer must use the private-file helper"
 
 printf 'Generated sing-box configs and their copies are private\n'
