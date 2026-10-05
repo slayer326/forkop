@@ -89,6 +89,20 @@ Back up its old Caddyfile first. Never restart the shared edge Caddy or other
 projects. Rollback: restore that Caddyfile, restart only
 `forkop-mirror-web.service`, then stop only the cache compose project.
 
+The home mirror uses `home/prune_stale_snapshots.py` to reclaim completed
+OpenWrt snapshots no longer referenced by public feeds. It preserves published
+and incomplete snapshots, and deletes only unlinked content-addressed objects.
+Run it without arguments for a dry-run; `--apply` performs cleanup under the
+same lock as the synchronizer. The deployed synchronizer also runs this cleanup
+before each daily refresh, so no separate cleanup timer is needed.
+
+On the home server, after the synchronization service is idle:
+
+```sh
+python3 /mnt/storage/forkop-mirror/config/prune_stale_snapshots.py
+python3 /mnt/storage/forkop-mirror/config/prune_stale_snapshots.py --apply
+```
+
 Release branches `codex/release-*` build downloadable candidate artifacts without
 publishing. Tag publication is gated by backend and frontend tests. A real OpenWrt
 router smoke test (upgrade, arbitrary HTTPS subscription, URLTest/Priority, latency,
