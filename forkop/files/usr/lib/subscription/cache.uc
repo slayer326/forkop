@@ -235,7 +235,11 @@ function update_due_status(now_value, last_run_value, interval_value) {
     if (last_run == null)
         last_run = 0;
 
-    if (last_run > 0 && now - last_run < interval)
+    // Cron can run just before the anniversary of the previous download.
+    // Only hourly-or-longer subscriptions tolerate up to 60 seconds of jitter.
+    // A backwards clock jump must never be treated as due.
+    let allowance = interval >= 3600 ? 60 : 0;
+    if (last_run > 0 && (now < last_run || now - last_run < interval - allowance))
         return 1;
 
     return 0;
@@ -2879,6 +2883,9 @@ else if (mode == "outbound-metadata-path") {
 }
 else if (mode == "section-is-subscription-proxy") {
     exit(section_is_subscription_proxy(uci_section(ARGV[1])) ? 0 : 1);
+}
+else if (mode == "update-due-status-fixture") {
+    exit(update_due_status(ARGV[1], ARGV[2], ARGV[3]));
 }
 else if (mode == "update-source") {
     exit(update_subscription_source(ARGV[1], ARGV[2], ARGV[3], ARGV[4] || "runtime", ARGV[5] || ""));

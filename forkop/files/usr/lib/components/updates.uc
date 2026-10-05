@@ -1263,7 +1263,7 @@ function unsigned_number(value) {
     return int(value);
 }
 
-function update_due_status(now_value, last_run_value, interval_value) {
+function update_due_status(now_value, last_run_value, interval_value, subscription) {
     let now = unsigned_number(now_value);
     let interval = unsigned_number(interval_value);
 
@@ -1274,7 +1274,9 @@ function update_due_status(now_value, last_run_value, interval_value) {
     if (last_run == null)
         last_run = 0;
 
-    if (last_run > 0 && now - last_run < interval)
+    // Keep list/component timing exact; match subscription/cache.uc for subscriptions.
+    let allowance = subscription && interval >= 3600 ? 60 : 0;
+    if (last_run > 0 && (now < last_run || now - last_run < interval - allowance))
         return 1;
 
     return 0;
@@ -1723,7 +1725,7 @@ function subscription_update_section_due_status(section, timestamp_path, now) {
         exit(2);
     }
 
-    exit(update_due_status(now, file_first_line_value(timestamp_path), seconds));
+    exit(update_due_status(now, file_first_line_value(timestamp_path), seconds, true));
 }
 
 function stdin_first_ipv4_line() {
