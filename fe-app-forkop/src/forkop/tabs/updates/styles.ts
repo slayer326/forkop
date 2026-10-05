@@ -145,8 +145,9 @@ export const styles = `
     display: flex;
     justify-content: flex-start;
     align-items: center;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 6px;
+    min-width: 0;
 }
 
 .fkp_updates-page__component__variants {
@@ -164,7 +165,16 @@ export const styles = `
 
 .fkp_updates-page__component__variants-buttons {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 6px;
+    min-width: 0;
+}
+
+.fkp_updates-page__component__actions-main > .fkp-partial-button,
+.fkp_updates-page__component__variants-buttons > .fkp-partial-button {
+    box-sizing: border-box;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 `;
