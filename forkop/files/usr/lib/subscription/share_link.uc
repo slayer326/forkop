@@ -374,10 +374,6 @@ function populate_subscription_links(subscription) {
     return changed;
 }
 
-function shell_quote(value) {
-    return "'" + replace(as_string(value), /'/g, "'\\''") + "'";
-}
-
 function populate_subscription_file(path) {
     path = as_string(path);
     let data = fs.readfile(path);
@@ -393,14 +389,13 @@ function populate_subscription_file(path) {
     }
 
     if (populate_subscription_links(subscription) == 0)
-        return true;
+        return !!fs.chmod(path, 0600);
 
     let stamp = clock();
     let tmp_path = sprintf("%s.%d.%d.tmp", path, stamp[0], stamp[1]);
-    if (fs.writefile(tmp_path, sprintf("%J\n", subscription)) == null)
+    if (common.write_private_json_file(tmp_path, subscription) == null)
         return false;
 
-    system("chmod 600 " + shell_quote(tmp_path) + " >/dev/null 2>&1");
     if (!fs.rename(tmp_path, path)) {
         fs.unlink(tmp_path);
         return false;

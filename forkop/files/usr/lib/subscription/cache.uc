@@ -1,6 +1,7 @@
 #!/usr/bin/env ucode
 
 let fs = require("fs");
+let common = require("core.common");
 let constants = require("core.constants");
 let uci_core = require("core.uci");
 let connections = require("config.connections");
@@ -68,7 +69,7 @@ function read_json(path) {
 }
 
 function write_file(path, value) {
-    return fs.writefile(path, value) != null;
+    return common.write_private_file(path, value) != null;
 }
 
 function write_json(path, value) {
@@ -524,7 +525,7 @@ function read_text(path) {
 }
 
 function write_text(path, value) {
-    return fs.writefile(as_string(path), as_string(value)) != null;
+    return common.write_private_file(as_string(path), as_string(value)) != null;
 }
 
 function copy_file(source, target) {
@@ -647,20 +648,22 @@ function ensure_runtime_dirs() {
     ensure_dir(FORKOP_SUBSCRIPTION_METADATA_DIR);
     ensure_dir(FORKOP_OUTBOUND_METADATA_DIR);
     ensure_dir(FORKOP_SECTION_CACHE_DIR);
-    if (!fs.chmod(FORKOP_SECTION_CACHE_DIR, 0700)) {
-        log_message("Cannot secure the subscription section-cache directory", "error");
-        exit(1);
-    }
-    let entries = fs.lsdir(FORKOP_SECTION_CACHE_DIR);
-    if (type(entries) == "array")
-        for (let entry in entries) {
-            entry = as_string(entry);
-            if (match(entry, /^[A-Za-z0-9_-]+\.json$/) != null &&
-                !fs.chmod(FORKOP_SECTION_CACHE_DIR + "/" + entry, 0600)) {
-                log_message("Cannot secure subscription section-cache metadata", "error");
-                exit(1);
-            }
+    for (let dir in [ TMP_SUBSCRIPTION_FOLDER,
+                     FORKOP_SUBSCRIPTION_METADATA_DIR, FORKOP_OUTBOUND_METADATA_DIR,
+                     FORKOP_SECTION_CACHE_DIR ]) {
+        if (!common.secure_private_dir(dir)) {
+            log_message("Cannot secure subscription cache directory " + dir, "error");
+            exit(1);
         }
+    }
+    // This directory is retired. Secure an old one if present, but do not
+    // recreate it before the cache-format migration removes it.
+    if (fs.stat(FORKOP_SUBSCRIPTION_LINKS_DIR) != null &&
+        !common.secure_private_dir(FORKOP_SUBSCRIPTION_LINKS_DIR))
+        exit(1);
+    if (fs.stat(FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_DIR) != null &&
+        !common.secure_private_dir(FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_DIR))
+        exit(1);
 }
 
 function clear_subscription_runtime_cache() {
@@ -673,7 +676,7 @@ function clear_subscription_runtime_cache() {
 }
 
 function ensure_runtime_cache_format() {
-    ensure_dir(FORKOP_RUNTIME_STATE_DIR);
+    ensure_runtime_dirs();
 
     if (file_first_line_value(FORKOP_RUNTIME_CACHE_FORMAT_FILE) != FORKOP_RUNTIME_CACHE_FORMAT) {
         log_message("Runtime subscription cache format changed; clearing old subscription cache", "info");
@@ -1190,6 +1193,9 @@ function normalize_cache(cache, section, format_version) {
 }
 
 function save_cache(cache_dir, section, format_version, cache) {
+    ensure_dir(cache_dir);
+    if (!common.secure_private_dir(cache_dir))
+        exit(1);
     cache = normalize_cache(cache, section, format_version);
     let path = cache_path(cache_dir, section);
     let stamp = clock();

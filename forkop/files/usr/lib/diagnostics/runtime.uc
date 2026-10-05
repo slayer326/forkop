@@ -952,6 +952,20 @@ function sing_box_installed_package_name() {
     return sing_box_package_from_manifest(command_output_from_args([ "opkg", "list-installed" ]));
 }
 
+function zapret_manager_launcher_installed(path) {
+    if (!file_executable(path))
+        return false;
+    let source = as_string(fs.readfile(path));
+    // ZMS may replace a mirrored launcher with its official self-update URL.
+    return index(source, "/zapret-manager/proxy/") >= 0 ||
+        match(source, /https:\/\/raw\.githubusercontent\.com\/(StressOzz|Screamshow)\/Zapret-Manager\/main\/Zapret-Manager\.sh([ \t\r\n"')]|$)/) != null;
+}
+
+function zapret_manager_is_installed() {
+    return zapret_manager_launcher_installed("/usr/bin/zms") &&
+        zapret_manager_launcher_installed("/usr/bin/zmsA");
+}
+
 function system_info_cache_is_valid() {
     let cache = read_json_file(SYSTEM_INFO_CACHE_FILE);
     if (type(cache) != "object")
@@ -967,12 +981,7 @@ function system_info_cache_is_valid() {
     if (cache.forkop_version != FORKOP_VERSION || cache.luci_app_version != get_luci_app_version())
         return false;
 
-    let zms_source = as_string(fs.readfile("/usr/bin/zms"));
-    let zmsa_source = as_string(fs.readfile("/usr/bin/zmsA"));
-    let zapret_manager_installed = 0;
-    if (file_executable("/usr/bin/zms") && file_executable("/usr/bin/zmsA") &&
-        index(zms_source, "/zapret-manager/proxy/") >= 0 && index(zmsa_source, "/zapret-manager/proxy/") >= 0)
-        zapret_manager_installed = 1;
+    let zapret_manager_installed = zapret_manager_is_installed() ? 1 : 0;
 
     let zapret_installed = 0;
     let zapret2_installed = 0;
@@ -1110,10 +1119,7 @@ function build_system_info() {
     let zapret2_version = zapret2_installed ? provider_version(ZAPRET2_RUNTIME_UC) : "not installed";
     let byedpi_installed = provider_installed(BYEDPI_RUNTIME_UC) ? 1 : 0;
     let byedpi_version = byedpi_installed ? provider_version(BYEDPI_RUNTIME_UC) : "not installed";
-    let zms_source = as_string(fs.readfile("/usr/bin/zms"));
-    let zmsa_source = as_string(fs.readfile("/usr/bin/zmsA"));
-    let zapret_manager_installed = file_executable("/usr/bin/zms") && file_executable("/usr/bin/zmsA") &&
-        index(zms_source, "/zapret-manager/proxy/") >= 0 && index(zmsa_source, "/zapret-manager/proxy/") >= 0 ? 1 : 0;
+    let zapret_manager_installed = zapret_manager_is_installed() ? 1 : 0;
     let device_model = first_line_value("/tmp/sysinfo/model", "unknown");
     let packet_steering_mode = trim(uci_core.get("network.@globals[0].packet_steering"));
     let direct_proxy_enabled = bool_option(settings(), "direct_proxy_enabled", false) ? 1 : 0;
