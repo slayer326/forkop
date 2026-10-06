@@ -116,7 +116,7 @@ function assertCurrentKeepsStableValues(name, required = [], retired = []) {
 
 assertCurrentKeepsStableValues("action", ["connection", "bypass", "block", "zapret", "zapret2", "byedpi", "dns"], ["direct", "proxy", "vpn", "outbound"]);
 assertCurrentKeepsStableValues("urltest_filter_mode", ["disabled", "exclude", "include", "mixed"]);
-assertCurrentKeepsStableValues("dns_type", ["doh", "dot", "udp"]);
+assertCurrentKeepsStableValues("dns_type", ["doh", "dot", "doq", "udp"]);
 NODE
 
 printf 'config contract matrix checks passed\n'

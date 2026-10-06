@@ -217,7 +217,7 @@ function configureDnsList(
         ? true
         : _("Add at least one DNS server");
     }
-    const validation = validate(normalized);
+    const validation = validate(normalized, _section_id);
     return validation.valid ? true : validation.message;
   };
 }
@@ -315,9 +315,11 @@ function createSettingsContent(sections, capabilities) {
   );
   o.value("doh", _("DNS over HTTPS (DoH)"));
   o.value("dot", _("DNS over TLS (DoT)"));
+  o.value("doq", _("DNS over QUIC (DoQ)"));
   o.value("udp", _("UDP (Unprotected DNS)"));
   o.default = "udp";
   o.rmempty = false;
+  const dnsTypeOption = o;
 
   const dnsOption = sections.dns.option(
     form.DynamicList,
@@ -327,7 +329,18 @@ function createSettingsContent(sections, capabilities) {
       "Main DNS server. If multiple servers are selected, a timeout switches to a backup.",
     ),
   );
-  configureDnsList(dnsOption, main.DNS_SERVER_OPTIONS, "77.88.8.8");
+  configureDnsList(
+    dnsOption,
+    main.DNS_SERVER_OPTIONS,
+    "77.88.8.8",
+    (value, section_id) =>
+      main.validateDNSForProtocol(
+        value,
+        dnsTypeOption.formvalue(section_id) ||
+          dnsTypeOption.cfgvalue(section_id) ||
+          "udp",
+      ),
+  );
 
   const bootstrapOption = sections.dns.option(
     form.DynamicList,

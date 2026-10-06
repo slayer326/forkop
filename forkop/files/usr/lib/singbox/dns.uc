@@ -114,6 +114,15 @@ function server_from_options(tag_name, dns_type, dns_server, detour) {
         result.type = "tls";
         result.server_port = port != "" ? int(port, 10) : 853;
     }
+    else if (dns_type == "doq") {
+        // DoQ has no HTTP path. Refuse one instead of silently querying a
+        // different endpoint than the user entered.
+        if (match(dns_server, /[ \t\r\n\/?#@]/) != null)
+            return { unsupported: "invalid DoQ server address" };
+        result.type = "quic";
+        result.server_port = port != "" ? int(port, 10) : 853;
+        result.tls = { enabled: true };
+    }
     else if (dns_type == "doh") {
         result.type = "https";
         result.server_port = port != "" ? int(port, 10) : 443;

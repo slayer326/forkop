@@ -149,6 +149,19 @@ function validateDNS(value) {
     )
   };
 }
+function validateDNSForProtocol(value, protocol) {
+  const result = validateDNS(value);
+  if (!result.valid || protocol !== "doq") return result;
+  if (["/", "?", "#", "@"].some((char) => value.includes(char))) {
+    return {
+      valid: false,
+      message: _(
+        "DoQ server must be a hostname or IP address with an optional port, without a path or query"
+      )
+    };
+  }
+  return result;
+}
 function validateBootstrapDNS(value) {
   if (!value) {
     return { valid: false, message: _("Bootstrap DNS server cannot be empty") };
@@ -9866,7 +9879,7 @@ async function runDnsCheck() {
     state,
     items: [
       ...insertIf(
-        data.bootstrap_dns_required !== 0 && (data.dns_type === "doh" || data.dns_type === "dot" || data.bootstrap_dns_server_count > 1 || !data.bootstrap_dns_status),
+        data.bootstrap_dns_required !== 0 && (data.dns_type === "doh" || data.dns_type === "dot" || data.dns_type === "doq" || data.bootstrap_dns_server_count > 1 || !data.bootstrap_dns_status),
         [
           {
             state: data.bootstrap_dns_status ? "success" : "error",
@@ -22332,6 +22345,7 @@ return baseclass.extend({
   store,
   validateBootstrapDNS,
   validateDNS,
+  validateDNSForProtocol,
   validateDomain,
   validateIP,
   validateOutboundJson,

@@ -47,6 +47,7 @@ export async function runDnsCheck() {
         data.bootstrap_dns_required !== 0 &&
           (data.dns_type === 'doh' ||
             data.dns_type === 'dot' ||
+            data.dns_type === 'doq' ||
             data.bootstrap_dns_server_count > 1 ||
             !data.bootstrap_dns_status),
         [

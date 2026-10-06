@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { validateDNS, validateBootstrapDNS } from '../validateDns.js';
+import {
+  validateDNS,
+  validateDNSForProtocol,
+  validateBootstrapDNS,
+} from '../validateDns.js';
 import { invalidIPs, validIPs } from './validateIp.test';
 import { invalidDomains, validDomains } from './validateDomain.test';
 
@@ -61,5 +65,29 @@ describe('validateBootstrapDNS', () => {
     '8.8.8.8:0',
   ])('rejects bootstrap server %s', (value) => {
     expect(validateBootstrapDNS(value).valid).toBe(false);
+  });
+});
+
+describe('validateDNSForProtocol', () => {
+  it.each([
+    'dns.adguard-dns.com',
+    'dns.example.com:8853',
+    '[2606:4700:4700::1111]:853',
+  ])('accepts DoQ server %s', (value) => {
+    expect(validateDNSForProtocol(value, 'doq').valid).toBe(true);
+  });
+
+  it.each([
+    'dns.example.com/dns-query',
+    'dns.example.com?x=1',
+    'quic://dns.example.com',
+  ])('rejects DoQ URL %s', (value) => {
+    expect(validateDNSForProtocol(value, 'doq').valid).toBe(false);
+  });
+
+  it('keeps DoH paths valid', () => {
+    expect(
+      validateDNSForProtocol('dns.example.com/dns-query', 'doh').valid,
+    ).toBe(true);
   });
 });

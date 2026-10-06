@@ -2116,6 +2116,7 @@ function dnsTypeChoices() {
   return [
     { value: "doh", label: _("DNS over HTTPS (DoH)") },
     { value: "dot", label: _("DNS over TLS (DoT)") },
+    { value: "doq", label: _("DNS over QUIC (DoQ)") },
     { value: "udp", label: "UDP" },
   ];
 }
@@ -2754,7 +2755,10 @@ function addInterfaceItemOptions(itemSection) {
     if (optionMapValue(this, itemId, "domain_resolver_enabled") !== "1") {
       return true;
     }
-    const validation = main.validateDNS(value);
+    const validation = main.validateDNSForProtocol(
+      value,
+      optionMapValue(this, itemId, "domain_resolver_dns_type") || "udp",
+    );
     return validation.valid ? true : validation.message;
   };
 }
@@ -8457,7 +8461,10 @@ function createSectionContent(section) {
     if (!normalized) {
       return _("DNS server address cannot be empty");
     }
-    const validation = main.validateDNS(normalized);
+    const validation = main.validateDNSForProtocol(
+      normalized,
+      optionMapValue(this, _section_id, "dns_type") || "udp",
+    );
     return validation.valid ? true : _("Enter a valid DNS server address");
   };
 

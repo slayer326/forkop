@@ -37,6 +37,23 @@ export function validateDNS(value: string): ValidationResult {
   };
 }
 
+export function validateDNSForProtocol(
+  value: string,
+  protocol: string,
+): ValidationResult {
+  const result = validateDNS(value);
+  if (!result.valid || protocol !== 'doq') return result;
+  if (['/', '?', '#', '@'].some((char) => value.includes(char))) {
+    return {
+      valid: false,
+      message: _(
+        'DoQ server must be a hostname or IP address with an optional port, without a path or query',
+      ),
+    };
+  }
+  return result;
+}
+
 export function validateBootstrapDNS(value: string): ValidationResult {
   if (!value) {
     return { valid: false, message: _('Bootstrap DNS server cannot be empty') };
