@@ -24,13 +24,14 @@ describe('wide tab layouts', () => {
       'grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr)',
     );
     expect(historyStyles).toContain(
-      'grid-template-columns: minmax(420px, 0.95fr) minmax(0, 1.5fr)',
+      'grid-template-columns: minmax(480px, 0.95fr) minmax(0, 1.5fr)',
     );
+    expect(historyStyles).toContain('@media (min-width: 1100px)');
   });
 
   it('keeps recovery statuses in an aligned column without splitting words', () => {
     expect(historyStyles).toContain(
-      'grid-template-columns: minmax(0, 1fr) minmax(170px, 0.9fr)',
+      'grid-template-columns: minmax(0, 1fr) 190px',
     );
     expect(historyStyles).toMatch(
       /\.fkp-history__facts \.fkp-status \{[^}]*width: 100%;[^}]*overflow-wrap: normal;[^}]*word-break: normal;/,
