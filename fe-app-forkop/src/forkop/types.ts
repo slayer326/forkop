@@ -88,6 +88,7 @@ export namespace Forkop {
     reason: string;
     forkop_version: string;
     is_lkg?: boolean;
+    is_protected?: boolean;
   }
 
   export interface HistoryEvent {

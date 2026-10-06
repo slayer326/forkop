@@ -5,6 +5,17 @@ export const styles = `
 #cbi-${FORKOP_CBI_PREFIX}-monitoring-_mount_node {
     margin: 16px 0 22px;
     padding: 0;
+    width: 100%;
+}
+
+/* LuCI mounts the view in an <output> flex item. Without an explicit basis,
+   collapsing filters lets that item shrink to the table's intrinsic width. */
+#cbi-${FORKOP_CBI_PREFIX}-monitoring-_mount_node > output {
+    display: block;
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
 }
 
 #cbi-${FORKOP_CBI_PREFIX}-monitoring-_mount_node > .cbi-value-title {
@@ -208,12 +219,66 @@ export const styles = `
 
 .fkp_monitoring-page__filters {
     display: flex;
-    flex: 1 1 auto;
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-start;
     gap: 12px;
     min-width: 0;
+    padding: 10px 12px 12px;
+    border-top: 1px solid var(--fkp-monitoring-divider-color);
+}
+
+.fkp_monitoring-page__filter-disclosure {
+    width: 100%;
+    min-width: 0;
+    margin: 0 0 10px;
+    border: 1px solid var(--fkp-monitoring-divider-color);
+    border-radius: 8px;
+    box-sizing: border-box;
+}
+
+.fkp_monitoring-page__filter-disclosure:not([open]) {
+    width: max-content;
+    max-width: 100%;
+}
+
+.fkp_monitoring-page__filter-summary {
+    width: fit-content;
+    min-height: var(--fkp-monitoring-control-height);
+    padding: 7px 12px;
+    box-sizing: border-box;
+    cursor: pointer;
+    color: var(--text-color-medium);
+    font-weight: 600;
+}
+
+.fkp_monitoring-page__filter-summary:hover,
+.fkp_monitoring-page__filter-summary:focus-visible {
+    color: var(--text-color-high);
+}
+
+.fkp_monitoring-page__filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    margin-left: 6px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: rgba(25, 118, 210, 0.22);
+    color: var(--primary-color-high, #1976d2);
+    font-size: 12px;
+    box-sizing: border-box;
+}
+
+.fkp_monitoring-page__filter-count[hidden] { display: none; }
+
+.fkp_monitoring-page__filters > select {
+    flex: 1 1 170px;
+    max-width: 240px;
+    min-width: 0;
+    margin: 0 !important;
 }
 
 .fkp_monitoring-page__device-filter {
@@ -231,6 +296,7 @@ export const styles = `
 .fkp_monitoring-page__search {
     position: relative;
     display: flex;
+    flex: 1 1 260px;
     align-items: center;
     width: min(320px, 100%);
     min-width: 0;
@@ -777,9 +843,24 @@ export const styles = `
 
     .fkp_monitoring-page__tabs,
     .fkp_monitoring-page__filters,
+    .fkp_monitoring-page__filter-disclosure,
     .fkp_monitoring-page__device-filter,
     .fkp_monitoring-page__search {
         width: 100%;
+    }
+
+    .fkp_monitoring-page__filter-disclosure:not([open]) {
+        width: 100%;
+    }
+
+    .fkp_monitoring-page__filters > select {
+        flex: none;
+        width: 100%;
+        max-width: none;
+    }
+
+    .fkp_monitoring-page__search {
+        flex: none;
     }
 
     .fkp_monitoring-page__controls,
@@ -795,6 +876,10 @@ export const styles = `
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         width: 100%;
+    }
+
+    #monitoring-follow-toggle {
+        grid-column: 1 / -1;
     }
 
     .fkp_monitoring-page__table td {

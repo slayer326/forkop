@@ -199,6 +199,24 @@ export interface HistoryItem {
   relative: string;
 }
 
+export const HISTORY_PAGE_SIZE = 8;
+
+// Keep the full event history in memory; only limit what is mounted in the UI.
+export function historyPage(
+  items: HistoryItem[],
+  shown = HISTORY_PAGE_SIZE,
+): { visible: HistoryItem[]; remaining: number; nextCount: number } {
+  const count = Number.isFinite(shown)
+    ? Math.max(HISTORY_PAGE_SIZE, Math.floor(shown))
+    : HISTORY_PAGE_SIZE;
+  const visible = items.slice(0, count);
+  return {
+    visible,
+    remaining: items.length - visible.length,
+    nextCount: Math.min(items.length, count + HISTORY_PAGE_SIZE),
+  };
+}
+
 // An autotune apply names its strategy and whether a person or the
 // schedule started it; other events are named by their kind.
 export function eventTitle(event: Forkop.HistoryEvent) {
@@ -277,8 +295,20 @@ export function snapshotRows(snapshots: Forkop.SnapshotMetadata[]) {
           ? ''
           : snapshotReasonLabel(snapshot.reason),
       lkg: Boolean(snapshot.is_lkg),
-      canDelete: !snapshot.is_lkg,
+      protected: Boolean(snapshot.is_protected),
+      canDelete: !snapshot.is_lkg && !snapshot.is_protected,
     }));
+}
+
+// Never offer bulk cleanup without exactly one verified recovery point.
+// Each deletion is still checked against the current LKG by the backend.
+export function snapshotCleanupIds(
+  snapshots: Forkop.SnapshotMetadata[],
+): string[] {
+  if (snapshots.filter((snapshot) => snapshot.is_lkg).length !== 1) return [];
+  return snapshots
+    .filter((snapshot) => !snapshot.is_lkg && !snapshot.is_protected)
+    .map((snapshot) => snapshot.id);
 }
 
 // null: the option is not set on that side, not a hidden value (D-2).

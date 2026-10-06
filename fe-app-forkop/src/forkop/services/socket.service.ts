@@ -27,7 +27,13 @@ class SocketManager {
   }
 
   resetAll(): void {
-    for (const [url, ws] of this.sockets.entries()) {
+    const sockets = Array.from(this.sockets.entries());
+    this.sockets.clear();
+    this.listeners.clear();
+    this.errorListeners.clear();
+    this.connected.clear();
+
+    for (const [url, ws] of sockets) {
       try {
         if (
           ws.readyState === WebSocket.OPEN ||
@@ -44,10 +50,6 @@ class SocketManager {
       }
     }
 
-    this.sockets.clear();
-    this.listeners.clear();
-    this.errorListeners.clear();
-    this.connected.clear();
     logger.info('[SOCKET]', 'All connections and state have been reset.');
   }
 
@@ -74,6 +76,7 @@ class SocketManager {
     if (!this.errorListeners.has(url)) this.errorListeners.set(url, new Set());
 
     ws.addEventListener('open', () => {
+      if (this.sockets.get(url) !== ws) return;
       this.connected.set(url, true);
       logger.info('[SOCKET]', 'Connected to', loggableUrl(url));
     });
@@ -96,12 +99,14 @@ class SocketManager {
     });
 
     ws.addEventListener('close', () => {
+      if (this.sockets.get(url) !== ws) return;
       this.connected.set(url, false);
       logger.warn('[SOCKET]', `Disconnected: ${loggableUrl(url)}`);
       this.triggerError(url, 'Connection closed');
     });
 
     ws.addEventListener('error', (err) => {
+      if (this.sockets.get(url) !== ws) return;
       logger.error('[SOCKET]', `Socket error for ${loggableUrl(url)}:`, err);
       this.triggerError(url, err);
     });
@@ -148,12 +153,12 @@ class SocketManager {
 
   disconnect(url: string): void {
     const ws = this.sockets.get(url);
+    this.sockets.delete(url);
+    this.listeners.delete(url);
+    this.errorListeners.delete(url);
+    this.connected.delete(url);
     if (ws) {
       ws.close();
-      this.sockets.delete(url);
-      this.listeners.delete(url);
-      this.errorListeners.delete(url);
-      this.connected.delete(url);
     }
   }
 

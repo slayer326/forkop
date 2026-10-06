@@ -19,11 +19,14 @@ import {
   diffTruncatedText,
   historyFilterLabel,
   historyItems,
+  historyPage,
+  HISTORY_PAGE_SIZE,
   recoveryRows,
   restoreConfirmMessage,
   restorePreview,
   restoreResultToast,
   snapshotBusyText,
+  snapshotCleanupIds,
   snapshotDiff,
   snapshotRows,
   unsavedChangesBlockRestore,
@@ -32,6 +35,7 @@ import {
   type SnapshotDiff,
 } from './model';
 import { FORKOP_UCI_PACKAGE } from '../../../constants';
+import { cleanupOldSnapshots } from './cleanupSnapshots';
 
 const REFRESH_INTERVAL_MS = 15000;
 const FILTERS: HistoryFilter[] = ['all', 'config', 'service', 'autotune'];
@@ -41,6 +45,7 @@ let mounted = false;
 let mountId = 0;
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
 let filter: HistoryFilter = 'all';
+let visibleHistoryCount = HISTORY_PAGE_SIZE;
 let health: Forkop.HealthStatus | null = null;
 let healthFailed = false;
 let history: Forkop.HistoryResult | null = null;
@@ -119,6 +124,7 @@ function renderHistory() {
           'aria-pressed': item === filter ? 'true' : 'false',
           click: () => {
             filter = item;
+            visibleHistoryCount = HISTORY_PAGE_SIZE;
             renderHistory();
           },
         },
@@ -138,6 +144,7 @@ function renderHistory() {
   }
 
   const items = historyItems(history.events, filter);
+  const page = historyPage(items, visibleHistoryCount);
   const notes = history.persistent
     ? []
     : [
@@ -151,27 +158,47 @@ function renderHistory() {
   replace(
     'history-events',
     ...notes,
-    items.length
-      ? E(
-          'ul',
-          { class: 'fkp-history__list' },
-          items.map((item) =>
-            E('li', { class: 'fkp-history__event' }, [
-              E(
-                'span',
-                { class: 'fkp-history__time', title: item.time },
-                item.relative,
-              ),
-              E('span', { class: 'fkp-history__what' }, item.title),
-              renderStatus(item.outcome),
-            ]),
+    ...(items.length
+      ? [
+          E(
+            'ul',
+            { class: 'fkp-history__list' },
+            page.visible.map((item) =>
+              E('li', { class: 'fkp-history__event' }, [
+                E(
+                  'span',
+                  { class: 'fkp-history__time', title: item.time },
+                  item.relative,
+                ),
+                E('span', { class: 'fkp-history__what' }, item.title),
+                renderStatus(item.outcome),
+              ]),
+            ),
           ),
-        )
-      : renderEmptyState(
-          filter === 'all'
-            ? _('No events recorded yet')
-            : _('No events of this kind'),
-        ),
+          ...(page.remaining
+            ? [
+                E(
+                  'button',
+                  {
+                    type: 'button',
+                    class: 'btn cbi-button fkp-history__more',
+                    click: () => {
+                      visibleHistoryCount = page.nextCount;
+                      renderHistory();
+                    },
+                  },
+                  `${_('Show more events')} (+${Math.min(page.remaining, HISTORY_PAGE_SIZE)})`,
+                ),
+              ]
+            : []),
+        ]
+      : [
+          renderEmptyState(
+            filter === 'all'
+              ? _('No events recorded yet')
+              : _('No events of this kind'),
+          ),
+        ]),
   );
 }
 
@@ -305,6 +332,62 @@ async function deleteSnapshot(id: string, label: string) {
   });
 }
 
+async function deleteOldSnapshots() {
+  if (!snapshots) return;
+  const expected = snapshots;
+  const ids = snapshotCleanupIds(expected);
+  if (ids.length === 0) return;
+
+  const confirmed = await confirmAction({
+    title: _('Delete unneeded snapshots?'),
+    message: _(
+      'Delete %d unneeded snapshots? Snapshots needed for recovery will be kept.',
+    ).replace('%d', String(ids.length)),
+    confirmLabel: _('Delete'),
+    danger: true,
+  });
+  if (!confirmed) return;
+
+  await runSnapshotAction(async () => {
+    const result = await cleanupOldSnapshots(
+      expected,
+      async () => {
+        const response = await ForkopShellMethods.snapshotList();
+        return response.success && Array.isArray(response.data)
+          ? response.data
+          : null;
+      },
+      async (id) => {
+        const response = await ForkopShellMethods.snapshotDelete(id);
+        const status = response.success ? response.data.status : undefined;
+        return status === 'deleted' || status === 'busy' ? status : 'failed';
+      },
+    );
+    if (result.status === 'deleted') {
+      showToast(_('Old snapshots deleted'), 'success');
+    } else if (result.status === 'changed') {
+      showToast(_('Snapshot list changed. Refresh and try again.'), 'warning');
+    } else if (result.status === 'load-failed') {
+      showToast(_('Could not load configuration snapshots'), 'error');
+    } else if (result.deleted > 0) {
+      showToast(
+        _('Deleted %d snapshots; the rest were not removed.').replace(
+          '%d',
+          String(result.deleted),
+        ),
+        'warning',
+      );
+    } else {
+      showToast(
+        result.status === 'busy'
+          ? snapshotBusyText()
+          : _('Could not delete snapshot'),
+        result.status === 'busy' ? 'warning' : 'error',
+      );
+    }
+  });
+}
+
 async function createSnapshot() {
   await runSnapshotAction(async () => {
     const result = await ForkopShellMethods.snapshotCreate('manual');
@@ -317,6 +400,7 @@ async function createSnapshot() {
 
 function renderSnapshots() {
   const readonly = isReadonlyMode();
+  const cleanupIds = snapshots ? snapshotCleanupIds(snapshots) : [];
   replace(
     'history-snapshot-actions',
     ...(readonly
@@ -332,6 +416,20 @@ function renderSnapshots() {
             },
             _('Create snapshot'),
           ),
+          ...(cleanupIds.length
+            ? [
+                E(
+                  'button',
+                  {
+                    type: 'button',
+                    class: 'btn cbi-button',
+                    disabled: snapshotBusy ? true : undefined,
+                    click: () => void deleteOldSnapshots(),
+                  },
+                  _('Delete unneeded snapshots'),
+                ),
+              ]
+            : []),
         ]),
   );
 
@@ -370,6 +468,16 @@ function renderSnapshots() {
                       ),
                     ]
                   : []),
+                ...(row.protected
+                  ? [
+                      ' ',
+                      E(
+                        'span',
+                        { class: 'fkp-history__lkg' },
+                        _('Protected for recovery'),
+                      ),
+                    ]
+                  : []),
               ]),
               E('span', { class: 'fkp-actions' }, [
                 E(
@@ -394,9 +502,11 @@ function renderSnapshots() {
                         {
                           label: row.canDelete
                             ? _('Delete…')
-                            : _(
-                                'The last known good snapshot cannot be deleted',
-                              ),
+                            : row.protected
+                              ? _('This snapshot is needed for recovery')
+                              : _(
+                                  'The last known good snapshot cannot be deleted',
+                                ),
                           onClick: () => void deleteSnapshot(row.id, label),
                           disabled: snapshotBusy || !row.canDelete,
                           danger: row.canDelete,
@@ -421,6 +531,7 @@ function onPageMount() {
   onPageUnmount();
   mounted = true;
   mountId += 1;
+  visibleHistoryCount = HISTORY_PAGE_SIZE;
   renderAll();
   void loadAll();
   refreshTimer = setInterval(() => {

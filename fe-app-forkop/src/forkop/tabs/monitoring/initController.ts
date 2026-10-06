@@ -47,6 +47,11 @@ import {
 import { renderProvenance } from '../../ui/status';
 import { readMonitoringView, showMonitoringView } from './views';
 import {
+  advancedOptionCount,
+  needsElapsedTimeRefresh,
+  shouldPaintConnectionSnapshot,
+} from './renderPolicy';
+import {
   getCachedRuntimeUiState,
   refreshRuntimeUiState,
   subscribeRuntimeUiState,
@@ -134,7 +139,7 @@ async function loadRuntimeRouteRules(mountId: number) {
   }
 }
 
-const RENDER_INTERVAL_MS = 500;
+const RENDER_INTERVAL_MS = 1000;
 const CONNECTIONS_RPC_POLL_INTERVAL_MS = 1500;
 const CLOSED_CONNECTION_LIMIT = 300;
 const ALL_FILTER_VALUE = 'all';
@@ -586,7 +591,15 @@ function applyConnectionsPayload(payload: ClashConnectionsPayload) {
   loading = false;
   failed = false;
 
-  if (monitoringMounted && mountId === monitoringMountId) {
+  // Keep the latest state, but do not rebuild the table while the browser tab
+  // is hidden. A visibilitychange renders it once when the user returns.
+  if (
+    shouldPaintConnectionSnapshot(
+      monitoringMounted,
+      mountId === monitoringMountId,
+      document.visibilityState !== 'hidden',
+    )
+  ) {
     renderControls();
     renderConnections();
   }
@@ -855,6 +868,20 @@ function renderControls() {
   renderPathFilterOptions();
   renderFilterBar();
 
+  const advancedCount = advancedOptionCount(
+    selectedDeviceFilter,
+    pathFilter,
+    sortMode,
+    ALL_FILTER_VALUE,
+  );
+  const advancedBadge = document.getElementById(
+    'monitoring-extra-filter-count',
+  );
+  if (advancedBadge) {
+    advancedBadge.hidden = advancedCount === 0;
+    advancedBadge.textContent = advancedCount ? String(advancedCount) : '';
+  }
+
   const pathSelect = document.getElementById(
     'monitoring-path-filter',
   ) as HTMLSelectElement | null;
@@ -952,6 +979,30 @@ function renderSecondary(text: string, className = '') {
   );
 }
 
+function connectionDestinationMeta(
+  connection: MonitoredConnection,
+  isActive: boolean,
+): string {
+  return [
+    getNetwork(connection).toUpperCase(),
+    formatConnectionDuration(connection),
+    ...(isActive ? [] : [_('closed')]),
+  ].join(' · ');
+}
+
+function renderDestinationMeta(
+  connection: MonitoredConnection,
+  isActive: boolean,
+) {
+  const element = renderSecondary(
+    connectionDestinationMeta(connection, isActive),
+  );
+  if (isActive) {
+    element.setAttribute('data-fkp-live-connection-id', connection.id);
+  }
+  return element;
+}
+
 function renderPathCell(path: ConnectionPath, reason: string) {
   const summary = pathSummary(path);
   return [
@@ -994,12 +1045,6 @@ function renderConnectionRow(connection: MonitoredConnection) {
       ),
     ),
   );
-  const destinationMeta = [
-    getNetwork(connection).toUpperCase(),
-    formatConnectionDuration(connection),
-    ...(isActive ? [] : [_('closed')]),
-  ].join(' · ');
-
   return E(
     'tr',
     {
@@ -1017,7 +1062,7 @@ function renderConnectionRow(connection: MonitoredConnection) {
       renderTableCell(_('Device'), [renderSourceValue(source)]),
       renderTableCell(_('Destination'), [
         renderValue(target.primary),
-        renderSecondary(destinationMeta),
+        renderDestinationMeta(connection, isActive),
       ]),
       renderTableCell(
         _('Path'),
@@ -1088,10 +1133,14 @@ function connectionDetails(connection: MonitoredConnection) {
   ];
 }
 
-function detailRow(label: string, value: Node | string) {
+function detailRow(label: string, value: Node | string, liveStatus = false) {
+  const valueElement = E('dd', {}, value);
+  if (liveStatus) {
+    valueElement.setAttribute('data-fkp-live-status', '');
+  }
   return E('div', { class: 'fkp_monitoring-page__detail-row' }, [
     E('dt', {}, label),
-    E('dd', {}, value),
+    valueElement,
   ]);
 }
 
@@ -1149,6 +1198,7 @@ function renderConnectionDetailsPanel() {
           isActive
             ? `${_('Active')} · ${formatConnectionDuration(connection)}`
             : `${_('Closed')} · ${formatConnectionDuration(connection)}`,
+          isActive,
         ),
         detailRow(
           _('Route'),
@@ -1463,6 +1513,39 @@ function flushRenderAfterSelection() {
   }
 
   renderConnections({ force: true });
+}
+
+function refreshElapsedLabels() {
+  // Incoming connection data still renders immediately. The one-second tick
+  // only changes visible elapsed labels, keeping rows, focus and scroll intact.
+  if (isTextSelectionInsideMonitoring()) {
+    return;
+  }
+
+  document
+    .getElementById('monitoring-connections')
+    ?.querySelectorAll<HTMLElement>('[data-fkp-live-connection-id]')
+    .forEach((element) => {
+      const connection = activeConnections.get(
+        element.getAttribute('data-fkp-live-connection-id') || '',
+      );
+      if (!connection) return;
+      const next = connectionDestinationMeta(connection, true);
+      if (element.textContent !== next) {
+        element.textContent = next;
+        element.title = next;
+      }
+    });
+
+  const selected = selectedConnectionId
+    ? activeConnections.get(selectedConnectionId)
+    : undefined;
+  if (!selected) return;
+
+  const panel = document.getElementById('monitoring-connection-details');
+  const duration = formatConnectionDuration(selected);
+  const status = panel?.querySelector<HTMLElement>('[data-fkp-live-status]');
+  if (status) status.textContent = `${_('Active')} · ${duration}`;
 }
 
 function setMonitoringPaused(paused: boolean) {
@@ -1807,6 +1890,7 @@ function bindControls() {
     select.onchange = () => {
       selectedDeviceFilter = select.value || ALL_FILTER_VALUE;
       saveMonitoringPreferences();
+      renderControls();
       renderConnections();
     };
   }
@@ -1818,6 +1902,7 @@ function bindControls() {
     pathSelect.onchange = () => {
       pathFilter = pathSelect.value || ALL_FILTER_VALUE;
       saveMonitoringPreferences();
+      renderControls();
       renderConnections({ force: true });
     };
   }
@@ -1840,6 +1925,7 @@ function bindControls() {
     sort.onchange = () => {
       sortMode = sort.value;
       saveMonitoringPreferences();
+      renderControls();
       renderConnections();
     };
   }
@@ -1918,11 +2004,16 @@ async function loadRouteDisplayNames() {
   }
 }
 
+function isMonitoringDocumentVisible() {
+  return document.visibilityState !== 'hidden';
+}
+
 async function pollConnectionsSnapshot() {
   if (
     pollingConnections ||
     !monitoringMounted ||
     monitoringPaused ||
+    !isMonitoringDocumentVisible() ||
     serviceAvailability !== 'running'
   ) {
     return;
@@ -1945,7 +2036,7 @@ async function pollConnectionsSnapshot() {
     if (!response.success) {
       failed = true;
       loading = false;
-      renderConnections();
+      if (isMonitoringDocumentVisible()) renderConnections();
       return;
     }
 
@@ -1962,10 +2053,17 @@ async function pollConnectionsSnapshot() {
     logger.error('[MONITORING]', 'connections polling failed', error);
     failed = true;
     loading = false;
-    renderConnections();
+    if (isMonitoringDocumentVisible()) renderConnections();
   } finally {
     pollingConnections = false;
   }
+}
+
+function refreshMonitoringAfterVisibilityChange() {
+  if (!monitoringMounted || document.visibilityState === 'hidden') return;
+  renderControls();
+  renderConnections();
+  if (connectionsPollTimer) void pollConnectionsSnapshot();
 }
 
 function startConnectionsPolling() {
@@ -2152,6 +2250,18 @@ async function onPageMount() {
   void loadRuntimeRouteRules(mountId);
   resetMonitoringState();
   loadMonitoringPreferences();
+  const advancedFilters = document.getElementById(
+    'monitoring-extra-filters',
+  ) as HTMLDetailsElement | null;
+  if (advancedFilters) {
+    advancedFilters.open =
+      advancedOptionCount(
+        selectedDeviceFilter,
+        pathFilter,
+        sortMode,
+        ALL_FILTER_VALUE,
+      ) > 0;
+  }
   bindControls();
   renderControls();
   renderConnections();
@@ -2177,13 +2287,27 @@ async function onPageMount() {
 
   document.addEventListener('selectionchange', flushRenderAfterSelection);
   document.addEventListener('copy', handleMonitoringValueCopy);
+  document.addEventListener(
+    'visibilitychange',
+    refreshMonitoringAfterVisibilityChange,
+  );
 
   renderTimer = setInterval(() => {
-    if (monitoringPaused) {
+    if (
+      !needsElapsedTimeRefresh(
+        monitoringPaused,
+        document.visibilityState !== 'hidden',
+        activeConnections.size,
+        activeTab === 'active' || followBaseline !== null,
+        Boolean(
+          selectedConnectionId && activeConnections.has(selectedConnectionId),
+        ),
+      )
+    ) {
       return;
     }
 
-    renderConnections();
+    refreshElapsedLabels();
   }, RENDER_INTERVAL_MS);
 }
 
@@ -2202,6 +2326,10 @@ function onPageUnmount() {
 
   document.removeEventListener('selectionchange', flushRenderAfterSelection);
   document.removeEventListener('copy', handleMonitoringValueCopy);
+  document.removeEventListener(
+    'visibilitychange',
+    refreshMonitoringAfterVisibilityChange,
+  );
 }
 
 function registerLifecycleListeners() {

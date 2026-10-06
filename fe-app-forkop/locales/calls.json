@@ -412,16 +412,17 @@
     "call": "Actions",
     "key": "Actions",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1030",
-      "src/forkop/tabs/monitoring/initController.ts:1345"
+      "src/forkop/tabs/monitoring/initController.ts:1075",
+      "src/forkop/tabs/monitoring/initController.ts:1395"
     ]
   },
   {
     "call": "Active",
     "key": "Active",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:798",
-      "src/forkop/tabs/monitoring/initController.ts:1150",
+      "src/forkop/tabs/monitoring/initController.ts:811",
+      "src/forkop/tabs/monitoring/initController.ts:1199",
+      "src/forkop/tabs/monitoring/initController.ts:1548",
       "src/forkop/tabs/monitoring/render.ts:51"
     ]
   },
@@ -436,7 +437,7 @@
     "call": "Active connections of all devices are interrupted.",
     "key": "Active connections of all devices are interrupted.",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1731"
+      "src/forkop/tabs/monitoring/initController.ts:1814"
     ]
   },
   {
@@ -652,8 +653,8 @@
     "key": "All devices",
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:4219",
-      "src/forkop/tabs/monitoring/initController.ts:659",
-      "src/forkop/tabs/monitoring/render.ts:84"
+      "src/forkop/tabs/monitoring/initController.ts:672",
+      "src/forkop/tabs/monitoring/render.ts:140"
     ]
   },
   {
@@ -675,7 +676,7 @@
     "call": "All paths",
     "key": "All paths",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:696"
+      "src/forkop/tabs/monitoring/initController.ts:709"
     ]
   },
   {
@@ -781,7 +782,7 @@
     "key": "and %d more",
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/configform.js:176",
-      "src/forkop/tabs/history/model.ts:342"
+      "src/forkop/tabs/history/model.ts:372"
     ]
   },
   {
@@ -838,7 +839,7 @@
     "call": "Another snapshot operation is already in progress. Try again in a moment.",
     "key": "Another snapshot operation is already in progress. Try again in a moment.",
     "places": [
-      "src/forkop/tabs/history/model.ts:360"
+      "src/forkop/tabs/history/model.ts:390"
     ]
   },
   {
@@ -938,7 +939,7 @@
     "call": "Apps reconnect on their own; downloads and calls may drop",
     "key": "Apps reconnect on their own; downloads and calls may drop",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1733"
+      "src/forkop/tabs/monitoring/initController.ts:1816"
     ]
   },
   {
@@ -1129,42 +1130,42 @@
     "call": "Autotune: %s applied automatically",
     "key": "Autotune: %s applied automatically",
     "places": [
-      "src/forkop/tabs/history/model.ts:217"
+      "src/forkop/tabs/history/model.ts:235"
     ]
   },
   {
     "call": "Autotune: %s applied manually",
     "key": "Autotune: %s applied manually",
     "places": [
-      "src/forkop/tabs/history/model.ts:216"
+      "src/forkop/tabs/history/model.ts:234"
     ]
   },
   {
     "call": "Autotune: automatic apply",
     "key": "Autotune: automatic apply",
     "places": [
-      "src/forkop/tabs/history/model.ts:212"
+      "src/forkop/tabs/history/model.ts:230"
     ]
   },
   {
     "call": "Autotune: automatic apply of %s",
     "key": "Autotune: automatic apply of %s",
     "places": [
-      "src/forkop/tabs/history/model.ts:222"
+      "src/forkop/tabs/history/model.ts:240"
     ]
   },
   {
     "call": "Autotune: manual apply",
     "key": "Autotune: manual apply",
     "places": [
-      "src/forkop/tabs/history/model.ts:211"
+      "src/forkop/tabs/history/model.ts:229"
     ]
   },
   {
     "call": "Autotune: manual apply of %s",
     "key": "Autotune: manual apply of %s",
     "places": [
-      "src/forkop/tabs/history/model.ts:221"
+      "src/forkop/tabs/history/model.ts:239"
     ]
   },
   {
@@ -1195,21 +1196,21 @@
     "call": "Before applying changes",
     "key": "Before applying changes",
     "places": [
-      "src/forkop/tabs/history/model.ts:249"
+      "src/forkop/tabs/history/model.ts:267"
     ]
   },
   {
     "call": "Before autotune",
     "key": "Before autotune",
     "places": [
-      "src/forkop/tabs/history/model.ts:255"
+      "src/forkop/tabs/history/model.ts:273"
     ]
   },
   {
     "call": "Before restore",
     "key": "Before restore",
     "places": [
-      "src/forkop/tabs/history/model.ts:251"
+      "src/forkop/tabs/history/model.ts:269"
     ]
   },
   {
@@ -1306,7 +1307,7 @@
     "call": "Built-in subnets",
     "key": "Built-in subnets",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:417"
+      "src/forkop/tabs/monitoring/initController.ts:422"
     ]
   },
   {
@@ -1416,7 +1417,7 @@
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:4138",
       "src/forkop/tabs/monitoring/connectionView.ts:130",
-      "src/forkop/tabs/monitoring/initController.ts:227"
+      "src/forkop/tabs/monitoring/initController.ts:232"
     ]
   },
   {
@@ -1522,7 +1523,7 @@
     "call": "Changes",
     "key": "Changes",
     "places": [
-      "src/forkop/tabs/history/initController.ts:382"
+      "src/forkop/tabs/history/initController.ts:490"
     ]
   },
   {
@@ -1543,7 +1544,7 @@
     "call": "Changes since this snapshot",
     "key": "Changes since this snapshot",
     "places": [
-      "src/forkop/tabs/history/initController.ts:218"
+      "src/forkop/tabs/history/initController.ts:245"
     ]
   },
   {
@@ -1573,7 +1574,7 @@
     "call": "Check address in Diagnostics",
     "key": "Check address in Diagnostics",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1201"
+      "src/forkop/tabs/monitoring/initController.ts:1251"
     ]
   },
   {
@@ -1897,7 +1898,7 @@
       "src/forkop/tabs/autotune/initController.ts:795",
       "src/forkop/tabs/dashboard/initController.ts:1306",
       "src/forkop/tabs/dashboard/initController.ts:1691",
-      "src/forkop/tabs/history/initController.ts:228",
+      "src/forkop/tabs/history/initController.ts:255",
       "src/forkop/tabs/updates/releaseSelector.ts:121"
     ]
   },
@@ -1905,22 +1906,22 @@
     "call": "Close all",
     "key": "Close all",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1735"
+      "src/forkop/tabs/monitoring/initController.ts:1818"
     ]
   },
   {
     "call": "Close all connections",
     "key": "Close all connections",
     "places": [
-      "src/forkop/tabs/monitoring/render.ts:127",
-      "src/forkop/tabs/monitoring/render.ts:128"
+      "src/forkop/tabs/monitoring/render.ts:96",
+      "src/forkop/tabs/monitoring/render.ts:97"
     ]
   },
   {
     "call": "Close all connections?",
     "key": "Close all connections?",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1730"
+      "src/forkop/tabs/monitoring/initController.ts:1813"
     ]
   },
   {
@@ -1928,30 +1929,30 @@
     "key": "Close connection",
     "places": [
       "src/forkop/tabs/monitoring/connectionView.ts:219",
-      "src/forkop/tabs/monitoring/initController.ts:1232"
+      "src/forkop/tabs/monitoring/initController.ts:1282"
     ]
   },
   {
     "call": "Close details",
     "key": "Close details",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1138",
-      "src/forkop/tabs/monitoring/initController.ts:1139"
+      "src/forkop/tabs/monitoring/initController.ts:1187",
+      "src/forkop/tabs/monitoring/initController.ts:1188"
     ]
   },
   {
     "call": "closed",
     "key": "closed",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1000"
+      "src/forkop/tabs/monitoring/initController.ts:989"
     ]
   },
   {
     "call": "Closed",
     "key": "Closed",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:805",
-      "src/forkop/tabs/monitoring/initController.ts:1151",
+      "src/forkop/tabs/monitoring/initController.ts:818",
+      "src/forkop/tabs/monitoring/initController.ts:1200",
       "src/forkop/tabs/monitoring/render.ts:60"
     ]
   },
@@ -1987,7 +1988,7 @@
     "call": "Concurrent edit",
     "key": "Concurrent edit",
     "places": [
-      "src/forkop/tabs/history/model.ts:260"
+      "src/forkop/tabs/history/model.ts:278"
     ]
   },
   {
@@ -2044,14 +2045,14 @@
     "call": "Configuration restored and reloaded",
     "key": "Configuration restored and reloaded",
     "places": [
-      "src/forkop/tabs/history/model.ts:411"
+      "src/forkop/tabs/history/model.ts:441"
     ]
   },
   {
     "call": "Configuration restored, but Forkop X is stopped: it was not started or checked. The restored configuration takes effect when Forkop X is started.",
     "key": "Configuration restored, but Forkop X is stopped: it was not started or checked. The restored configuration takes effect when Forkop X is started.",
     "places": [
-      "src/forkop/tabs/history/model.ts:418"
+      "src/forkop/tabs/history/model.ts:448"
     ]
   },
   {
@@ -2136,7 +2137,7 @@
     "call": "Connection ID",
     "key": "Connection ID",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1058"
+      "src/forkop/tabs/monitoring/initController.ts:1103"
     ]
   },
   {
@@ -2165,7 +2166,7 @@
     "call": "Connections are unavailable",
     "key": "Connections are unavailable",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1411"
+      "src/forkop/tabs/monitoring/initController.ts:1461"
     ]
   },
   {
@@ -2221,7 +2222,7 @@
     "call": "Copy details",
     "key": "Copy details",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1218",
+      "src/forkop/tabs/monitoring/initController.ts:1268",
       "src/forkop/tabs/diagnostic/partials/renderCheckSection.ts:153"
     ]
   },
@@ -2237,8 +2238,8 @@
     "call": "Could not compare configurations",
     "key": "Could not compare configurations",
     "places": [
-      "src/forkop/tabs/history/initController.ts:214",
-      "src/forkop/tabs/history/initController.ts:277"
+      "src/forkop/tabs/history/initController.ts:241",
+      "src/forkop/tabs/history/initController.ts:304"
     ]
   },
   {
@@ -2259,14 +2260,15 @@
     "call": "Could not create snapshot",
     "key": "Could not create snapshot",
     "places": [
-      "src/forkop/tabs/history/initController.ts:314"
+      "src/forkop/tabs/history/initController.ts:397"
     ]
   },
   {
     "call": "Could not delete snapshot",
     "key": "Could not delete snapshot",
     "places": [
-      "src/forkop/tabs/history/initController.ts:304"
+      "src/forkop/tabs/history/initController.ts:331",
+      "src/forkop/tabs/history/initController.ts:384"
     ]
   },
   {
@@ -2288,7 +2290,8 @@
     "call": "Could not load configuration snapshots",
     "key": "Could not load configuration snapshots",
     "places": [
-      "src/forkop/tabs/history/initController.ts:343"
+      "src/forkop/tabs/history/initController.ts:371",
+      "src/forkop/tabs/history/initController.ts:441"
     ]
   },
   {
@@ -2296,13 +2299,13 @@
     "key": "Could not load data",
     "places": [
       "src/forkop/ui/states.ts:115",
+      "src/forkop/tabs/history/initController.ts:269",
       "src/forkop/tabs/diagnostic/initController.ts:588",
       "src/forkop/tabs/diagnostic/initController.ts:592",
       "src/forkop/tabs/diagnostic/initController.ts:627",
       "src/forkop/tabs/diagnostic/initController.ts:631",
       "src/forkop/tabs/diagnostic/initController.ts:667",
-      "src/forkop/tabs/diagnostic/initController.ts:671",
-      "src/forkop/tabs/history/initController.ts:242"
+      "src/forkop/tabs/diagnostic/initController.ts:671"
     ]
   },
   {
@@ -2339,7 +2342,7 @@
     "call": "Create snapshot",
     "key": "Create snapshot",
     "places": [
-      "src/forkop/tabs/history/initController.ts:333"
+      "src/forkop/tabs/history/initController.ts:417"
     ]
   },
   {
@@ -2423,7 +2426,7 @@
     "call": "Default route",
     "key": "Default route",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:416"
+      "src/forkop/tabs/monitoring/initController.ts:421"
     ]
   },
   {
@@ -2458,28 +2461,57 @@
     "call": "Delete",
     "key": "Delete",
     "places": [
-      "src/forkop/tabs/history/initController.ts:294"
+      "src/forkop/tabs/history/initController.ts:321",
+      "src/forkop/tabs/history/initController.ts:346"
+    ]
+  },
+  {
+    "call": "Delete %d unneeded snapshots? Snapshots needed for recovery will be kept.",
+    "key": "Delete %d unneeded snapshots? Snapshots needed for recovery will be kept.",
+    "places": [
+      "src/forkop/tabs/history/initController.ts:343"
     ]
   },
   {
     "call": "Delete snapshot?",
     "key": "Delete snapshot?",
     "places": [
-      "src/forkop/tabs/history/initController.ts:292"
+      "src/forkop/tabs/history/initController.ts:319"
     ]
   },
   {
     "call": "Delete this configuration snapshot?",
     "key": "Delete this configuration snapshot?",
     "places": [
-      "src/forkop/tabs/history/initController.ts:293"
+      "src/forkop/tabs/history/initController.ts:320"
+    ]
+  },
+  {
+    "call": "Delete unneeded snapshots",
+    "key": "Delete unneeded snapshots",
+    "places": [
+      "src/forkop/tabs/history/initController.ts:429"
+    ]
+  },
+  {
+    "call": "Delete unneeded snapshots?",
+    "key": "Delete unneeded snapshots?",
+    "places": [
+      "src/forkop/tabs/history/initController.ts:342"
     ]
   },
   {
     "call": "Delete…",
     "key": "Delete…",
     "places": [
-      "src/forkop/tabs/history/initController.ts:396"
+      "src/forkop/tabs/history/initController.ts:504"
+    ]
+  },
+  {
+    "call": "Deleted %d snapshots; the rest were not removed.",
+    "key": "Deleted %d snapshots; the rest were not removed.",
+    "places": [
+      "src/forkop/tabs/history/initController.ts:374"
     ]
   },
   {
@@ -2493,10 +2525,10 @@
     "call": "Destination",
     "key": "Destination",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1018",
-      "src/forkop/tabs/monitoring/initController.ts:1049",
-      "src/forkop/tabs/monitoring/initController.ts:1076",
-      "src/forkop/tabs/monitoring/initController.ts:1341"
+      "src/forkop/tabs/monitoring/initController.ts:1063",
+      "src/forkop/tabs/monitoring/initController.ts:1094",
+      "src/forkop/tabs/monitoring/initController.ts:1121",
+      "src/forkop/tabs/monitoring/initController.ts:1391"
     ]
   },
   {
@@ -2537,11 +2569,11 @@
     "places": [
       "src/forkop/tabs/diagnostic/initController.ts:793",
       "src/forkop/tabs/diagnostic/renderDiagnostic.ts:82",
-      "src/forkop/tabs/monitoring/initController.ts:1017",
-      "src/forkop/tabs/monitoring/initController.ts:1075",
-      "src/forkop/tabs/monitoring/initController.ts:1146",
-      "src/forkop/tabs/monitoring/initController.ts:1340",
-      "src/forkop/tabs/monitoring/render.ts:82"
+      "src/forkop/tabs/monitoring/initController.ts:1062",
+      "src/forkop/tabs/monitoring/initController.ts:1120",
+      "src/forkop/tabs/monitoring/initController.ts:1195",
+      "src/forkop/tabs/monitoring/initController.ts:1390",
+      "src/forkop/tabs/monitoring/render.ts:138"
     ]
   },
   {
@@ -2613,7 +2645,7 @@
     "call": "direct",
     "key": "direct",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:228"
+      "src/forkop/tabs/monitoring/initController.ts:233"
     ]
   },
   {
@@ -3002,8 +3034,8 @@
     "key": "Download",
     "places": [
       "src/partials/modal/renderModal.ts:253",
-      "src/forkop/tabs/monitoring/initController.ts:1085",
-      "src/forkop/tabs/monitoring/render.ts:101"
+      "src/forkop/tabs/monitoring/initController.ts:1130",
+      "src/forkop/tabs/monitoring/render.ts:157"
     ]
   },
   {
@@ -3146,7 +3178,7 @@
     "call": "DPI strategy",
     "key": "DPI strategy",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1174"
+      "src/forkop/tabs/monitoring/initController.ts:1224"
     ]
   },
   {
@@ -3181,8 +3213,8 @@
     "call": "Duration",
     "key": "Duration",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1084",
-      "src/forkop/tabs/monitoring/render.ts:100"
+      "src/forkop/tabs/monitoring/initController.ts:1129",
+      "src/forkop/tabs/monitoring/render.ts:156"
     ]
   },
   {
@@ -3431,7 +3463,7 @@
     "call": "Exact match unavailable",
     "key": "Exact match unavailable",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:419"
+      "src/forkop/tabs/monitoring/initController.ts:424"
     ]
   },
   {
@@ -3563,16 +3595,16 @@
     "call": "Failed to close connection",
     "key": "Failed to close connection",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1702",
-      "src/forkop/tabs/monitoring/initController.ts:1717"
+      "src/forkop/tabs/monitoring/initController.ts:1785",
+      "src/forkop/tabs/monitoring/initController.ts:1800"
     ]
   },
   {
     "call": "Failed to close connections",
     "key": "Failed to close connections",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1749",
-      "src/forkop/tabs/monitoring/initController.ts:1762"
+      "src/forkop/tabs/monitoring/initController.ts:1832",
+      "src/forkop/tabs/monitoring/initController.ts:1845"
     ]
   },
   {
@@ -3686,6 +3718,13 @@
     ]
   },
   {
+    "call": "Filters and sorting",
+    "key": "Filters and sorting",
+    "places": [
+      "src/forkop/tabs/monitoring/render.ts:125"
+    ]
+  },
+  {
     "call": "Firewall rules that send traffic to Forkop are missing or not hit, so rules may not apply.",
     "key": "Firewall rules that send traffic to Forkop are missing or not hit, so rules may not apply.",
     "places": [
@@ -3718,7 +3757,7 @@
     "call": "Following new connections",
     "key": "Following new connections",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:739"
+      "src/forkop/tabs/monitoring/initController.ts:752"
     ]
   },
   {
@@ -3788,7 +3827,7 @@
     "call": "Forkop service is stopped. Start the service to display connections.",
     "key": "Forkop service is stopped. Start the service to display connections.",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1389"
+      "src/forkop/tabs/monitoring/initController.ts:1439"
     ]
   },
   {
@@ -3858,7 +3897,7 @@
     "call": "Forkop X is stopped: the configuration is replaced and checked, but Forkop X is not started. It takes effect when you start Forkop X.",
     "key": "Forkop X is stopped: the configuration is replaced and checked, but Forkop X is not started. It takes effect when you start Forkop X.",
     "places": [
-      "src/forkop/tabs/history/model.ts:389"
+      "src/forkop/tabs/history/model.ts:419"
     ]
   },
   {
@@ -3916,7 +3955,7 @@
     "call": "Forkop X reloads the configuration. If the reload fails, the previous configuration is restored automatically.",
     "key": "Forkop X reloads the configuration. If the reload fails, the previous configuration is restored automatically.",
     "places": [
-      "src/forkop/tabs/history/model.ts:392"
+      "src/forkop/tabs/history/model.ts:422"
     ]
   },
   {
@@ -4188,7 +4227,7 @@
     "call": "History is kept in memory until the router restarts.",
     "key": "History is kept in memory until the router restarts.",
     "places": [
-      "src/forkop/tabs/history/initController.ts:147"
+      "src/forkop/tabs/history/initController.ts:154"
     ]
   },
   {
@@ -4196,14 +4235,14 @@
     "key": "History is unavailable",
     "places": [
       "src/forkop/tabs/autotune/initController.ts:1457",
-      "src/forkop/tabs/history/initController.ts:134"
+      "src/forkop/tabs/history/initController.ts:140"
     ]
   },
   {
     "call": "Host",
     "key": "Host",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1052"
+      "src/forkop/tabs/monitoring/initController.ts:1097"
     ]
   },
   {
@@ -4333,7 +4372,7 @@
     "call": "In snapshot",
     "key": "In snapshot",
     "places": [
-      "src/forkop/tabs/history/initController.ts:190"
+      "src/forkop/tabs/history/initController.ts:217"
     ]
   },
   {
@@ -5117,8 +5156,8 @@
     "call": "Last known good",
     "key": "Last known good",
     "places": [
-      "src/forkop/tabs/history/initController.ts:369",
-      "src/forkop/tabs/history/model.ts:253"
+      "src/forkop/tabs/history/initController.ts:467",
+      "src/forkop/tabs/history/model.ts:271"
     ]
   },
   {
@@ -5263,8 +5302,8 @@
     "call": "Loading connections",
     "key": "Loading connections",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1401",
-      "src/forkop/tabs/monitoring/render.ts:164"
+      "src/forkop/tabs/monitoring/initController.ts:1451",
+      "src/forkop/tabs/monitoring/render.ts:181"
     ]
   },
   {
@@ -5290,10 +5329,10 @@
       "src/forkop/tabs/autotune/render.ts:29",
       "src/forkop/tabs/autotune/render.ts:33",
       "src/forkop/tabs/dashboard/render.ts:14",
-      "src/forkop/tabs/diagnostic/initController.ts:737",
       "src/forkop/tabs/history/render.ts:13",
       "src/forkop/tabs/history/render.ts:17",
-      "src/forkop/tabs/history/render.ts:29"
+      "src/forkop/tabs/history/render.ts:29",
+      "src/forkop/tabs/diagnostic/initController.ts:737"
     ]
   },
   {
@@ -5349,7 +5388,7 @@
     "call": "Manual",
     "key": "Manual",
     "places": [
-      "src/forkop/tabs/history/model.ts:247"
+      "src/forkop/tabs/history/model.ts:265"
     ]
   },
   {
@@ -5537,11 +5576,11 @@
     "places": [
       "src/forkop/ui/status.ts:164",
       "src/forkop/ui/status.ts:260",
+      "src/forkop/tabs/history/model.ts:81",
+      "src/forkop/tabs/history/model.ts:84",
       "src/forkop/tabs/diagnostic/statusLabels.ts:24",
       "src/forkop/tabs/diagnostic/statusLabels.ts:45",
-      "src/forkop/tabs/diagnostic/statusLabels.ts:56",
-      "src/forkop/tabs/history/model.ts:81",
-      "src/forkop/tabs/history/model.ts:84"
+      "src/forkop/tabs/diagnostic/statusLabels.ts:56"
     ]
   },
   {
@@ -5653,7 +5692,7 @@
     "call": "No active connections",
     "key": "No active connections",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1448"
+      "src/forkop/tabs/monitoring/initController.ts:1498"
     ]
   },
   {
@@ -5695,7 +5734,7 @@
     "call": "No closed connections",
     "key": "No closed connections",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1449"
+      "src/forkop/tabs/monitoring/initController.ts:1499"
     ]
   },
   {
@@ -5709,7 +5748,7 @@
     "call": "No connections match the filters",
     "key": "No connections match the filters",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1429"
+      "src/forkop/tabs/monitoring/initController.ts:1479"
     ]
   },
   {
@@ -5761,7 +5800,7 @@
     "call": "No events of this kind",
     "key": "No events of this kind",
     "places": [
-      "src/forkop/tabs/history/initController.ts:173"
+      "src/forkop/tabs/history/initController.ts:199"
     ]
   },
   {
@@ -5769,7 +5808,7 @@
     "key": "No events recorded yet",
     "places": [
       "src/forkop/tabs/dashboard/overviewCards.ts:311",
-      "src/forkop/tabs/history/initController.ts:172"
+      "src/forkop/tabs/history/initController.ts:198"
     ]
   },
   {
@@ -5791,7 +5830,7 @@
     "call": "No new connections yet. Open the site or app you want to check.",
     "key": "No new connections yet. Open the site or app you want to check.",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1444"
+      "src/forkop/tabs/monitoring/initController.ts:1494"
     ]
   },
   {
@@ -5856,15 +5895,15 @@
     "call": "No saved changes since this snapshot",
     "key": "No saved changes since this snapshot",
     "places": [
-      "src/forkop/tabs/history/initController.ts:181",
-      "src/forkop/tabs/history/initController.ts:276"
+      "src/forkop/tabs/history/initController.ts:208",
+      "src/forkop/tabs/history/initController.ts:303"
     ]
   },
   {
     "call": "No snapshots yet",
     "key": "No snapshots yet",
     "places": [
-      "src/forkop/tabs/history/initController.ts:410"
+      "src/forkop/tabs/history/initController.ts:520"
     ]
   },
   {
@@ -5955,7 +5994,7 @@
     "call": "Not available",
     "key": "Not available",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:415"
+      "src/forkop/tabs/monitoring/initController.ts:420"
     ]
   },
   {
@@ -6066,7 +6105,7 @@
     "key": "not set",
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/configform.js:165",
-      "src/forkop/tabs/history/model.ts:286"
+      "src/forkop/tabs/history/model.ts:316"
     ]
   },
   {
@@ -6130,7 +6169,7 @@
     "places": [
       "src/forkop/tabs/autotune/initController.ts:1110",
       "src/forkop/tabs/autotune/model.ts:948",
-      "src/forkop/tabs/history/initController.ts:191"
+      "src/forkop/tabs/history/initController.ts:218"
     ]
   },
   {
@@ -6148,10 +6187,17 @@
     ]
   },
   {
+    "call": "Old snapshots deleted",
+    "key": "Old snapshots deleted",
+    "places": [
+      "src/forkop/tabs/history/initController.ts:367"
+    ]
+  },
+  {
     "call": "One of",
     "key": "One of",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:418"
+      "src/forkop/tabs/monitoring/initController.ts:423"
     ]
   },
   {
@@ -6209,7 +6255,7 @@
     "call": "Only the first %d changes are listed; %d changes in total.",
     "key": "Only the first %d changes are listed; %d changes in total.",
     "places": [
-      "src/forkop/tabs/history/model.ts:329"
+      "src/forkop/tabs/history/model.ts:359"
     ]
   },
   {
@@ -6325,7 +6371,7 @@
     "call": "Other",
     "key": "Other",
     "places": [
-      "src/forkop/tabs/history/model.ts:262",
+      "src/forkop/tabs/history/model.ts:280",
       "src/forkop/tabs/monitoring/connectionView.ts:136"
     ]
   },
@@ -6340,7 +6386,7 @@
     "call": "Outbound chain",
     "key": "Outbound chain",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1056"
+      "src/forkop/tabs/monitoring/initController.ts:1101"
     ]
   },
   {
@@ -6441,10 +6487,10 @@
     "call": "Path",
     "key": "Path",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1023",
-      "src/forkop/tabs/monitoring/initController.ts:1078",
-      "src/forkop/tabs/monitoring/initController.ts:1342",
-      "src/forkop/tabs/monitoring/render.ts:89"
+      "src/forkop/tabs/monitoring/initController.ts:1068",
+      "src/forkop/tabs/monitoring/initController.ts:1123",
+      "src/forkop/tabs/monitoring/initController.ts:1392",
+      "src/forkop/tabs/monitoring/render.ts:145"
     ]
   },
   {
@@ -6479,7 +6525,7 @@
     "call": "Path type",
     "key": "Path type",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:699"
+      "src/forkop/tabs/monitoring/initController.ts:712"
     ]
   },
   {
@@ -6507,9 +6553,9 @@
     "call": "Pause updates",
     "key": "Pause updates",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:834",
-      "src/forkop/tabs/monitoring/render.ts:140",
-      "src/forkop/tabs/monitoring/render.ts:141"
+      "src/forkop/tabs/monitoring/initController.ts:847",
+      "src/forkop/tabs/monitoring/render.ts:109",
+      "src/forkop/tabs/monitoring/render.ts:110"
     ]
   },
   {
@@ -6740,6 +6786,13 @@
     ]
   },
   {
+    "call": "Protected for recovery",
+    "key": "Protected for recovery",
+    "places": [
+      "src/forkop/tabs/history/initController.ts:477"
+    ]
+  },
+  {
     "call": "Protection and recovery",
     "key": "Protection and recovery",
     "places": [
@@ -6758,7 +6811,7 @@
     "key": "Protocol",
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:2318",
-      "src/forkop/tabs/monitoring/initController.ts:1053"
+      "src/forkop/tabs/monitoring/initController.ts:1098"
     ]
   },
   {
@@ -6841,7 +6894,7 @@
     "call": "Recovery state is unavailable",
     "key": "Recovery state is unavailable",
     "places": [
-      "src/forkop/tabs/history/initController.ts:89"
+      "src/forkop/tabs/history/initController.ts:94"
     ]
   },
   {
@@ -6995,8 +7048,8 @@
     "call": "Reset filters",
     "key": "Reset filters",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:758",
-      "src/forkop/tabs/monitoring/initController.ts:1438"
+      "src/forkop/tabs/monitoring/initController.ts:771",
+      "src/forkop/tabs/monitoring/initController.ts:1488"
     ]
   },
   {
@@ -7082,56 +7135,56 @@
     "call": "Restore",
     "key": "Restore",
     "places": [
-      "src/forkop/tabs/history/initController.ts:278"
+      "src/forkop/tabs/history/initController.ts:305"
     ]
   },
   {
     "call": "Restore configuration snapshot?",
     "key": "Restore configuration snapshot?",
     "places": [
-      "src/forkop/tabs/history/initController.ts:271"
+      "src/forkop/tabs/history/initController.ts:298"
     ]
   },
   {
     "call": "Restore did not finish: a failed change left the DPI guard in place, and the DPI guard stays active. Restart Forkop X, then restore the snapshot again.",
     "key": "Restore did not finish: a failed change left the DPI guard in place, and the DPI guard stays active. Restart Forkop X, then restore the snapshot again.",
     "places": [
-      "src/forkop/tabs/history/model.ts:499"
+      "src/forkop/tabs/history/model.ts:529"
     ]
   },
   {
     "call": "Restore did not finish: the configuration was changed while the snapshot was being applied.",
     "key": "Restore did not finish: the configuration was changed while the snapshot was being applied.",
     "places": [
-      "src/forkop/tabs/history/model.ts:490"
+      "src/forkop/tabs/history/model.ts:520"
     ]
   },
   {
     "call": "Restore did not finish: the configuration was changed while the snapshot was being applied. Forkop X was reloaded, but it is not known whether with the snapshot or with the change.",
     "key": "Restore did not finish: the configuration was changed while the snapshot was being applied. Forkop X was reloaded, but it is not known whether with the snapshot or with the change.",
     "places": [
-      "src/forkop/tabs/history/model.ts:489"
+      "src/forkop/tabs/history/model.ts:519"
     ]
   },
   {
     "call": "Restore did not finish: the service was busy and only queued the reload. The DPI guard stays active; restore again when the service is idle.",
     "key": "Restore did not finish: the service was busy and only queued the reload. The DPI guard stays active; restore again when the service is idle.",
     "places": [
-      "src/forkop/tabs/history/model.ts:507"
+      "src/forkop/tabs/history/model.ts:537"
     ]
   },
   {
     "call": "Restore failed; check the recovery state before retrying",
     "key": "Restore failed; check the recovery state before retrying",
     "places": [
-      "src/forkop/tabs/history/model.ts:516"
+      "src/forkop/tabs/history/model.ts:546"
     ]
   },
   {
     "call": "Restore failed; previous configuration and runtime recovered",
     "key": "Restore failed; previous configuration and runtime recovered",
     "places": [
-      "src/forkop/tabs/history/model.ts:431"
+      "src/forkop/tabs/history/model.ts:461"
     ]
   },
   {
@@ -7159,56 +7212,56 @@
     "call": "Restore the snapshot you need to finish.",
     "key": "Restore the snapshot you need to finish.",
     "places": [
-      "src/forkop/tabs/history/model.ts:489"
+      "src/forkop/tabs/history/model.ts:519"
     ]
   },
   {
     "call": "Restore was not applied: Forkop X was stopped during the restore. The previous configuration is kept.",
     "key": "Restore was not applied: Forkop X was stopped during the restore. The previous configuration is kept.",
     "places": [
-      "src/forkop/tabs/history/model.ts:463"
+      "src/forkop/tabs/history/model.ts:493"
     ]
   },
   {
     "call": "Restore was not applied: Forkop X was stopped, and the configuration was changed during the restore.",
     "key": "Restore was not applied: Forkop X was stopped, and the configuration was changed during the restore.",
     "places": [
-      "src/forkop/tabs/history/model.ts:486"
+      "src/forkop/tabs/history/model.ts:516"
     ]
   },
   {
     "call": "Restore was not applied: the service was busy and only queued the reload. The previous configuration is kept.",
     "key": "Restore was not applied: the service was busy and only queued the reload. The previous configuration is kept.",
     "places": [
-      "src/forkop/tabs/history/model.ts:428"
+      "src/forkop/tabs/history/model.ts:458"
     ]
   },
   {
     "call": "Restore was not applied: the snapshot configuration did not pass validation. The previous configuration is kept; Forkop X stays stopped.",
     "key": "Restore was not applied: the snapshot configuration did not pass validation. The previous configuration is kept; Forkop X stays stopped.",
     "places": [
-      "src/forkop/tabs/history/model.ts:460"
+      "src/forkop/tabs/history/model.ts:490"
     ]
   },
   {
     "call": "Restore was not started: a failed change left the DPI guard in place, and nothing can be reloaded until Forkop X is restarted. Restart Forkop X, then restore the snapshot if it is still needed.",
     "key": "Restore was not started: a failed change left the DPI guard in place, and nothing can be reloaded until Forkop X is restarted. Restart Forkop X, then restore the snapshot if it is still needed.",
     "places": [
-      "src/forkop/tabs/history/model.ts:440"
+      "src/forkop/tabs/history/model.ts:470"
     ]
   },
   {
     "call": "Restore was not started: the router has uncommitted uci changes of Forkop X (made with \"uci set\" without a commit). Commit or revert them, then restore again.",
     "key": "Restore was not started: the router has uncommitted uci changes of Forkop X (made with \"uci set\" without a commit). Commit or revert them, then restore again.",
     "places": [
-      "src/forkop/tabs/history/model.ts:450"
+      "src/forkop/tabs/history/model.ts:480"
     ]
   },
   {
     "call": "Restore…",
     "key": "Restore…",
     "places": [
-      "src/forkop/tabs/history/initController.ts:389"
+      "src/forkop/tabs/history/initController.ts:497"
     ]
   },
   {
@@ -7230,7 +7283,7 @@
     "call": "Resume updates",
     "key": "Resume updates",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:834"
+      "src/forkop/tabs/monitoring/initController.ts:847"
     ]
   },
   {
@@ -7332,7 +7385,7 @@
     "places": [
       "src/forkop/tabs/diagnostic/siteCheck.ts:65",
       "src/forkop/tabs/diagnostic/siteCheck.ts:90",
-      "src/forkop/tabs/monitoring/initController.ts:1154"
+      "src/forkop/tabs/monitoring/initController.ts:1204"
     ]
   },
   {
@@ -7346,8 +7399,8 @@
     "call": "Route reason",
     "key": "Route reason",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1083",
-      "src/forkop/tabs/monitoring/initController.ts:1164"
+      "src/forkop/tabs/monitoring/initController.ts:1128",
+      "src/forkop/tabs/monitoring/initController.ts:1214"
     ]
   },
   {
@@ -7410,8 +7463,8 @@
     "call": "Rule",
     "key": "Rule",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:708",
-      "src/forkop/tabs/monitoring/initController.ts:1054"
+      "src/forkop/tabs/monitoring/initController.ts:721",
+      "src/forkop/tabs/monitoring/initController.ts:1099"
     ]
   },
   {
@@ -7425,7 +7478,7 @@
     "call": "Rule payload",
     "key": "Rule payload",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1055"
+      "src/forkop/tabs/monitoring/initController.ts:1100"
     ]
   },
   {
@@ -7562,7 +7615,7 @@
     "call": "Search",
     "key": "Search",
     "places": [
-      "src/forkop/tabs/monitoring/render.ts:113"
+      "src/forkop/tabs/monitoring/render.ts:83"
     ]
   },
   {
@@ -7871,7 +7924,7 @@
     "call": "Setting",
     "key": "Setting",
     "places": [
-      "src/forkop/tabs/history/initController.ts:189"
+      "src/forkop/tabs/history/initController.ts:216"
     ]
   },
   {
@@ -7887,6 +7940,13 @@
     "key": "Several strategies are stable with similar latency; the simplest one was chosen.",
     "places": [
       "src/forkop/tabs/autotune/model.ts:103"
+    ]
+  },
+  {
+    "call": "Show more events",
+    "key": "Show more events",
+    "places": [
+      "src/forkop/tabs/history/initController.ts:190"
     ]
   },
   {
@@ -7908,7 +7968,7 @@
     "call": "Shown %d of %d",
     "key": "Shown %d of %d",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:741"
+      "src/forkop/tabs/monitoring/initController.ts:754"
     ]
   },
   {
@@ -7992,14 +8052,14 @@
     "call": "Site, IP, device or rule",
     "key": "Site, IP, device or rule",
     "places": [
-      "src/forkop/tabs/monitoring/render.ts:112"
+      "src/forkop/tabs/monitoring/render.ts:82"
     ]
   },
   {
     "call": "Snapshot actions",
     "key": "Snapshot actions",
     "places": [
-      "src/forkop/tabs/history/initController.ts:387"
+      "src/forkop/tabs/history/initController.ts:495"
     ]
   },
   {
@@ -8014,7 +8074,14 @@
     "key": "Snapshot deleted",
     "places": [
       "src/forkop/ui/status.ts:292",
-      "src/forkop/tabs/history/initController.ts:303"
+      "src/forkop/tabs/history/initController.ts:330"
+    ]
+  },
+  {
+    "call": "Snapshot list changed. Refresh and try again.",
+    "key": "Snapshot list changed. Refresh and try again.",
+    "places": [
+      "src/forkop/tabs/history/initController.ts:369"
     ]
   },
   {
@@ -8028,7 +8095,7 @@
     "call": "Snapshot saved",
     "key": "Snapshot saved",
     "places": [
-      "src/forkop/tabs/history/initController.ts:313"
+      "src/forkop/tabs/history/initController.ts:396"
     ]
   },
   {
@@ -8063,7 +8130,7 @@
     "call": "Sort connections",
     "key": "Sort connections",
     "places": [
-      "src/forkop/tabs/monitoring/render.ts:96"
+      "src/forkop/tabs/monitoring/render.ts:152"
     ]
   },
   {
@@ -8077,7 +8144,7 @@
     "call": "Source",
     "key": "Source",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1047"
+      "src/forkop/tabs/monitoring/initController.ts:1092"
     ]
   },
   {
@@ -8191,14 +8258,14 @@
     "call": "Start time",
     "key": "Start time",
     "places": [
-      "src/forkop/tabs/monitoring/render.ts:99"
+      "src/forkop/tabs/monitoring/render.ts:155"
     ]
   },
   {
     "call": "Started",
     "key": "Started",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1057"
+      "src/forkop/tabs/monitoring/initController.ts:1102"
     ]
   },
   {
@@ -8241,7 +8308,7 @@
     "call": "Status",
     "key": "Status",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1148"
+      "src/forkop/tabs/monitoring/initController.ts:1197"
     ]
   },
   {
@@ -8487,7 +8554,7 @@
     "key": "Technical details",
     "places": [
       "src/forkop/ui/states.ts:71",
-      "src/forkop/tabs/monitoring/initController.ts:1244"
+      "src/forkop/tabs/monitoring/initController.ts:1294"
     ]
   },
   {
@@ -8609,14 +8676,14 @@
     "call": "The change is kept and saved as a snapshot (\"Concurrent edit\").",
     "key": "The change is kept and saved as a snapshot (\"Concurrent edit\").",
     "places": [
-      "src/forkop/tabs/history/model.ts:477"
+      "src/forkop/tabs/history/model.ts:507"
     ]
   },
   {
     "call": "The change is kept in the configuration, but no snapshot of it could be saved.",
     "key": "The change is kept in the configuration, but no snapshot of it could be saved.",
     "places": [
-      "src/forkop/tabs/history/model.ts:478"
+      "src/forkop/tabs/history/model.ts:508"
     ]
   },
   {
@@ -8729,7 +8796,7 @@
     "call": "The DPI guard stays active. Restore the snapshot you need to finish.",
     "key": "The DPI guard stays active. Restore the snapshot you need to finish.",
     "places": [
-      "src/forkop/tabs/history/model.ts:490"
+      "src/forkop/tabs/history/model.ts:520"
     ]
   },
   {
@@ -8837,7 +8904,7 @@
     "call": "The last known good snapshot cannot be deleted",
     "key": "The last known good snapshot cannot be deleted",
     "places": [
-      "src/forkop/tabs/history/initController.ts:397"
+      "src/forkop/tabs/history/initController.ts:507"
     ]
   },
   {
@@ -9230,7 +9297,7 @@
     "call": "The service is busy with another operation (list or subscription update, reload or start). Nothing was changed; try again when it finishes.",
     "key": "The service is busy with another operation (list or subscription update, reload or start). Nothing was changed; try again when it finishes.",
     "places": [
-      "src/forkop/tabs/history/model.ts:357"
+      "src/forkop/tabs/history/model.ts:387"
     ]
   },
   {
@@ -9443,7 +9510,7 @@
     "call": "There are unsaved changes of Forkop X in this session. Save & Apply or revert them, then restore the snapshot.",
     "key": "There are unsaved changes of Forkop X in this session. Save & Apply or revert them, then restore the snapshot.",
     "places": [
-      "src/forkop/tabs/history/model.ts:378"
+      "src/forkop/tabs/history/model.ts:408"
     ]
   },
   {
@@ -9582,6 +9649,13 @@
     ]
   },
   {
+    "call": "This snapshot is needed for recovery",
+    "key": "This snapshot is needed for recovery",
+    "places": [
+      "src/forkop/tabs/history/initController.ts:506"
+    ]
+  },
+  {
     "call": "This strategy is already active; nothing was changed.",
     "key": "This strategy is already active; nothing was changed.",
     "places": [
@@ -9679,7 +9753,7 @@
     "call": "Total traffic",
     "key": "Total traffic",
     "places": [
-      "src/forkop/tabs/monitoring/render.ts:103"
+      "src/forkop/tabs/monitoring/render.ts:159"
     ]
   },
   {
@@ -9693,9 +9767,9 @@
     "call": "Traffic",
     "key": "Traffic",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1026",
-      "src/forkop/tabs/monitoring/initController.ts:1184",
-      "src/forkop/tabs/monitoring/initController.ts:1343",
+      "src/forkop/tabs/monitoring/initController.ts:1071",
+      "src/forkop/tabs/monitoring/initController.ts:1234",
+      "src/forkop/tabs/monitoring/initController.ts:1393",
       "src/forkop/tabs/dashboard/partials/renderSections.ts:121"
     ]
   },
@@ -10023,8 +10097,8 @@
     "call": "Upload",
     "key": "Upload",
     "places": [
-      "src/forkop/tabs/monitoring/initController.ts:1086",
-      "src/forkop/tabs/monitoring/render.ts:102"
+      "src/forkop/tabs/monitoring/initController.ts:1131",
+      "src/forkop/tabs/monitoring/render.ts:158"
     ]
   },
   {

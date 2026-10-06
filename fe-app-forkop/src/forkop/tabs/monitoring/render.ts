@@ -73,47 +73,16 @@ function renderConnectionsView(hidden: boolean) {
             _('Follow new'),
           ),
         ]),
-        E('div', { class: 'fkp_monitoring-page__filters' }, [
-          E(
-            'select',
-            {
-              id: 'monitoring-device-filter',
-              class: 'cbi-input-select fkp_monitoring-page__device-filter',
-              'aria-label': _('Device'),
-            },
-            [E('option', { value: 'all' }, _('All devices'))],
-          ),
-          E('select', {
-            id: 'monitoring-path-filter',
-            class: 'cbi-input-select',
-            'aria-label': _('Path'),
+        E('label', { class: 'fkp_monitoring-page__search' }, [
+          E('span', { class: 'fkp_monitoring-page__search-icon' }, []),
+          E('input', {
+            id: 'monitoring-search',
+            class: 'cbi-input-text fkp_monitoring-page__search-input',
+            type: 'search',
+            placeholder: _('Site, IP, device or rule'),
+            'aria-label': _('Search'),
+            autocomplete: 'off',
           }),
-          E(
-            'select',
-            {
-              id: 'monitoring-sort',
-              class: 'cbi-input-select',
-              'aria-label': _('Sort connections'),
-            },
-            [
-              E('option', { value: 'start' }, _('Start time')),
-              E('option', { value: 'duration' }, _('Duration')),
-              E('option', { value: 'download' }, _('Download')),
-              E('option', { value: 'upload' }, _('Upload')),
-              E('option', { value: 'total' }, _('Total traffic')),
-            ],
-          ),
-          E('label', { class: 'fkp_monitoring-page__search' }, [
-            E('span', { class: 'fkp_monitoring-page__search-icon' }, []),
-            E('input', {
-              id: 'monitoring-search',
-              class: 'cbi-input-text fkp_monitoring-page__search-input',
-              type: 'search',
-              placeholder: _('Site, IP, device or rule'),
-              'aria-label': _('Search'),
-              autocomplete: 'off',
-            }),
-          ]),
         ]),
         E('div', { class: 'fkp_monitoring-page__actions' }, [
           ...(isReadonlyMode()
@@ -145,6 +114,54 @@ function renderConnectionsView(hidden: boolean) {
           ),
         ]),
       ]),
+      E(
+        'details',
+        {
+          id: 'monitoring-extra-filters',
+          class: 'fkp_monitoring-page__filter-disclosure',
+        },
+        [
+          E('summary', { class: 'fkp_monitoring-page__filter-summary' }, [
+            _('Filters and sorting'),
+            E('span', {
+              id: 'monitoring-extra-filter-count',
+              class: 'fkp_monitoring-page__filter-count',
+              hidden: true,
+            }),
+          ]),
+          E('div', { class: 'fkp_monitoring-page__filters' }, [
+            E(
+              'select',
+              {
+                id: 'monitoring-device-filter',
+                class: 'cbi-input-select fkp_monitoring-page__device-filter',
+                'aria-label': _('Device'),
+              },
+              [E('option', { value: 'all' }, _('All devices'))],
+            ),
+            E('select', {
+              id: 'monitoring-path-filter',
+              class: 'cbi-input-select',
+              'aria-label': _('Path'),
+            }),
+            E(
+              'select',
+              {
+                id: 'monitoring-sort',
+                class: 'cbi-input-select',
+                'aria-label': _('Sort connections'),
+              },
+              [
+                E('option', { value: 'start' }, _('Start time')),
+                E('option', { value: 'duration' }, _('Duration')),
+                E('option', { value: 'download' }, _('Download')),
+                E('option', { value: 'upload' }, _('Upload')),
+                E('option', { value: 'total' }, _('Total traffic')),
+              ],
+            ),
+          ]),
+        ],
+      ),
       E('div', {
         id: 'monitoring-filter-bar',
         class: 'fkp_monitoring-page__filter-bar',

@@ -168,9 +168,32 @@ function lkg_hash() {
     let item = read_snapshot(trim(value(fs.readfile(LKG))), false);
     return item != null ? item.config_hash : "";
 }
-function list_snapshots() {
+// A completed autotune apply still offers an explicit rollback to its
+// pre-apply snapshot. Keep it until that record is replaced or rolled back.
+// An unreadable record may name a recovery point we cannot identify: refuse
+// pruning and deletion rather than silently losing it.
+function autotune_snapshot_protection(own_apply) {
+    if (fs.stat(AUTOTUNE_APPLY_STATE) == null) return { all: false, id: "" };
+    let record = null;
+    try { record = json(value(fs.readfile(AUTOTUNE_APPLY_STATE))); } catch (e) { record = null; }
+    if (type(record) != "object") return { all: true, id: "" };
+    // The apply records its pre-snapshot only after the snapshot transaction
+    // returns. During that narrow window, the record cannot identify it yet.
+    // This snapshots.uc process owns the apply lock and receives the older
+    // rollback id in `keep`. It may rotate unrelated automatic snapshots to
+    // make room for its new pre-apply snapshot. Other callers still fail
+    // closed while that id has not yet been recorded by autotune/apply.uc.
+    if (record.phase == "applying" && record.reload == null)
+        return own_apply ? { all: false, id: "" } : { all: true, id: "" };
+    if (record.reload == null || record.phase == "rolled_back") return { all: false, id: "" };
+    let id = value(record.pre_snapshot);
+    return valid_id(id) ? { all: false, id } : { all: true, id: "" };
+}
+function recovery_protects(protection, id) { return protection.all || protection.id == id; }
+function list_snapshots(own_apply) {
     let result = [];
     let working = trim(value(fs.readfile(LKG)));
+    let protection = autotune_snapshot_protection(own_apply);
     for (let file in fs.lsdir(ROOT) || []) {
         let id = replace(file, /\.json$/, "");
         if (file != id + ".json" || !valid_id(id)) continue;
@@ -178,6 +201,7 @@ function list_snapshots() {
         if (item == null) continue;
         let entry = metadata(item);
         entry.is_lkg = id == working;
+        entry.is_protected = recovery_protects(protection, id);
         push(result, entry);
     }
     result = sort(result, function(a, b) { return a.created_at - b.created_at; });
@@ -185,31 +209,31 @@ function list_snapshots() {
 }
 // Oldest automatic snapshots go first; manual ones, LKG and the ids the
 // running operation still needs (keep) are never removed.
-function trim_retention(keep) {
-    let all = list_snapshots();
+function trim_retention(keep, own_apply) {
+    let all = list_snapshots(own_apply);
     let working = trim(value(fs.readfile(LKG)));
     while (length(all) >= RETENTION) {
         let candidate = null;
         for (let item in all)
-            if (item.kind != "manual" && item.id != working && index(keep || [], item.id) < 0) { candidate = item; break; }
+            if (item.kind != "manual" && item.id != working && !item.is_protected && index(keep || [], item.id) < 0) { candidate = item; break; }
         if (candidate == null) return false;
         fs.unlink(snapshot_path(candidate.id));
-        all = list_snapshots();
+        all = list_snapshots(own_apply);
     }
     return true;
 }
 // Snapshots that can still be created without touching LKG, manual ones or keep.
-function headroom(keep) {
-    let all = list_snapshots();
+function headroom(keep, own_apply) {
+    let all = list_snapshots(own_apply);
     let working = trim(value(fs.readfile(LKG)));
     let free = RETENTION - length(all);
     for (let item in all)
-        if (item.kind != "manual" && item.id != working && index(keep || [], item.id) < 0) free++;
+        if (item.kind != "manual" && item.id != working && !item.is_protected && index(keep || [], item.id) < 0) free++;
     return free;
 }
 // dedupe: true returns any snapshot that already holds the configuration, a
 // reason only one of that reason.
-function create(kind, reason, dedupe, keep) {
+function create(kind, reason, dedupe, keep, own_apply) {
     let content = read_config();
     if (content == null) return { status: "failed", reason: "config_unavailable" };
     let hash = sha(content);
@@ -217,7 +241,7 @@ function create(kind, reason, dedupe, keep) {
     if (dedupe)
         for (let item in list_snapshots())
             if (item.config_hash == hash && (dedupe === true || item.reason == dedupe)) return { status: "existing", snapshot: item };
-    if (!trim_retention(keep)) return { status: "failed", reason: "retention_full" };
+    if (!trim_retention(keep, own_apply)) return { status: "failed", reason: "retention_full" };
     let id = sprintf("%d_%d", clock()[0], clock()[1]);
     let version = trim(capture([ BIN, "show_version" ]));
     let snapshot = { id, created_at: int(clock()[0]), kind, reason,
@@ -571,8 +595,8 @@ function config_holds(content) {
 // edit" one, as the page names it, and not, say, a pre-restore snapshot next
 // in line for retention. The id, or null when no snapshot could be written
 // (retention full of manual snapshots): the edit then lives in the file only.
-function save_concurrent_edit(keep) {
-    let saved = create("automatic", "concurrent-change", "concurrent-change", keep);
+function save_concurrent_edit(keep, own_apply) {
+    let saved = create("automatic", "concurrent-change", "concurrent-change", keep, own_apply);
     return saved.snapshot != null ? saved.snapshot.id : null;
 }
 // Replace the configuration with `content` under the restore guard, validate
@@ -644,7 +668,7 @@ function guarded_replace(before, content, pre, on_success, reason, apply_mode, o
     else if (target == "ran" && (holds || apply_mode))
         result = { status: "needs_attention", reason: "runtime_guard_active", guard: "active" };
     else if (!holds) {
-        let saved = save_concurrent_edit([ pre.snapshot.id, ...(keep || []) ]);
+        let saved = save_concurrent_edit([ pre.snapshot.id, ...(keep || []) ], apply_mode);
         // A reload that ran proved a coherent runtime, and a stopped runtime
         // has nothing a guard could protect (see above).
         if ((target != "ran" || guarded) && target != "stopped")
@@ -801,8 +825,8 @@ function do_apply(candidate_file, expected_hash, keep_id) {
     // manual LKG stays protected after the candidate is confirmed, so it
     // costs one more slot.
     let working = read_snapshot(trim(value(fs.readfile(LKG))), false);
-    if (headroom(keep) < (working != null && working.kind == "manual" ? 3 : 2)) return { status: "failed", reason: "snapshot_retention_full" };
-    let pre = create("automatic", "before-autotune", false, keep);
+    if (headroom(keep, true) < (working != null && working.kind == "manual" ? 3 : 2)) return { status: "failed", reason: "snapshot_retention_full" };
+    let pre = create("automatic", "before-autotune", false, keep, true);
     if (pre.status != "created") return { status: "failed", reason: "pre_apply_snapshot_failed" };
     if (sha(before) != sha(read_config())) return { status: "failed", reason: "concurrent_change", pre_snapshot: pre.snapshot.id };
     let result = guarded_replace(before, content, pre, () => ({ status: "success", changes: diff(before, content) }), "autotune", true, null, keep);
@@ -847,10 +871,13 @@ if (mode == "create") {
 }
 else if (mode == "delete") {
     let id = value(ARGV[1]);
-    if (valid_id(id) && id != trim(value(fs.readfile(LKG))) && read_snapshot(id, true) != null && fs.unlink(snapshot_path(id))) {
+    let protection = autotune_snapshot_protection();
+    if (valid_id(id) && !recovery_protects(protection, id) && id != trim(value(fs.readfile(LKG))) && read_snapshot(id, true) != null && fs.unlink(snapshot_path(id))) {
         answer = { status: "deleted" };
         success([ "ucode", "-L", LIB_DIR, LIB_DIR + "/diagnostics/health.uc", "record", "snapshot_delete", "success" ]);
     }
+    else if (valid_id(id) && recovery_protects(protection, id))
+        answer = { status: "failed", reason: "protected_for_recovery" };
 }
 else if (mode == "restore") {
     answer = do_restore(value(ARGV[1]), value(ARGV[2]));

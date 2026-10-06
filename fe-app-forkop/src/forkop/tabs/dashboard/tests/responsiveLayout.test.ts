@@ -16,9 +16,12 @@ describe('wide tab layouts', () => {
     );
   });
 
-  it('uses the available width without stretching every card', () => {
+  it('keeps the four overview cards balanced and stacks them on narrow screens', () => {
     expect(dashboardStyles).toContain(
-      'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
+      'grid-template-columns: repeat(2, minmax(0, 1fr))',
+    );
+    expect(dashboardStyles).toMatch(
+      /@media \(max-width: 900px\) \{[\s\S]*?\.fkp-overview__grid \{\s*grid-template-columns: minmax\(0, 1fr\);/,
     );
     expect(diagnosticStyles).toContain(
       'grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr)',
@@ -29,12 +32,12 @@ describe('wide tab layouts', () => {
     expect(historyStyles).toContain('@media (min-width: 1100px)');
   });
 
-  it('keeps recovery statuses in an aligned column without splitting words', () => {
+  it('keeps recovery statuses aligned but sized to their content', () => {
     expect(historyStyles).toContain(
       'grid-template-columns: minmax(0, 1fr) 190px',
     );
     expect(historyStyles).toMatch(
-      /\.fkp-history__facts \.fkp-status \{[^}]*width: 100%;[^}]*overflow-wrap: normal;[^}]*word-break: normal;/,
+      /\.fkp-history__facts \.fkp-status \{[^}]*display: inline-block;[^}]*width: auto;[^}]*max-width: 100%;[^}]*border-radius: 999px;/,
     );
   });
 });

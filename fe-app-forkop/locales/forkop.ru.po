@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-04 14:30+0300\n"
-"PO-Revision-Date: 2026-10-04 14:30+0300\n"
+"POT-Creation-Date: 2026-10-06 12:20+0300\n"
+"PO-Revision-Date: 2026-10-06 12:20+0300\n"
 "Last-Translator: slayer\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -1022,14 +1022,26 @@ msgstr "Значение задержки не может быть пустым"
 msgid "Delete"
 msgstr "Удалить"
 
+msgid "Delete %d unneeded snapshots? Snapshots needed for recovery will be kept."
+msgstr "Удалить ненужные снимки (%d)? Снимки, необходимые для восстановления, останутся."
+
 msgid "Delete snapshot?"
 msgstr "Удалить снимок?"
 
 msgid "Delete this configuration snapshot?"
 msgstr "Удалить этот снимок конфигурации?"
 
+msgid "Delete unneeded snapshots"
+msgstr "Удалить ненужные снимки"
+
+msgid "Delete unneeded snapshots?"
+msgstr "Удалить ненужные снимки?"
+
 msgid "Delete…"
 msgstr "Удалить…"
+
+msgid "Deleted %d snapshots; the rest were not removed."
+msgstr "Удалено снимков: %d. Остальные не удалены."
 
 msgid "Derived from configuration"
 msgstr "Определено по конфигурации"
@@ -1516,6 +1528,9 @@ msgstr "Самый быстрый"
 
 msgid "Fatal"
 msgstr "Критическая"
+
+msgid "Filters and sorting"
+msgstr "Фильтры и сортировка"
 
 msgid "Firewall rules that send traffic to Forkop are missing or not hit, so rules may not apply."
 msgstr "Правила межсетевого экрана, которые направляют трафик в Forkop, отсутствуют или не срабатывают — правила могут не применяться."
@@ -2516,6 +2531,9 @@ msgstr "Наблюдается"
 msgid "Off"
 msgstr "Выключен"
 
+msgid "Old snapshots deleted"
+msgstr "Старые снимки удалены"
+
 msgid "One of"
 msgstr "Один из"
 
@@ -2758,6 +2776,9 @@ msgstr "пробы: %d из %d"
 
 msgid "Profile"
 msgstr "Профиль"
+
+msgid "Protected for recovery"
+msgstr "Нужен для восстановления"
 
 msgid "Protection and recovery"
 msgstr "Защита и восстановление"
@@ -3236,6 +3257,9 @@ msgstr "Настройки"
 msgid "Several strategies are stable with similar latency; the simplest one was chosen."
 msgstr "Несколько стратегий стабильны с близкой задержкой; выбрана самая простая."
 
+msgid "Show more events"
+msgstr "Показать ещё события"
+
 msgid "Show only connections that start from now on, active and closed"
 msgstr "Показывать только соединения, начатые с этого момента, — активные и закрытые"
 
@@ -3289,6 +3313,9 @@ msgstr "Снимок создан"
 
 msgid "Snapshot deleted"
 msgstr "Снимок удалён"
+
+msgid "Snapshot list changed. Refresh and try again."
+msgstr "Список снимков изменился. Обновите страницу и повторите попытку."
 
 msgid "Snapshot restore"
 msgstr "Восстановление снимка"
@@ -3943,6 +3970,9 @@ msgstr "Это правило хранит настройки в устарев�
 
 msgid "This rule keeps settings in a legacy form, from an earlier version, the podkop migration or the command line. The fields show what the rule matches; the legacy options stay as they are until you convert or remove them."
 msgstr "Это правило хранит настройки в устаревшем виде — из прежней версии, после миграции из podkop или из командной строки. Поля показывают, что сопоставляет правило; устаревшие опции остаются как есть, пока вы их не конвертируете или не удалите."
+
+msgid "This snapshot is needed for recovery"
+msgstr "Этот снимок нужен для восстановления"
 
 msgid "This strategy is already active; nothing was changed."
 msgstr "Эта стратегия уже активна; ничего не изменено."
