@@ -168,9 +168,27 @@ function lkg_hash() {
     let item = read_snapshot(trim(value(fs.readfile(LKG))), false);
     return item != null ? item.config_hash : "";
 }
+// A completed autotune apply still offers an explicit rollback to its
+// pre-apply snapshot. Keep it until that record is replaced or rolled back.
+// An unreadable record may name a recovery point we cannot identify: refuse
+// pruning and deletion rather than silently losing it.
+function autotune_snapshot_protection() {
+    if (fs.stat(AUTOTUNE_APPLY_STATE) == null) return { all: false, id: "" };
+    let record = null;
+    try { record = json(value(fs.readfile(AUTOTUNE_APPLY_STATE))); } catch (e) { record = null; }
+    if (type(record) != "object") return { all: true, id: "" };
+    // The apply records its pre-snapshot only after the snapshot transaction
+    // returns. During that narrow window, the record cannot identify it yet.
+    if (record.phase == "applying" && record.reload == null) return { all: true, id: "" };
+    if (record.reload == null || record.phase == "rolled_back") return { all: false, id: "" };
+    let id = value(record.pre_snapshot);
+    return valid_id(id) ? { all: false, id } : { all: true, id: "" };
+}
+function recovery_protects(protection, id) { return protection.all || protection.id == id; }
 function list_snapshots() {
     let result = [];
     let working = trim(value(fs.readfile(LKG)));
+    let protection = autotune_snapshot_protection();
     for (let file in fs.lsdir(ROOT) || []) {
         let id = replace(file, /\.json$/, "");
         if (file != id + ".json" || !valid_id(id)) continue;
@@ -178,6 +196,7 @@ function list_snapshots() {
         if (item == null) continue;
         let entry = metadata(item);
         entry.is_lkg = id == working;
+        entry.is_protected = recovery_protects(protection, id);
         push(result, entry);
     }
     result = sort(result, function(a, b) { return a.created_at - b.created_at; });
@@ -191,7 +210,7 @@ function trim_retention(keep) {
     while (length(all) >= RETENTION) {
         let candidate = null;
         for (let item in all)
-            if (item.kind != "manual" && item.id != working && index(keep || [], item.id) < 0) { candidate = item; break; }
+            if (item.kind != "manual" && item.id != working && !item.is_protected && index(keep || [], item.id) < 0) { candidate = item; break; }
         if (candidate == null) return false;
         fs.unlink(snapshot_path(candidate.id));
         all = list_snapshots();
@@ -204,7 +223,7 @@ function headroom(keep) {
     let working = trim(value(fs.readfile(LKG)));
     let free = RETENTION - length(all);
     for (let item in all)
-        if (item.kind != "manual" && item.id != working && index(keep || [], item.id) < 0) free++;
+        if (item.kind != "manual" && item.id != working && !item.is_protected && index(keep || [], item.id) < 0) free++;
     return free;
 }
 // dedupe: true returns any snapshot that already holds the configuration, a
@@ -847,10 +866,13 @@ if (mode == "create") {
 }
 else if (mode == "delete") {
     let id = value(ARGV[1]);
-    if (valid_id(id) && id != trim(value(fs.readfile(LKG))) && read_snapshot(id, true) != null && fs.unlink(snapshot_path(id))) {
+    let protection = autotune_snapshot_protection();
+    if (valid_id(id) && !recovery_protects(protection, id) && id != trim(value(fs.readfile(LKG))) && read_snapshot(id, true) != null && fs.unlink(snapshot_path(id))) {
         answer = { status: "deleted" };
         success([ "ucode", "-L", LIB_DIR, LIB_DIR + "/diagnostics/health.uc", "record", "snapshot_delete", "success" ]);
     }
+    else if (valid_id(id) && recovery_protects(protection, id))
+        answer = { status: "failed", reason: "protected_for_recovery" };
 }
 else if (mode == "restore") {
     answer = do_restore(value(ARGV[1]), value(ARGV[2]));

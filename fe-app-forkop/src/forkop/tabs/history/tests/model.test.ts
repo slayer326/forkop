@@ -4,11 +4,14 @@ import {
   diffRows,
   diffTruncatedText,
   historyItems,
+  historyPage,
+  HISTORY_PAGE_SIZE,
   recoveryRows,
   restoreConfirmMessage,
   restorePreview,
   restoreResultToast,
   snapshotBusyText,
+  snapshotCleanupIds,
   snapshotDiff,
   snapshotReasonLabel,
   snapshotRows,
@@ -190,6 +193,32 @@ describe('history list', () => {
     { kind: 'snapshot_delete', status: 'success', timestamp: 400 },
   ];
 
+  it('shows recent events first and reveals older ones without deleting data', () => {
+    const entries = historyItems(
+      Array.from({ length: 19 }, (_, index) => ({
+        kind: 'start',
+        status: 'success',
+        timestamp: index + 1,
+      })),
+      'all',
+    );
+    const first = historyPage(entries);
+    expect(first.visible).toHaveLength(HISTORY_PAGE_SIZE);
+    expect(first.visible[0].time).toBe(entries[0].time);
+    expect(first.remaining).toBe(11);
+
+    const second = historyPage(entries, first.nextCount);
+    expect(second.visible).toHaveLength(16);
+    expect(second.remaining).toBe(3);
+    expect(historyPage(entries, second.nextCount).visible).toEqual(entries);
+  });
+
+  it('keeps small and invalid page requests bounded', () => {
+    const entries = historyItems(events, 'all');
+    expect(historyPage(entries).visible).toHaveLength(4);
+    expect(historyPage(entries, Number.NaN).remaining).toBe(0);
+  });
+
   it('lists the newest event first with its own words', () => {
     expect(historyItems(events, 'all').map((item) => item.title)).toEqual([
       'Snapshot deleted',
@@ -259,6 +288,22 @@ describe('history list', () => {
 });
 
 describe('snapshots', () => {
+  it('only offers cleanup when exactly one last known good snapshot is present', () => {
+    const old = snapshot('1_a', 10, 'manual');
+    const working = snapshot('2_b', 20, 'last-known-working', true);
+    const recent = snapshot('3_c', 30, 'before-reload');
+
+    expect(snapshotCleanupIds([old, working, recent])).toEqual(['1_a', '3_c']);
+    expect(
+      snapshotCleanupIds([old, working, { ...recent, is_protected: true }]),
+    ).toEqual(['1_a']);
+    expect(snapshotCleanupIds([old, recent])).toEqual([]);
+    expect(
+      snapshotCleanupIds([old, working, { ...recent, is_lkg: true }]),
+    ).toEqual([]);
+    expect(snapshotCleanupIds([working])).toEqual([]);
+  });
+
   it('labels every reason and marks the last known good one', () => {
     expect(snapshotReasonLabel('before-autotune')).toBe('Before autotune');
     expect(snapshotReasonLabel('concurrent-change')).toBe('Concurrent edit');
@@ -275,6 +320,11 @@ describe('snapshots', () => {
     ]);
     expect(rows[1].reason).toBe('Manual');
     expect(rows[0].reason).toBe('');
+    const protectedRow = snapshotRows([
+      { ...snapshot('3_c', 30, 'before-autotune'), is_protected: true },
+    ])[0];
+    expect(protectedRow.protected).toBe(true);
+    expect(protectedRow.canDelete).toBe(false);
   });
 
   it('shows list changes readably', () => {

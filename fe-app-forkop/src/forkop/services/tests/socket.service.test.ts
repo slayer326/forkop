@@ -51,6 +51,52 @@ describe('socket service', () => {
     expect(onError).toHaveBeenCalledOnce();
   });
 
+  it('does not report an intentional disconnect as a socket failure', () => {
+    const onError = vi.fn();
+    const warning = vi
+      .spyOn(logger, 'warn')
+      .mockImplementation(() => undefined);
+
+    socket.subscribe('ws://router.test/connections', vi.fn(), onError);
+    const ws = FakeWebSocket.instances[0];
+    socket.disconnect('ws://router.test/connections');
+    ws.emit('close');
+
+    expect(onError).not.toHaveBeenCalled();
+    expect(warning).not.toHaveBeenCalled();
+    warning.mockRestore();
+  });
+
+  it('does not report a full reset as a socket failure', () => {
+    const onError = vi.fn();
+    const warning = vi
+      .spyOn(logger, 'warn')
+      .mockImplementation(() => undefined);
+
+    socket.subscribe('ws://router.test/traffic', vi.fn(), onError);
+    const ws = FakeWebSocket.instances[0];
+    socket.resetAll();
+    ws.emit('close');
+
+    expect(onError).not.toHaveBeenCalled();
+    expect(warning).not.toHaveBeenCalled();
+    warning.mockRestore();
+  });
+
+  it('still reports an unexpected disconnect to the subscriber', () => {
+    const onError = vi.fn();
+    const warning = vi
+      .spyOn(logger, 'warn')
+      .mockImplementation(() => undefined);
+
+    socket.subscribe('ws://router.test/connections', vi.fn(), onError);
+    FakeWebSocket.instances[0].emit('close');
+
+    expect(onError).toHaveBeenCalledWith('Connection closed');
+    expect(warning).toHaveBeenCalledOnce();
+    warning.mockRestore();
+  });
+
   // UC-036: the Clash secret travels as the token query parameter of the
   // controller WebSocket URL; it must never reach the console or the logger.
   it('never logs the query string of a socket URL', () => {

@@ -5510,7 +5510,12 @@ var SocketManager = class _SocketManager {
     return _SocketManager.instance;
   }
   resetAll() {
-    for (const [url, ws] of this.sockets.entries()) {
+    const sockets = Array.from(this.sockets.entries());
+    this.sockets.clear();
+    this.listeners.clear();
+    this.errorListeners.clear();
+    this.connected.clear();
+    for (const [url, ws] of sockets) {
       try {
         if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
           ws.close();
@@ -5523,10 +5528,6 @@ var SocketManager = class _SocketManager {
         );
       }
     }
-    this.sockets.clear();
-    this.listeners.clear();
-    this.errorListeners.clear();
-    this.connected.clear();
     logger.info("[SOCKET]", "All connections and state have been reset.");
   }
   connect(url) {
@@ -5548,6 +5549,7 @@ var SocketManager = class _SocketManager {
     if (!this.listeners.has(url)) this.listeners.set(url, /* @__PURE__ */ new Set());
     if (!this.errorListeners.has(url)) this.errorListeners.set(url, /* @__PURE__ */ new Set());
     ws.addEventListener("open", () => {
+      if (this.sockets.get(url) !== ws) return;
       this.connected.set(url, true);
       logger.info("[SOCKET]", "Connected to", loggableUrl(url));
     });
@@ -5568,11 +5570,13 @@ var SocketManager = class _SocketManager {
       }
     });
     ws.addEventListener("close", () => {
+      if (this.sockets.get(url) !== ws) return;
       this.connected.set(url, false);
       logger.warn("[SOCKET]", `Disconnected: ${loggableUrl(url)}`);
       this.triggerError(url, "Connection closed");
     });
     ws.addEventListener("error", (err) => {
+      if (this.sockets.get(url) !== ws) return;
       logger.error("[SOCKET]", `Socket error for ${loggableUrl(url)}:`, err);
       this.triggerError(url, err);
     });
@@ -5613,12 +5617,12 @@ var SocketManager = class _SocketManager {
   }
   disconnect(url) {
     const ws = this.sockets.get(url);
+    this.sockets.delete(url);
+    this.listeners.delete(url);
+    this.errorListeners.delete(url);
+    this.connected.delete(url);
     if (ws) {
       ws.close();
-      this.sockets.delete(url);
-      this.listeners.delete(url);
-      this.errorListeners.delete(url);
-      this.connected.delete(url);
     }
   }
   disconnectAll() {
@@ -8883,18 +8887,38 @@ var styles3 = `
 
 .fkp-overview__grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--fkp-space-3);
 }
 
 .fkp-overview__card {
     display: flex;
     flex-direction: column;
-    gap: var(--fkp-space-2);
+    gap: var(--fkp-space-3);
     min-width: 0;
     padding: var(--fkp-space-3) var(--fkp-space-4);
     border: 1px solid var(--fkp-border);
-    border-radius: 6px;
+    border-radius: 10px;
+}
+.fkp-overview__status .fkp-status {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: var(--fkp-space-2);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    font-size: 1em;
+    font-weight: 600;
+    line-height: 1.4;
+}
+.fkp-overview__status .fkp-status::before {
+    content: '';
+    flex: 0 0 8px;
+    width: 8px;
+    height: 8px;
+    margin-top: 0.4em;
+    border-radius: 50%;
+    background: currentColor;
 }
 .fkp-overview__head {
     display: flex;
@@ -8905,7 +8929,13 @@ var styles3 = `
 .fkp-overview__title { margin: 0; font-size: 1.05em; overflow-wrap: anywhere; }
 .fkp-overview__summary { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 .fkp-overview__hint { margin: 0; color: var(--fkp-tone-neutral); overflow-wrap: anywhere; }
-.fkp-overview__lines { margin: 0; padding: 0; list-style: none; }
+.fkp-overview__lines {
+    display: grid;
+    gap: var(--fkp-space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
 .fkp-overview__lines li { overflow-wrap: anywhere; }
 .fkp-overview__line--success { color: var(--fkp-tone-success); }
 .fkp-overview__line--warning { color: var(--fkp-tone-warning); }
@@ -8926,6 +8956,10 @@ var styles3 = `
 @media (max-width: 900px) {
     .fkp_dashboard-page {
         --dashboard-grid-columns: 2;
+    }
+
+    .fkp-overview__grid {
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
@@ -13628,47 +13662,16 @@ function renderConnectionsView(hidden) {
             _("Follow new")
           )
         ]),
-        E("div", { class: "fkp_monitoring-page__filters" }, [
-          E(
-            "select",
-            {
-              id: "monitoring-device-filter",
-              class: "cbi-input-select fkp_monitoring-page__device-filter",
-              "aria-label": _("Device")
-            },
-            [E("option", { value: "all" }, _("All devices"))]
-          ),
-          E("select", {
-            id: "monitoring-path-filter",
-            class: "cbi-input-select",
-            "aria-label": _("Path")
-          }),
-          E(
-            "select",
-            {
-              id: "monitoring-sort",
-              class: "cbi-input-select",
-              "aria-label": _("Sort connections")
-            },
-            [
-              E("option", { value: "start" }, _("Start time")),
-              E("option", { value: "duration" }, _("Duration")),
-              E("option", { value: "download" }, _("Download")),
-              E("option", { value: "upload" }, _("Upload")),
-              E("option", { value: "total" }, _("Total traffic"))
-            ]
-          ),
-          E("label", { class: "fkp_monitoring-page__search" }, [
-            E("span", { class: "fkp_monitoring-page__search-icon" }, []),
-            E("input", {
-              id: "monitoring-search",
-              class: "cbi-input-text fkp_monitoring-page__search-input",
-              type: "search",
-              placeholder: _("Site, IP, device or rule"),
-              "aria-label": _("Search"),
-              autocomplete: "off"
-            })
-          ])
+        E("label", { class: "fkp_monitoring-page__search" }, [
+          E("span", { class: "fkp_monitoring-page__search-icon" }, []),
+          E("input", {
+            id: "monitoring-search",
+            class: "cbi-input-text fkp_monitoring-page__search-input",
+            type: "search",
+            placeholder: _("Site, IP, device or rule"),
+            "aria-label": _("Search"),
+            autocomplete: "off"
+          })
         ]),
         E("div", { class: "fkp_monitoring-page__actions" }, [
           ...isReadonlyMode() ? [] : [
@@ -13698,6 +13701,54 @@ function renderConnectionsView(hidden) {
           )
         ])
       ]),
+      E(
+        "details",
+        {
+          id: "monitoring-extra-filters",
+          class: "fkp_monitoring-page__filter-disclosure"
+        },
+        [
+          E("summary", { class: "fkp_monitoring-page__filter-summary" }, [
+            _("Filters and sorting"),
+            E("span", {
+              id: "monitoring-extra-filter-count",
+              class: "fkp_monitoring-page__filter-count",
+              hidden: true
+            })
+          ]),
+          E("div", { class: "fkp_monitoring-page__filters" }, [
+            E(
+              "select",
+              {
+                id: "monitoring-device-filter",
+                class: "cbi-input-select fkp_monitoring-page__device-filter",
+                "aria-label": _("Device")
+              },
+              [E("option", { value: "all" }, _("All devices"))]
+            ),
+            E("select", {
+              id: "monitoring-path-filter",
+              class: "cbi-input-select",
+              "aria-label": _("Path")
+            }),
+            E(
+              "select",
+              {
+                id: "monitoring-sort",
+                class: "cbi-input-select",
+                "aria-label": _("Sort connections")
+              },
+              [
+                E("option", { value: "start" }, _("Start time")),
+                E("option", { value: "duration" }, _("Duration")),
+                E("option", { value: "download" }, _("Download")),
+                E("option", { value: "upload" }, _("Upload")),
+                E("option", { value: "total" }, _("Total traffic"))
+              ]
+            )
+          ])
+        ]
+      ),
       E("div", {
         id: "monitoring-filter-bar",
         class: "fkp_monitoring-page__filter-bar",
@@ -13936,6 +13987,17 @@ function expandRouteConditions(reported2, rules) {
   }).join(" ") + ` => route(${outbound})`;
 }
 
+// src/forkop/tabs/monitoring/renderPolicy.ts
+function needsElapsedTimeRefresh(paused, visible, activeCount, showingActive, selectedConnectionActive) {
+  return !paused && visible && activeCount > 0 && (showingActive || selectedConnectionActive);
+}
+function advancedOptionCount(device, path, sort, defaultValue = "all") {
+  return Number(device !== defaultValue) + Number(path !== defaultValue) + Number(sort !== "start");
+}
+function shouldPaintConnectionSnapshot(mounted3, sameMount, visible) {
+  return mounted3 && sameMount && visible;
+}
+
 // src/forkop/tabs/monitoring/initController.ts
 function normalizeConnectionsPayload(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -13965,7 +14027,7 @@ async function loadRuntimeRouteRules(mountId3) {
     logger.warn("[MONITORING]", "loadRuntimeRouteRules: failed", error);
   }
 }
-var RENDER_INTERVAL_MS = 500;
+var RENDER_INTERVAL_MS = 1e3;
 var CONNECTIONS_RPC_POLL_INTERVAL_MS = 1500;
 var CLOSED_CONNECTION_LIMIT = 300;
 var ALL_FILTER_VALUE = "all";
@@ -14306,7 +14368,11 @@ function applyConnectionsPayload(payload) {
   trimClosedConnections();
   loading = false;
   failed = false;
-  if (monitoringMounted && mountId3 === monitoringMountId) {
+  if (shouldPaintConnectionSnapshot(
+    monitoringMounted,
+    mountId3 === monitoringMountId,
+    document.visibilityState !== "hidden"
+  )) {
     renderControls();
     renderConnections();
   }
@@ -14526,6 +14592,19 @@ function renderControls() {
   renderDeviceFilterOptions();
   renderPathFilterOptions();
   renderFilterBar();
+  const advancedCount = advancedOptionCount(
+    selectedDeviceFilter,
+    pathFilter,
+    sortMode,
+    ALL_FILTER_VALUE
+  );
+  const advancedBadge = document.getElementById(
+    "monitoring-extra-filter-count"
+  );
+  if (advancedBadge) {
+    advancedBadge.hidden = advancedCount === 0;
+    advancedBadge.textContent = advancedCount ? String(advancedCount) : "";
+  }
   const pathSelect = document.getElementById(
     "monitoring-path-filter"
   );
@@ -14601,6 +14680,22 @@ function renderSecondary(text, className = "") {
     text
   );
 }
+function connectionDestinationMeta(connection, isActive) {
+  return [
+    getNetwork(connection).toUpperCase(),
+    formatConnectionDuration(connection),
+    ...isActive ? [] : [_("closed")]
+  ].join(" \xB7 ");
+}
+function renderDestinationMeta(connection, isActive) {
+  const element = renderSecondary(
+    connectionDestinationMeta(connection, isActive)
+  );
+  if (isActive) {
+    element.setAttribute("data-fkp-live-connection-id", connection.id);
+  }
+  return element;
+}
 function renderPathCell(path, reason) {
   const summary = pathSummary(path);
   return [
@@ -14640,11 +14735,6 @@ function renderConnectionRow(connection) {
       )
     )
   );
-  const destinationMeta = [
-    getNetwork(connection).toUpperCase(),
-    formatConnectionDuration(connection),
-    ...isActive ? [] : [_("closed")]
-  ].join(" \xB7 ");
   return E(
     "tr",
     {
@@ -14658,7 +14748,7 @@ function renderConnectionRow(connection) {
       renderTableCell(_("Device"), [renderSourceValue(source)]),
       renderTableCell(_("Destination"), [
         renderValue(target.primary),
-        renderSecondary(destinationMeta)
+        renderDestinationMeta(connection, isActive)
       ]),
       renderTableCell(
         _("Path"),
@@ -14717,10 +14807,14 @@ function connectionDetails(connection) {
     ...connectionTechnicalDetails(connection)
   ];
 }
-function detailRow(label, value) {
+function detailRow(label, value, liveStatus = false) {
+  const valueElement = E("dd", {}, value);
+  if (liveStatus) {
+    valueElement.setAttribute("data-fkp-live-status", "");
+  }
   return E("div", { class: "fkp_monitoring-page__detail-row" }, [
     E("dt", {}, label),
-    E("dd", {}, value)
+    valueElement
   ]);
 }
 function closeConnectionDetails() {
@@ -14765,7 +14859,8 @@ function renderConnectionDetailsPanel() {
         detailRow(_("Device"), source.copyValue),
         detailRow(
           _("Status"),
-          isActive ? `${_("Active")} \xB7 ${formatConnectionDuration(connection)}` : `${_("Closed")} \xB7 ${formatConnectionDuration(connection)}`
+          isActive ? `${_("Active")} \xB7 ${formatConnectionDuration(connection)}` : `${_("Closed")} \xB7 ${formatConnectionDuration(connection)}`,
+          isActive
         ),
         detailRow(
           _("Route"),
@@ -15025,6 +15120,28 @@ function flushRenderAfterSelection() {
   }
   renderConnections({ force: true });
 }
+function refreshElapsedLabels() {
+  if (isTextSelectionInsideMonitoring()) {
+    return;
+  }
+  document.getElementById("monitoring-connections")?.querySelectorAll("[data-fkp-live-connection-id]").forEach((element) => {
+    const connection = activeConnections.get(
+      element.getAttribute("data-fkp-live-connection-id") || ""
+    );
+    if (!connection) return;
+    const next = connectionDestinationMeta(connection, true);
+    if (element.textContent !== next) {
+      element.textContent = next;
+      element.title = next;
+    }
+  });
+  const selected = selectedConnectionId ? activeConnections.get(selectedConnectionId) : void 0;
+  if (!selected) return;
+  const panel = document.getElementById("monitoring-connection-details");
+  const duration = formatConnectionDuration(selected);
+  const status2 = panel?.querySelector("[data-fkp-live-status]");
+  if (status2) status2.textContent = `${_("Active")} \xB7 ${duration}`;
+}
 function setMonitoringPaused(paused) {
   if (monitoringPaused === paused) {
     return;
@@ -15282,6 +15399,7 @@ function bindControls() {
     select2.onchange = () => {
       selectedDeviceFilter = select2.value || ALL_FILTER_VALUE;
       saveMonitoringPreferences();
+      renderControls();
       renderConnections();
     };
   }
@@ -15292,6 +15410,7 @@ function bindControls() {
     pathSelect.onchange = () => {
       pathFilter = pathSelect.value || ALL_FILTER_VALUE;
       saveMonitoringPreferences();
+      renderControls();
       renderConnections({ force: true });
     };
   }
@@ -15311,6 +15430,7 @@ function bindControls() {
     sort.onchange = () => {
       sortMode = sort.value;
       saveMonitoringPreferences();
+      renderControls();
       renderConnections();
     };
   }
@@ -15378,8 +15498,11 @@ async function loadRouteDisplayNames() {
     renderConnections();
   }
 }
+function isMonitoringDocumentVisible() {
+  return document.visibilityState !== "hidden";
+}
 async function pollConnectionsSnapshot() {
-  if (pollingConnections || !monitoringMounted || monitoringPaused || serviceAvailability !== "running") {
+  if (pollingConnections || !monitoringMounted || monitoringPaused || !isMonitoringDocumentVisible() || serviceAvailability !== "running") {
     return;
   }
   const mountId3 = monitoringMountId;
@@ -15392,7 +15515,7 @@ async function pollConnectionsSnapshot() {
     if (!response.success) {
       failed = true;
       loading = false;
-      renderConnections();
+      if (isMonitoringDocumentVisible()) renderConnections();
       return;
     }
     applyConnectionsPayload(normalizeConnectionsPayload(response.data));
@@ -15403,10 +15526,16 @@ async function pollConnectionsSnapshot() {
     logger.error("[MONITORING]", "connections polling failed", error);
     failed = true;
     loading = false;
-    renderConnections();
+    if (isMonitoringDocumentVisible()) renderConnections();
   } finally {
     pollingConnections = false;
   }
+}
+function refreshMonitoringAfterVisibilityChange() {
+  if (!monitoringMounted || document.visibilityState === "hidden") return;
+  renderControls();
+  renderConnections();
+  if (connectionsPollTimer) void pollConnectionsSnapshot();
 }
 function startConnectionsPolling() {
   if (connectionsPollTimer) {
@@ -15549,6 +15678,17 @@ async function onPageMount3() {
   void loadRuntimeRouteRules(mountId3);
   resetMonitoringState();
   loadMonitoringPreferences();
+  const advancedFilters = document.getElementById(
+    "monitoring-extra-filters"
+  );
+  if (advancedFilters) {
+    advancedFilters.open = advancedOptionCount(
+      selectedDeviceFilter,
+      pathFilter,
+      sortMode,
+      ALL_FILTER_VALUE
+    ) > 0;
+  }
   bindControls();
   renderControls();
   renderConnections();
@@ -15569,11 +15709,23 @@ async function onPageMount3() {
   }
   document.addEventListener("selectionchange", flushRenderAfterSelection);
   document.addEventListener("copy", handleMonitoringValueCopy);
+  document.addEventListener(
+    "visibilitychange",
+    refreshMonitoringAfterVisibilityChange
+  );
   renderTimer = setInterval(() => {
-    if (monitoringPaused) {
+    if (!needsElapsedTimeRefresh(
+      monitoringPaused,
+      document.visibilityState !== "hidden",
+      activeConnections.size,
+      activeTab === "active" || followBaseline !== null,
+      Boolean(
+        selectedConnectionId && activeConnections.has(selectedConnectionId)
+      )
+    )) {
       return;
     }
-    renderConnections();
+    refreshElapsedLabels();
   }, RENDER_INTERVAL_MS);
 }
 function onPageUnmount3() {
@@ -15588,6 +15740,10 @@ function onPageUnmount3() {
   serviceStateUnsubscribe = null;
   document.removeEventListener("selectionchange", flushRenderAfterSelection);
   document.removeEventListener("copy", handleMonitoringValueCopy);
+  document.removeEventListener(
+    "visibilitychange",
+    refreshMonitoringAfterVisibilityChange
+  );
 }
 function registerLifecycleListeners3() {
   if (monitoringLifecycleRegistered) {
@@ -15633,6 +15789,17 @@ var styles5 = `
 #cbi-${FORKOP_UCI_PACKAGE}-monitoring-_mount_node {
     margin: 16px 0 22px;
     padding: 0;
+    width: 100%;
+}
+
+/* LuCI mounts the view in an <output> flex item. Without an explicit basis,
+   collapsing filters lets that item shrink to the table's intrinsic width. */
+#cbi-${FORKOP_UCI_PACKAGE}-monitoring-_mount_node > output {
+    display: block;
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
 }
 
 #cbi-${FORKOP_UCI_PACKAGE}-monitoring-_mount_node > .cbi-value-title {
@@ -15836,12 +16003,66 @@ var styles5 = `
 
 .fkp_monitoring-page__filters {
     display: flex;
-    flex: 1 1 auto;
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-start;
     gap: 12px;
     min-width: 0;
+    padding: 10px 12px 12px;
+    border-top: 1px solid var(--fkp-monitoring-divider-color);
+}
+
+.fkp_monitoring-page__filter-disclosure {
+    width: 100%;
+    min-width: 0;
+    margin: 0 0 10px;
+    border: 1px solid var(--fkp-monitoring-divider-color);
+    border-radius: 8px;
+    box-sizing: border-box;
+}
+
+.fkp_monitoring-page__filter-disclosure:not([open]) {
+    width: max-content;
+    max-width: 100%;
+}
+
+.fkp_monitoring-page__filter-summary {
+    width: fit-content;
+    min-height: var(--fkp-monitoring-control-height);
+    padding: 7px 12px;
+    box-sizing: border-box;
+    cursor: pointer;
+    color: var(--text-color-medium);
+    font-weight: 600;
+}
+
+.fkp_monitoring-page__filter-summary:hover,
+.fkp_monitoring-page__filter-summary:focus-visible {
+    color: var(--text-color-high);
+}
+
+.fkp_monitoring-page__filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    margin-left: 6px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: rgba(25, 118, 210, 0.22);
+    color: var(--primary-color-high, #1976d2);
+    font-size: 12px;
+    box-sizing: border-box;
+}
+
+.fkp_monitoring-page__filter-count[hidden] { display: none; }
+
+.fkp_monitoring-page__filters > select {
+    flex: 1 1 170px;
+    max-width: 240px;
+    min-width: 0;
+    margin: 0 !important;
 }
 
 .fkp_monitoring-page__device-filter {
@@ -15859,6 +16080,7 @@ var styles5 = `
 .fkp_monitoring-page__search {
     position: relative;
     display: flex;
+    flex: 1 1 260px;
     align-items: center;
     width: min(320px, 100%);
     min-width: 0;
@@ -16405,9 +16627,24 @@ var styles5 = `
 
     .fkp_monitoring-page__tabs,
     .fkp_monitoring-page__filters,
+    .fkp_monitoring-page__filter-disclosure,
     .fkp_monitoring-page__device-filter,
     .fkp_monitoring-page__search {
         width: 100%;
+    }
+
+    .fkp_monitoring-page__filter-disclosure:not([open]) {
+        width: 100%;
+    }
+
+    .fkp_monitoring-page__filters > select {
+        flex: none;
+        width: 100%;
+        max-width: none;
+    }
+
+    .fkp_monitoring-page__search {
+        flex: none;
     }
 
     .fkp_monitoring-page__controls,
@@ -16423,6 +16660,10 @@ var styles5 = `
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         width: 100%;
+    }
+
+    #monitoring-follow-toggle {
+        grid-column: 1 / -1;
     }
 
     .fkp_monitoring-page__table td {
@@ -18233,6 +18474,16 @@ function historyFilterLabel(filter2) {
       return _("All");
   }
 }
+var HISTORY_PAGE_SIZE = 8;
+function historyPage(items, shown = HISTORY_PAGE_SIZE) {
+  const count = Number.isFinite(shown) ? Math.max(HISTORY_PAGE_SIZE, Math.floor(shown)) : HISTORY_PAGE_SIZE;
+  const visible = items.slice(0, count);
+  return {
+    visible,
+    remaining: items.length - visible.length,
+    nextCount: Math.min(items.length, count + HISTORY_PAGE_SIZE)
+  };
+}
 function eventTitle(event) {
   if (event.kind !== "autotune_apply" || !event.trigger)
     return eventKindLabel(event.kind);
@@ -18280,8 +18531,13 @@ function snapshotRows(snapshots2) {
     // The badge already says "last known good" for such snapshots.
     reason: snapshot.is_lkg && snapshot.reason === "last-known-working" ? "" : snapshotReasonLabel(snapshot.reason),
     lkg: Boolean(snapshot.is_lkg),
-    canDelete: !snapshot.is_lkg
+    protected: Boolean(snapshot.is_protected),
+    canDelete: !snapshot.is_lkg && !snapshot.is_protected
   }));
+}
+function snapshotCleanupIds(snapshots2) {
+  if (snapshots2.filter((snapshot) => snapshot.is_lkg).length !== 1) return [];
+  return snapshots2.filter((snapshot) => !snapshot.is_lkg && !snapshot.is_protected).map((snapshot) => snapshot.id);
 }
 function diffValue(value) {
   if (value === null || value === void 0) return _("not set");
@@ -18446,6 +18702,36 @@ function restoreResultToast(result) {
   };
 }
 
+// src/forkop/tabs/history/cleanupSnapshots.ts
+async function cleanupOldSnapshots(expected, list, remove) {
+  const workingId = expected.find((snapshot) => snapshot.is_lkg)?.id;
+  const ids = snapshotCleanupIds(expected);
+  if (!workingId || ids.length === 0) return { status: "changed", deleted: 0 };
+  let current;
+  try {
+    current = await list();
+  } catch (_error) {
+    return { status: "load-failed", deleted: 0 };
+  }
+  if (!current) return { status: "load-failed", deleted: 0 };
+  const currentIds = snapshotCleanupIds(current);
+  if (current.find((snapshot) => snapshot.is_lkg)?.id !== workingId || currentIds.length !== ids.length || currentIds.some((id) => !ids.includes(id))) {
+    return { status: "changed", deleted: 0 };
+  }
+  let deleted = 0;
+  for (const id of ids) {
+    let status2;
+    try {
+      status2 = await remove(id);
+    } catch (_error) {
+      return { status: "failed", deleted };
+    }
+    if (status2 !== "deleted") return { status: status2, deleted };
+    deleted += 1;
+  }
+  return { status: "deleted", deleted };
+}
+
 // src/forkop/tabs/history/initController.ts
 var REFRESH_INTERVAL_MS = 15e3;
 var FILTERS = ["all", "config", "service", "autotune"];
@@ -18454,6 +18740,7 @@ var mounted = false;
 var mountId = 0;
 var refreshTimer = null;
 var filter = "all";
+var visibleHistoryCount = HISTORY_PAGE_SIZE;
 var health = null;
 var healthFailed = false;
 var history2 = null;
@@ -18519,6 +18806,7 @@ function renderHistory() {
           "aria-pressed": item === filter ? "true" : "false",
           click: () => {
             filter = item;
+            visibleHistoryCount = HISTORY_PAGE_SIZE;
             renderHistory();
           }
         },
@@ -18534,6 +18822,7 @@ function renderHistory() {
     return;
   }
   const items = historyItems(history2.events, filter);
+  const page = historyPage(items, visibleHistoryCount);
   const notes = history2.persistent ? [] : [
     E(
       "p",
@@ -18544,23 +18833,41 @@ function renderHistory() {
   replace(
     "history-events",
     ...notes,
-    items.length ? E(
-      "ul",
-      { class: "fkp-history__list" },
-      items.map(
-        (item) => E("li", { class: "fkp-history__event" }, [
-          E(
-            "span",
-            { class: "fkp-history__time", title: item.time },
-            item.relative
-          ),
-          E("span", { class: "fkp-history__what" }, item.title),
-          renderStatus(item.outcome)
-        ])
+    ...items.length ? [
+      E(
+        "ul",
+        { class: "fkp-history__list" },
+        page.visible.map(
+          (item) => E("li", { class: "fkp-history__event" }, [
+            E(
+              "span",
+              { class: "fkp-history__time", title: item.time },
+              item.relative
+            ),
+            E("span", { class: "fkp-history__what" }, item.title),
+            renderStatus(item.outcome)
+          ])
+        )
+      ),
+      ...page.remaining ? [
+        E(
+          "button",
+          {
+            type: "button",
+            class: "btn cbi-button fkp-history__more",
+            click: () => {
+              visibleHistoryCount = page.nextCount;
+              renderHistory();
+            }
+          },
+          `${_("Show more events")} (+${Math.min(page.remaining, HISTORY_PAGE_SIZE)})`
+        )
+      ] : []
+    ] : [
+      renderEmptyState(
+        filter === "all" ? _("No events recorded yet") : _("No events of this kind")
       )
-    ) : renderEmptyState(
-      filter === "all" ? _("No events recorded yet") : _("No events of this kind")
-    )
+    ]
   );
 }
 function renderDiffTable(diff) {
@@ -18670,6 +18977,55 @@ async function deleteSnapshot(id, label) {
     else showToast(_("Could not delete snapshot"), "error");
   });
 }
+async function deleteOldSnapshots() {
+  if (!snapshots) return;
+  const expected = snapshots;
+  const ids = snapshotCleanupIds(expected);
+  if (ids.length === 0) return;
+  const confirmed = await confirmAction({
+    title: _("Delete unneeded snapshots?"),
+    message: _(
+      "Delete %d unneeded snapshots? Snapshots needed for recovery will be kept."
+    ).replace("%d", String(ids.length)),
+    confirmLabel: _("Delete"),
+    danger: true
+  });
+  if (!confirmed) return;
+  await runSnapshotAction(async () => {
+    const result = await cleanupOldSnapshots(
+      expected,
+      async () => {
+        const response = await ForkopShellMethods.snapshotList();
+        return response.success && Array.isArray(response.data) ? response.data : null;
+      },
+      async (id) => {
+        const response = await ForkopShellMethods.snapshotDelete(id);
+        const status2 = response.success ? response.data.status : void 0;
+        return status2 === "deleted" || status2 === "busy" ? status2 : "failed";
+      }
+    );
+    if (result.status === "deleted") {
+      showToast(_("Old snapshots deleted"), "success");
+    } else if (result.status === "changed") {
+      showToast(_("Snapshot list changed. Refresh and try again."), "warning");
+    } else if (result.status === "load-failed") {
+      showToast(_("Could not load configuration snapshots"), "error");
+    } else if (result.deleted > 0) {
+      showToast(
+        _("Deleted %d snapshots; the rest were not removed.").replace(
+          "%d",
+          String(result.deleted)
+        ),
+        "warning"
+      );
+    } else {
+      showToast(
+        result.status === "busy" ? snapshotBusyText() : _("Could not delete snapshot"),
+        result.status === "busy" ? "warning" : "error"
+      );
+    }
+  });
+}
 async function createSnapshot() {
   await runSnapshotAction(async () => {
     const result = await ForkopShellMethods.snapshotCreate("manual");
@@ -18681,6 +19037,7 @@ async function createSnapshot() {
 }
 function renderSnapshots() {
   const readonly = isReadonlyMode();
+  const cleanupIds = snapshots ? snapshotCleanupIds(snapshots) : [];
   replace(
     "history-snapshot-actions",
     ...readonly ? [] : [
@@ -18693,7 +19050,19 @@ function renderSnapshots() {
           click: () => void createSnapshot()
         },
         _("Create snapshot")
-      )
+      ),
+      ...cleanupIds.length ? [
+        E(
+          "button",
+          {
+            type: "button",
+            class: "btn cbi-button",
+            disabled: snapshotBusy ? true : void 0,
+            click: () => void deleteOldSnapshots()
+          },
+          _("Delete unneeded snapshots")
+        )
+      ] : []
     ]
   );
   if (snapshotsFailed || !snapshots) {
@@ -18724,6 +19093,14 @@ function renderSnapshots() {
                 { class: "fkp-history__lkg" },
                 _("Last known good")
               )
+            ] : [],
+            ...row.protected ? [
+              " ",
+              E(
+                "span",
+                { class: "fkp-history__lkg" },
+                _("Protected for recovery")
+              )
             ] : []
           ]),
           E("span", { class: "fkp-actions" }, [
@@ -18745,7 +19122,7 @@ function renderSnapshots() {
                   danger: true
                 },
                 {
-                  label: row.canDelete ? _("Delete\u2026") : _(
+                  label: row.canDelete ? _("Delete\u2026") : row.protected ? _("This snapshot is needed for recovery") : _(
                     "The last known good snapshot cannot be deleted"
                   ),
                   onClick: () => void deleteSnapshot(row.id, label),
@@ -18769,6 +19146,7 @@ function onPageMount5() {
   onPageUnmount5();
   mounted = true;
   mountId += 1;
+  visibleHistoryCount = HISTORY_PAGE_SIZE;
   renderAll();
   void loadAll();
   refreshTimer = setInterval(() => {
@@ -18837,7 +19215,7 @@ var styles7 = `
     min-width: 0;
     padding: var(--fkp-space-3) var(--fkp-space-4);
     border: 1px solid var(--fkp-border);
-    border-radius: 6px;
+    border-radius: 10px;
 }
 .fkp-history__head {
     display: flex;
@@ -18857,15 +19235,17 @@ var styles7 = `
 .fkp-history__facts dt { min-width: 0; font-weight: 600; overflow-wrap: normal; }
 .fkp-history__facts dd { min-width: 0; margin: 0; }
 .fkp-history__facts .fkp-status {
-    display: block;
-    width: 100%;
-    border-radius: 6px;
-    overflow-wrap: normal;
+    display: inline-block;
+    width: auto;
+    max-width: 100%;
+    border-radius: 999px;
+    overflow-wrap: anywhere;
     word-break: normal;
 }
 .fkp-history__filter { display: flex; flex-wrap: wrap; gap: var(--fkp-space-1); }
 .fkp-history__filter .btn[aria-pressed="true"] { font-weight: 600; border-color: var(--fkp-tone-loading); }
 .fkp-history__list { margin: 0; padding: 0; list-style: none; }
+.fkp-history__more { margin-top: var(--fkp-space-3); }
 .fkp-history__event,
 .fkp-history__snapshot {
     display: flex;
@@ -18902,7 +19282,6 @@ var styles7 = `
 
 @media (max-width: 599px) {
     .fkp-history__facts { grid-template-columns: minmax(0, 1fr); }
-    .fkp-history__facts .fkp-status { width: auto; }
     .fkp-history__facts dd { margin-bottom: var(--fkp-space-2); }
 }
 `;
