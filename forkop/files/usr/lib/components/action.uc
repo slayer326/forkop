@@ -2079,6 +2079,10 @@ function forkop_release_matches(package_name, version) {
         match(substr(installed, length(revision_prefix)), /^[0-9]+$/) != null);
 }
 
+function pkg_set_extension() {
+    return is_apk() ? "apk" : "ipk";
+}
+
 // Older builds may be present on the release host without a GitHub Release.
 // Never infer a rollback set from filenames alone: require the published
 // SHA256SUMS entry for every package in the set.
@@ -2139,10 +2143,6 @@ function opkg_forkop_set_versions_match(version, with_i18n) {
     return forkop_release_matches("forkop", version) &&
         forkop_release_matches("luci-app-forkop", version) &&
         (!with_i18n || forkop_release_matches("luci-i18n-forkop-ru", version));
-}
-
-function pkg_set_extension() {
-    return is_apk() ? "apk" : "ipk";
 }
 
 // The staged rollback set is installed the same way on both package managers:
