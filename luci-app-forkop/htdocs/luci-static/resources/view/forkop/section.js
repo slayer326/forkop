@@ -8449,6 +8449,8 @@ function createSectionContent(section) {
   o.value("quad9", _("Quad9 (DoH, malware blocking)"));
   o.value("adguard", _("AdGuard DNS (DoH, ad blocking)"));
   o.value("yandex", _("Yandex DNS (UDP, unencrypted)"));
+  o.value("yandex_doh", _("Yandex DNS (DoH)"));
+  o.value("yandex_dot", _("Yandex DNS (DoT, port 853)"));
   o.default = "custom";
   o.modalonly = true;
   // This is a form-only shortcut. The existing dns_type/dns_server fields

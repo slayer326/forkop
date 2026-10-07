@@ -1,6 +1,6 @@
 export type DnsRulePreset = {
   id: string;
-  protocol: 'doh' | 'udp';
+  protocol: 'doh' | 'dot' | 'udp';
   server: string;
 };
 
@@ -20,6 +20,16 @@ export const DNS_RULE_PRESETS: readonly DnsRulePreset[] = [
     server: 'dns.adguard-dns.com/dns-query',
   },
   { id: 'yandex', protocol: 'udp', server: '77.88.8.8' },
+  {
+    id: 'yandex_doh',
+    protocol: 'doh',
+    server: 'common.dot.dns.yandex.net/dns-query',
+  },
+  {
+    id: 'yandex_dot',
+    protocol: 'dot',
+    server: 'common.dot.dns.yandex.net',
+  },
 ];
 
 export function dnsRulePresetById(id: string): DnsRulePreset | undefined {

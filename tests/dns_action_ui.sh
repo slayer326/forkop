@@ -32,8 +32,10 @@ if (!source.slice(ips, builtIns).includes("dependsOnRoutingAction(ipConditionOpt
 }
 
 const sectionContent = requiredIndex("function createSectionContent(section)");
-const protocol = requiredIndex('"dns_type"', sectionContent);
-const server = requiredIndex('"dns_server"', protocol);
+// Ignore the preset picker's references to these keys: only actual form
+// options (whose names are followed by a comma) define their display order.
+const protocol = requiredIndex('"dns_type",', sectionContent);
+const server = requiredIndex('"dns_server",', protocol);
 if (server <= protocol || !source.slice(protocol, server).includes('_("DNS protocol")')) {
   fail("DNS protocol must be rendered before DNS server");
 }

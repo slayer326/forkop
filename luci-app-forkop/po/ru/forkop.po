@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-07 09:09+0300\n"
-"PO-Revision-Date: 2026-10-07 09:09+0300\n"
+"POT-Creation-Date: 2026-10-07 09:18+0300\n"
+"PO-Revision-Date: 2026-10-07 09:18+0300\n"
 "Last-Translator: slayer\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -4321,6 +4321,12 @@ msgstr "Работает без обхода."
 
 msgid "YACD Secret Key"
 msgstr "Секретный ключ YACD"
+
+msgid "Yandex DNS (DoH)"
+msgstr "Яндекс DNS (DoH)"
+
+msgid "Yandex DNS (DoT, port 853)"
+msgstr "Яндекс DNS (DoT, порт 853)"
 
 msgid "Yandex DNS (UDP, unencrypted)"
 msgstr "Яндекс DNS (UDP, без шифрования)"
