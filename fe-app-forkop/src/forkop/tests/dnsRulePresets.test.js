@@ -68,8 +68,10 @@ describe('DNS rule presets', () => {
     expect(dnsRulePresetById('xbox_doq')).toBeUndefined();
     expect(DNS_SERVER_OPTIONS).toHaveProperty('111.88.96.54');
     expect(DNS_SERVER_OPTIONS).toHaveProperty('111.88.96.55');
-    expect(DNS_SERVER_OPTIONS).toHaveProperty('xbox-dns.ru/dns-query');
-    expect(DNS_SERVER_OPTIONS).toHaveProperty('xbox-dns.ru');
+    // The global list has a separate protocol selector; encrypted endpoints
+    // must not appear as one-click suggestions while it is still on UDP.
+    expect(DNS_SERVER_OPTIONS).not.toHaveProperty('xbox-dns.ru/dns-query');
+    expect(DNS_SERVER_OPTIONS).not.toHaveProperty('xbox-dns.ru');
     expect(BOOTSTRAP_DNS_SERVER_OPTIONS).toHaveProperty('111.88.96.54');
     expect(BOOTSTRAP_DNS_SERVER_OPTIONS).toHaveProperty('111.88.96.55');
     expect(BOOTSTRAP_DNS_SERVER_OPTIONS).not.toHaveProperty('xbox-dns.ru');
