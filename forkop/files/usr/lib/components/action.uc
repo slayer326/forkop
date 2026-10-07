@@ -705,16 +705,8 @@ function fetch_github_releases_json(owner, repo, per_page) {
     return response;
 }
 
-function latest_forkop_release_json() {
-    for (let source in forkop_release_sources()) {
-        let response = http_get(source[0] + "/updates/latest.json");
-        let release;
-        try { release = json(response); } catch (e) { continue; }
-        let catalog = sprintf("%J", { format: 1, releases: [ release ] });
-        if (length(parse_forkop_release_catalog(catalog, pkg_set_extension(), source[0], source[1])) == 1)
-            return response;
-    }
-    return "";
+function pkg_set_extension() {
+    return is_apk() ? "apk" : "ipk";
 }
 
 function forkop_release_sources() {
@@ -803,6 +795,18 @@ function parse_forkop_release_catalog(response, ext, source_base, release_prefix
             push(releases, release);
     }
     return releases;
+}
+
+function latest_forkop_release_json() {
+    for (let source in forkop_release_sources()) {
+        let response = http_get(source[0] + "/updates/latest.json");
+        let release;
+        try { release = json(response); } catch (e) { continue; }
+        let catalog = sprintf("%J", { format: 1, releases: [ release ] });
+        if (length(parse_forkop_release_catalog(catalog, pkg_set_extension(), source[0], source[1])) == 1)
+            return response;
+    }
+    return "";
 }
 
 function forkop_release_catalog() {
@@ -2092,10 +2096,6 @@ function forkop_release_matches(package_name, version) {
     let revision_prefix = version + "-r";
     return installed == version || (substr(installed, 0, length(revision_prefix)) == revision_prefix &&
         match(substr(installed, length(revision_prefix)), /^[0-9]+$/) != null);
-}
-
-function pkg_set_extension() {
-    return is_apk() ? "apk" : "ipk";
 }
 
 // Older builds may be present on the release host without a GitHub Release.
