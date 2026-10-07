@@ -296,7 +296,14 @@ var DNS_RULE_PRESETS = [
     id: "yandex_dot",
     protocol: "dot",
     server: "common.dot.dns.yandex.net"
-  }
+  },
+  { id: "xbox", protocol: "udp", server: "111.88.96.54" },
+  {
+    id: "xbox_doh",
+    protocol: "doh",
+    server: "xbox-dns.ru/dns-query"
+  },
+  { id: "xbox_dot", protocol: "dot", server: "xbox-dns.ru" }
 ];
 function dnsRulePresetById(id) {
   return DNS_RULE_PRESETS.find((preset) => preset.id === id);
@@ -1119,6 +1126,10 @@ var SECONDARY_RULESET_OPTIONS = {
 };
 var DNS_SERVER_OPTIONS = {
   "77.88.8.8": "77.88.8.8 (Yandex DNS)",
+  "111.88.96.54": "111.88.96.54 (Xbox DNS)",
+  "111.88.96.55": "111.88.96.55 (Xbox DNS backup)",
+  "xbox-dns.ru/dns-query": "xbox-dns.ru/dns-query (Xbox DNS DoH)",
+  "xbox-dns.ru": "xbox-dns.ru (Xbox DNS DoT)",
   "1.1.1.1": "1.1.1.1 (Cloudflare)",
   "8.8.8.8": "8.8.8.8 (Google)",
   "9.9.9.9": "9.9.9.9 (Quad9)",
@@ -1129,6 +1140,8 @@ var DNS_SERVER_OPTIONS = {
 var BOOTSTRAP_DNS_SERVER_OPTIONS = {
   "77.88.8.8": "77.88.8.8 (Yandex DNS)",
   "77.88.8.1": "77.88.8.1 (Yandex DNS)",
+  "111.88.96.54": "111.88.96.54 (Xbox DNS)",
+  "111.88.96.55": "111.88.96.55 (Xbox DNS backup)",
   "1.1.1.1": "1.1.1.1 (Cloudflare DNS)",
   "1.0.0.1": "1.0.0.1 (Cloudflare DNS)",
   "8.8.8.8": "8.8.8.8 (Google DNS)",

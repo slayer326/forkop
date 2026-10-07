@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-07 09:18+0300\n"
-"PO-Revision-Date: 2026-10-07 09:18+0300\n"
+"POT-Creation-Date: 2026-10-07 17:21+0300\n"
+"PO-Revision-Date: 2026-10-07 17:21+0300\n"
 "Last-Translator: slayer\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -148,9 +148,6 @@ msgstr "Группа — это одно DPI-правило Zapret. Forkop X м�
 
 msgid "A list of a DPI rule. Each check takes a few of its domains; keywords and regular expressions are skipped."
 msgstr "Список DPI-правила. Каждая проверка берёт несколько его доменов; ключевые слова и регулярные выражения пропускаются."
-
-msgid "A preset fills the DNS protocol and server below. Select Custom DNS to enter your own values."
-msgstr "Готовый вариант заполнит протокол и адрес DNS ниже. Выберите «Свой DNS», чтобы указать свои значения."
 
 msgid "a previous apply is not resolved"
 msgstr "предыдущее применение не завершено"
@@ -766,6 +763,9 @@ msgstr "Проверяет корректность параметров. Не �
 
 msgid "Choose a list of a DPI rule."
 msgstr "Выберите список DPI-правила."
+
+msgid "Choose a ready DNS provider, or Custom DNS to enter a protocol and server."
+msgstr "Выберите готовый DNS или «Свой DNS», чтобы указать протокол и сервер вручную."
 
 msgid "Choose at least one domain of the list."
 msgstr "Выберите хотя бы один домен списка."
@@ -4318,6 +4318,15 @@ msgstr "С другим действием правило не может исп
 
 msgid "Works without bypass."
 msgstr "Работает без обхода."
+
+msgid "Xbox DNS (DoH)"
+msgstr "Xbox DNS (DoH)"
+
+msgid "Xbox DNS (DoT, port 853)"
+msgstr "Xbox DNS (DoT, порт 853)"
+
+msgid "Xbox DNS (UDP, unencrypted)"
+msgstr "Xbox DNS (UDP, без шифрования)"
 
 msgid "YACD Secret Key"
 msgstr "Секретный ключ YACD"
