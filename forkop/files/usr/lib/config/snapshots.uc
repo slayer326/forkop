@@ -10,6 +10,9 @@ const ROOT = getenv("FORKOP_SNAPSHOT_DIR") || "/etc/forkop/config-snapshots";
 const HASH_DIR = getenv("FORKOP_SNAPSHOT_HASH_DIR") || "/var/run/forkop/snapshot-hash";
 const LOCK = getenv("FORKOP_SNAPSHOT_LOCK_DIR") || "/var/run/forkop/config-snapshot.lock";
 const LKG = ROOT + "/last-known-working";
+// Set only by the user-facing rolling snapshot command. Internal transaction
+// snapshots keep their own retention and rollback guarantees.
+const ROLLING = ROOT + "/rolling-snapshot";
 const LIB_DIR = getenv("FORKOP_LIB") || "/usr/lib/forkop";
 const BIN = getenv("FORKOP_BIN") || "/usr/bin/forkop";
 const RELOAD = getenv("FORKOP_RELOAD_COMMAND") || "/etc/init.d/forkop";
@@ -90,7 +93,7 @@ function owner_pid() {
 function active_entry(name) {
     let parsed = match(value(name), /^owner\.([1-9][0-9]*)\.([0-9]+)$/);
     if (parsed == null) return false;
-    for (let operation in [ "create", "delete", "restore", "apply", "confirm-working" ])
+    for (let operation in [ "create", "create-rolling", "delete", "restore", "apply", "confirm-working" ])
         if (identity.matches_record({ pid: parsed[1], ticks: parsed[2] }, "ucode",
             [ "ucode", "-L", LIB_DIR, LIB_DIR + "/config/snapshots.uc", operation ], false, true) != "")
             return true;
@@ -207,6 +210,37 @@ function list_snapshots(own_apply) {
     result = sort(result, function(a, b) { return a.created_at - b.created_at; });
     return result;
 }
+// Once a new user snapshot is written and hash-verified, discard obsolete
+// history while retaining the last known working configuration and autotune
+// recovery point.
+// A candidate saved before its first successful reload is not an LKG yet, so
+// both snapshots may temporarily coexist. The lock serializes this with
+// restore and apply operations.
+function rolling_candidates(keep_id) {
+    let working = trim(value(fs.readfile(LKG)));
+    if (read_snapshot(working, true) == null || read_snapshot(keep_id, true) == null) return null;
+    let candidates = [];
+    for (let item in list_snapshots())
+        if (item.id != working && item.id != keep_id && !item.is_protected)
+            push(candidates, item);
+    return candidates;
+}
+function prune_rolling(keep_id) {
+    let candidates = rolling_candidates(keep_id);
+    if (candidates == null) return { deleted: 0, deferred: true };
+    let deleted = 0, failed = false;
+    for (let item in candidates)
+        if (fs.unlink(snapshot_path(item.id))) deleted++;
+        else failed = true;
+    return { deleted, deferred: failed };
+}
+function rolling_has_room() {
+    let working = trim(value(fs.readfile(LKG)));
+    if (read_snapshot(working, true) == null) return false;
+    for (let item in list_snapshots())
+        if (item.id != working && !item.is_protected) return true;
+    return false;
+}
 // Oldest automatic snapshots go first; manual ones, LKG and the ids the
 // running operation still needs (keep) are never removed.
 function trim_retention(keep, own_apply) {
@@ -233,7 +267,7 @@ function headroom(keep, own_apply) {
 }
 // dedupe: true returns any snapshot that already holds the configuration, a
 // reason only one of that reason.
-function create(kind, reason, dedupe, keep, own_apply) {
+function create(kind, reason, dedupe, keep, own_apply, rolling) {
     let content = read_config();
     if (content == null) return { status: "failed", reason: "config_unavailable" };
     let hash = sha(content);
@@ -241,7 +275,13 @@ function create(kind, reason, dedupe, keep, own_apply) {
     if (dedupe)
         for (let item in list_snapshots())
             if (item.config_hash == hash && (dedupe === true || item.reason == dedupe)) return { status: "existing", snapshot: item };
-    if (!trim_retention(keep, own_apply)) return { status: "failed", reason: "retention_full" };
+    // A rolling snapshot can briefly occupy an eleventh slot: the old one is
+    // removed only after the new file has been written successfully. Do not
+    // exceed the normal cap unless a verified LKG and a removable old snapshot
+    // make it possible to return below that cap immediately afterward.
+    let can_replace = rolling && length(list_snapshots()) <= RETENTION && rolling_has_room();
+    if (!can_replace && !trim_retention(keep, own_apply))
+        return { status: "failed", reason: "retention_full" };
     let id = sprintf("%d_%d", clock()[0], clock()[1]);
     let version = trim(capture([ BIN, "show_version" ]));
     let snapshot = { id, created_at: int(clock()[0]), kind, reason,
@@ -853,7 +893,7 @@ if (mode == "fixture-diff") {
     print(sprintf("%J\n", diff(value(fs.readfile(ARGV[1])), value(fs.readfile(ARGV[2])))));
     exit(0);
 }
-if (index([ "create", "delete", "restore", "apply", "confirm-working" ], mode) < 0) exit(1);
+if (index([ "create", "create-rolling", "delete", "restore", "apply", "confirm-working" ], mode) < 0) exit(1);
 if (!acquire()) {
     print(sprintf("%J\n", lock_busy ?
         { status: "busy", reason: "snapshot_operation_in_progress" } :
@@ -861,10 +901,21 @@ if (!acquire()) {
     exit(1);
 }
 let answer = { status: "failed" };
-if (mode == "create") {
+if (mode == "create" || mode == "create-rolling") {
     let kind = value(ARGV[1] || "manual");
     if (index([ "manual", "automatic" ], kind) >= 0)
-        answer = create(kind, kind == "manual" ? "manual" : "before-reload", kind == "automatic");
+        answer = create(kind, kind == "manual" ? "manual" : "before-reload", kind == "automatic",
+            null, false, mode == "create-rolling" && kind == "manual");
+    if (mode == "create-rolling" && kind == "manual" && answer.status == "created") {
+        let marked = atomic(ROLLING, answer.snapshot.id + "\n");
+        // The same bytes were already confirmed in the running service: the
+        // newly saved copy may safely replace its old LKG file immediately.
+        let working = read_snapshot(trim(value(fs.readfile(LKG))), true);
+        if (working != null && working.config_hash == answer.snapshot.config_hash)
+            atomic(LKG, answer.snapshot.id + "\n");
+        answer.cleanup = prune_rolling(answer.snapshot.id);
+        if (!marked) answer.cleanup.deferred = true;
+    }
     // Automatic snapshots are routine; only a manual one is a history event.
     if (kind == "manual" && answer.status == "created")
         success([ "ucode", "-L", LIB_DIR, LIB_DIR + "/diagnostics/health.uc", "record", "snapshot_create", "success" ]);
@@ -909,6 +960,11 @@ else if (mode == "confirm-working") {
         if (found.snapshot != null &&
             (trim(value(fs.readfile(LKG))) == found.snapshot.id || atomic(LKG, found.snapshot.id + "\n")))
             answer = { status: "confirmed" };
+        if (answer.status == "confirmed") {
+            let rolling_id = trim(value(fs.readfile(ROLLING)));
+            if (valid_id(rolling_id) && read_snapshot(rolling_id, true) != null)
+                answer.cleanup = prune_rolling(rolling_id);
+        }
     }
 }
 release();

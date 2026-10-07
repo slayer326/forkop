@@ -200,7 +200,7 @@ function command_spec(command) {
         get_health_status: [ "diagnostics/health.uc", "get", 0 ],
         get_history: [ "diagnostics/health.uc", "history", 0 ],
         route_trace: [ "diagnostics/route_trace.uc", "trace", 4 ],
-        config_snapshot_create: [ "config/snapshots.uc", "create", 1 ],
+        config_snapshot_create: [ "config/snapshots.uc", "create-rolling", 1 ],
         config_snapshot_list: [ "config/snapshots.uc", "list", 0 ],
         config_snapshot_diff: [ "config/snapshots.uc", "diff", 1 ],
         config_snapshot_restore: [ "config/snapshots.uc", "restore", 1 ],
