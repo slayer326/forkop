@@ -7,9 +7,9 @@ can generate an index, and its directory listing is closed, so the catalog is
 written here, at build time, and shipped inside the bundle.
 
 The release being built is always listed: its packages travel in the same
-bundle. Earlier releases come from the GitHub releases of this repository and
-are listed only once every package has been confirmed present on the mirror --
-a version whose bundle was never uploaded must not be offered for rollback.
+bundle. Earlier releases are discovered from the existing Timeweb catalog and
+nearby version directories. Their SHA256SUMS and all six packages must be
+present; GitHub metadata is not involved in what routers can install.
 """
 import argparse
 import hashlib
@@ -57,26 +57,19 @@ def current_digests(release_dir, version):
             for name in package_names(version)}
 
 
-def github_releases(repository, limit):
-    url = f"https://api.github.com/repos/{repository}/releases?per_page={limit}"
-    request = urllib.request.Request(url, headers={
-        "Accept": "application/vnd.github+json",
-        "User-Agent": "forkop-release-catalog",
-    })
-    token = os.environ.get("GITHUB_TOKEN", "")
-    if token:
-        request.add_header("Authorization", f"Bearer {token}")
+def published_digests(base_url, version):
+    """Read package digests from the previously uploaded Timeweb bundle."""
+    request = urllib.request.Request(
+        f"{base_url}/releases/{version}/SHA256SUMS",
+        headers={"User-Agent": "forkop-release-catalog"})
     with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-        return json.load(response)
-
-
-def published_digests(release):
-    """Read each package checksum from the GitHub asset digests, no download."""
+        lines = response.read(8192).decode("ascii").splitlines()
     digests = {}
-    for asset in release.get("assets", []):
-        digest = str(asset.get("digest", ""))
-        if digest.startswith("sha256:"):
-            digests[str(asset.get("name", ""))] = digest[len("sha256:"):]
+    for line in lines:
+        match = re.fullmatch(r"([a-f0-9]{64})\s+\*?([A-Za-z0-9_.-]+)", line)
+        if not match or match[2] in digests:
+            raise ValueError("invalid or duplicate checksum entry")
+        digests[match[2]] = match[1]
     return digests
 
 
@@ -94,30 +87,40 @@ def mirror_has_every_package(base_url, version):
     return True
 
 
-def previous_releases(repository, base_url, current, limit):
+def previous_releases(base_url, current, limit):
+    candidates = set()
     try:
-        published = github_releases(repository, limit)
-    except (urllib.error.URLError, OSError, ValueError) as error:
-        print(f"Listing previous releases failed, shipping only {current}: {error}",
-              file=sys.stderr)
-        return []
+        request = urllib.request.Request(
+            f"{base_url}/updates/releases.json",
+            headers={"User-Agent": "forkop-release-catalog"})
+        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+            catalog = json.load(response)
+        if catalog.get("format") == 1:
+            candidates.update(str(item.get("tag_name", ""))
+                              for item in catalog.get("releases", []))
+    except (urllib.error.URLError, OSError, ValueError, TypeError) as error:
+        print(f"Existing release catalog unavailable: {error}", file=sys.stderr)
+
+    major, minor, patch = map(int, current.split("."))
+    candidates.update(f"{major}.{minor}.{number}"
+                      for number in range(max(0, patch - limit), patch))
 
     entries = []
-    for release in published:
-        version = str(release.get("tag_name", ""))
+    for version in sorted(candidates, key=lambda value: tuple(map(int, value.split(".")))
+                          if VERSION.fullmatch(value) else (-1,), reverse=True):
         if version == current or not VERSION.fullmatch(version):
             continue
-        if release.get("draft") or release.get("prerelease"):
-            continue
         try:
-            entry = release_entry(version, base_url, published_digests(release))
-        except ValueError as error:
+            entry = release_entry(version, base_url, published_digests(base_url, version))
+        except (ValueError, urllib.error.URLError, OSError, UnicodeError) as error:
             print(f"Skipping {version}: {error}", file=sys.stderr)
             continue
         if not mirror_has_every_package(base_url, version):
             print(f"Skipping {version}: not published on the mirror yet", file=sys.stderr)
             continue
         entries.append(entry)
+        if len(entries) >= limit:
+            break
     return entries
 
 
@@ -131,8 +134,6 @@ def main():
     parser.add_argument("release_dir", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--base-url", required=True)
-    parser.add_argument("--repository", default=os.environ.get(
-        "FORKOP_RELEASE_REPO", "slayer326/forkop"))
     parser.add_argument("--limit", type=int, default=10)
     arguments = parser.parse_args()
 
@@ -142,7 +143,7 @@ def main():
 
     releases = [release_entry(arguments.version, base_url,
                               current_digests(arguments.release_dir, arguments.version))]
-    releases.extend(previous_releases(arguments.repository, base_url,
+    releases.extend(previous_releases(base_url,
                                       arguments.version, arguments.limit))
     releases.sort(key=version_key, reverse=True)
 

@@ -68,14 +68,12 @@ wait "$zombie_parent" 2>/dev/null || true
 
 [ -r "$INSTALLER" ] || fail "install.sh is missing"
 
-grep -Fq 'REPO_OWNER="slayer326"' "$INSTALLER" ||
-  fail "installer must use releases from slayer326/forkop"
 grep -Fq 'RELEASE_BASE_URL="${FORKOP_RELEASE_BASE_URL:-https://fold8.ru/forkop}"' "$INSTALLER" ||
   fail "installer must default to the public fold8.ru release channel"
 grep -Fq '"${RELEASE_BASE_URL%/}/updates/latest.json"' "$INSTALLER" ||
   fail "installer must resolve Forkop packages through fold8.ru first"
-grep -Fq 'fetch_github_latest_release_json "$REPO_OWNER" "$REPO_NAME"' "$INSTALLER" ||
-  fail "installer must retain GitHub Releases as a fallback"
+grep -Fq '"${MIRROR_BASE_URL%/}/forkop/updates/latest.json"' "$INSTALLER" ||
+  fail "installer must fall back to the home mirror"
 
 grep -Fq 'trap cleanup EXIT' "$INSTALLER" ||
   fail "installer cleanup must run on every exit"

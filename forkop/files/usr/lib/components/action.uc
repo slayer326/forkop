@@ -12,7 +12,6 @@ const CONFIG_NAME = getenv("FORKOP_CONFIG_NAME") || constants.FORKOP_CONFIG_NAME
 const BIN_PATH = getenv("FORKOP_BIN") || constants.FORKOP_BIN || "/usr/bin/forkop";
 const SERVICE_INIT = getenv("FORKOP_SERVICE_INIT") || constants.FORKOP_SERVICE_INIT || "/etc/init.d/forkop";
 const FORKOP_VERSION = getenv("FORKOP_VERSION") || constants.FORKOP_VERSION || "";
-const FORKOP_RELEASE_REPO = getenv("FORKOP_RELEASE_REPO") || constants.FORKOP_RELEASE_REPO || "slayer326/forkop";
 const FORKOP_RELEASE_BASE_URL = getenv("FORKOP_RELEASE_BASE_URL") || constants.FORKOP_RELEASE_BASE_URL || "https://fold8.ru/forkop";
 const FORKOP_MIRROR_BASE_URL = getenv("FORKOP_MIRROR_BASE_URL") || constants.FORKOP_MIRROR_BASE_URL || "";
 const RUNTIME_STATE_DIR = getenv("FORKOP_RUNTIME_STATE_DIR") || "/var/run/forkop";
@@ -707,19 +706,32 @@ function fetch_github_releases_json(owner, repo, per_page) {
 }
 
 function latest_forkop_release_json() {
-    if (FORKOP_RELEASE_BASE_URL != "") {
-        let release_base_url = FORKOP_RELEASE_BASE_URL;
-        while (substr(release_base_url, length(release_base_url) - 1, 1) == "/")
-            release_base_url = substr(release_base_url, 0, length(release_base_url) - 1);
-        let response = http_get(release_base_url + "/updates/latest.json");
-        if (response != "" && trim(helper_output_input(response, "release-metadata-tsv", [])) != "")
+    for (let source in forkop_release_sources()) {
+        let response = http_get(source[0] + "/updates/latest.json");
+        let release;
+        try { release = json(response); } catch (e) { continue; }
+        let catalog = sprintf("%J", { format: 1, releases: [ release ] });
+        if (length(parse_forkop_release_catalog(catalog, pkg_set_extension(), source[0], source[1])) == 1)
             return response;
     }
+    return "";
+}
 
-    let parts = split(FORKOP_RELEASE_REPO, "/");
-    if (length(parts) != 2 || as_string(parts[0]) == "" || as_string(parts[1]) == "")
-        return "";
-    return fetch_github_release_json(parts[0], parts[1]);
+function forkop_release_sources() {
+    let sources = [];
+    if (FORKOP_RELEASE_BASE_URL != "") {
+        let base = FORKOP_RELEASE_BASE_URL;
+        while (substr(base, length(base) - 1, 1) == "/")
+            base = substr(base, 0, length(base) - 1);
+        push(sources, [ base, "/releases/" ]);
+    }
+    if (FORKOP_MIRROR_BASE_URL != "") {
+        let base = FORKOP_MIRROR_BASE_URL;
+        while (substr(base, length(base) - 1, 1) == "/")
+            base = substr(base, 0, length(base) - 1);
+        push(sources, [ base + "/forkop", "/updates/releases/" ]);
+    }
+    return sources;
 }
 
 function forkop_release_url(value) {
@@ -753,11 +765,16 @@ function forkop_mirror_url(value) {
 // release bundle. Accept an entry only when every package it names carries a
 // checksum and a download URL under this release's own directory: a rewritten
 // catalog must not be able to point an install at some other file.
-function parse_forkop_release_catalog(response, ext) {
+function parse_forkop_release_catalog(response, ext, source_base, release_prefix) {
     let catalog;
     try { catalog = json(response); } catch (e) { return []; }
     if (type(catalog) != "object" || catalog.format != 1 || type(catalog.releases) != "array")
         return [];
+
+    source_base = source_base || FORKOP_RELEASE_BASE_URL;
+    while (substr(source_base, length(source_base) - 1, 1) == "/")
+        source_base = substr(source_base, 0, length(source_base) - 1);
+    release_prefix = release_prefix || "/releases/";
 
     let releases = [];
     for (let release in catalog.releases) {
@@ -765,7 +782,7 @@ function parse_forkop_release_catalog(response, ext) {
             match(as_string(release.tag_name), /^[0-9]+[.][0-9]+[.][0-9]+$/) == null)
             continue;
 
-        let suffix = "/releases/" + release.tag_name + "/";
+        let suffix = release_prefix + release.tag_name + "/";
         let complete = true;
         for (let kind in [ "forkop", "luci-app-forkop", "luci-i18n-forkop-ru" ]) {
             let wanted = kind + "_" + release.tag_name + "." + ext;
@@ -775,7 +792,7 @@ function parse_forkop_release_catalog(response, ext) {
                     match(as_string(asset.sha256), /^[a-f0-9]{64}$/) == null)
                     continue;
                 let url = as_string(asset.browser_download_url);
-                if (url == forkop_release_url(suffix + wanted) ||
+                if (url == source_base + suffix + wanted ||
                     url == suffix + wanted)
                     found = true;
             }
@@ -789,13 +806,19 @@ function parse_forkop_release_catalog(response, ext) {
 }
 
 function forkop_release_catalog() {
-    if (FORKOP_RELEASE_BASE_URL == "")
-        return [];
-    let base = FORKOP_RELEASE_BASE_URL;
-    while (substr(base, length(base) - 1, 1) == "/")
-        base = substr(base, 0, length(base) - 1);
-    return parse_forkop_release_catalog(http_get(base + "/updates/releases.json"),
-        is_apk() ? "apk" : "ipk");
+    let all_releases = [];
+    let seen = {};
+    for (let source in forkop_release_sources()) {
+        let releases = parse_forkop_release_catalog(
+            http_get(source[0] + "/updates/releases.json"), pkg_set_extension(), source[0], source[1]);
+        for (let release in releases) {
+            if (seen[release.tag_name])
+                continue;
+            seen[release.tag_name] = true;
+            push(all_releases, release);
+        }
+    }
+    return all_releases;
 }
 
 function selected_forkop_release(version) {
@@ -815,14 +838,6 @@ function forkop_releases() {
 }
 
 function forkop_release_page_url(version, fallback) {
-    let parts = split(FORKOP_RELEASE_REPO, "/");
-    version = as_string(version);
-    if (length(parts) == 2 &&
-        match(as_string(parts[0]), /^[A-Za-z0-9_.-]+$/) != null &&
-        match(as_string(parts[1]), /^[A-Za-z0-9_.-]+$/) != null &&
-        match(version, /^[0-9]+[.][0-9]+[.][0-9]+$/) != null)
-        return "https://github.com/" + parts[0] + "/" + parts[1] + "/releases/tag/" + version;
-
     return forkop_release_url(fallback);
 }
 
@@ -2131,12 +2146,24 @@ function previous_forkop_release(version) {
             }
         }
     }
-    let parts = split(FORKOP_RELEASE_REPO, "/");
-    if (length(parts) != 2 || match(parts[0], /^[A-Za-z0-9_.-]+$/) == null ||
-        match(parts[1], /^[A-Za-z0-9_.-]+$/) == null)
-        return null;
-    let metadata = http_get("https://api.github.com/repos/" + parts[0] + "/" + parts[1] + "/releases/tags/" + version);
-    return resolve_forkop_release_json(version, metadata);
+    for (let source in forkop_release_sources()) {
+        if (source[1] != "/updates/releases/")
+            continue;
+        let metadata = http_get(source[0] + source[1] + version + "/release.json");
+        let release;
+        try { release = json(metadata); } catch (e) { continue; }
+        let catalog = sprintf("%J", { format: 1, releases: [ release ] });
+        if (length(parse_forkop_release_catalog(catalog, pkg_set_extension(), source[0], source[1])) != 1)
+            continue;
+        let resolved = resolve_forkop_release_json(version, metadata);
+        if (resolved == null)
+            continue;
+        resolved.checksums = {};
+        for (let asset in release.assets)
+            resolved.checksums[asset.name] = asset.sha256;
+        return resolved;
+    }
+    return null;
 }
 
 function opkg_forkop_set_versions_match(version, with_i18n) {
@@ -2842,8 +2869,7 @@ else if (mode == "pkg-forkop-set-command-fixture")
 else if (mode == "pkg-set-extension-fixture")
     print(pkg_set_extension(), "\n");
 else if (mode == "forkop-release-catalog-fixture")
-    print(sprintf("%J", parse_forkop_release_catalog(read_file(ARGV[1]), ARGV[2])), "
-");
+    print(sprintf("%J", parse_forkop_release_catalog(read_file(ARGV[1]), ARGV[2], ARGV[3], ARGV[4])), "\n");
 else if (mode == "previous-forkop-checksums-fixture")
     print(sprintf("%J", parse_previous_forkop_checksums(ARGV[1], read_file(ARGV[2]), ARGV[3])), "\n");
 else if (mode == "latest-forkop-release-json")

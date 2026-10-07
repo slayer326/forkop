@@ -15,15 +15,20 @@ export PYTHONPYCACHEPREFIX="$PYCACHE_DIR" PYTHONDONTWRITEBYTECODE=1
 bash -n "$PUBLISH"
 "$PYTHON_BIN" - "$SCRIPT" <<'PY'
 import importlib.util
+import hashlib
+import io
 import sys
+import tempfile
+from pathlib import Path
 
 spec = importlib.util.spec_from_file_location("sync_forkop_release", sys.argv[1])
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
-assert module.safe_url("https://api.github.com/repos/slayer326/forkop/releases/latest")
+assert module.safe_url("https://fold8.ru/forkop/updates/latest.json")
 for url in [
-    "http://github.com/slayer326/forkop/releases/download/1.0.10/forkop_1.0.10.apk",
-    "https://github.com.evil.test/slayer326/forkop/releases/download/1.0.10/forkop_1.0.10.apk",
+    "http://fold8.ru/forkop/releases/1.0.10/forkop_1.0.10.apk",
+    "https://fold8.ru.evil.test/forkop/releases/1.0.10/forkop_1.0.10.apk",
+    "https://github.com/slayer326/forkop/releases/download/1.0.10/forkop_1.0.10.apk",
 ]:
     try:
         module.safe_url(url)
@@ -41,20 +46,31 @@ for package, extension in module.PACKAGE_SPECS:
     name = f"{package}_1.0.10.{extension}"
     release["assets"].append({
         "name": name,
-        "size": 1,
-        "digest": "sha256:" + "a" * 64,
-        "browser_download_url": f"https://github.com/slayer326/forkop/releases/download/1.0.10/{name}",
+        "sha256": "a" * 64,
+        "browser_download_url": f"https://fold8.ru/forkop/releases/1.0.10/{name}",
     })
 version, assets = module.release_assets(release)
 assert version == "1.0.10" and len(assets) == 6
+
+payload = b"verified package"
+class Client:
+    def open(self, request, timeout):
+        response = io.BytesIO(payload)
+        response.headers = {"Content-Length": str(len(payload))}
+        return response
+with tempfile.TemporaryDirectory() as directory:
+    destination = Path(directory) / "forkop_1.0.10.apk"
+    module.download(Client(), assets[destination.name][0], destination,
+                    hashlib.sha256(payload).hexdigest())
+    assert destination.read_bytes() == payload
 PY
 
-grep -Fq 'digest.removeprefix("sha256:")' "$SCRIPT" || {
-  echo "release sync does not require GitHub SHA-256 digests" >&2
+grep -Fq 'digest.hexdigest() != expected_digest' "$SCRIPT" || {
+  echo "release sync does not verify SHA-256 digests" >&2
   exit 1
 }
-grep -Fq 'expected_path = f"/{REPOSITORY}/releases/download/{tag}/{name}"' "$SCRIPT" || {
-  echo "release sync does not constrain asset URLs to the selected repository" >&2
+grep -Fq 'f"/releases/{version}/{name}"' "$SCRIPT" || {
+  echo "release sync does not constrain asset URLs to the Timeweb release" >&2
   exit 1
 }
 grep -Fq 'subprocess.run([PUBLISH_COMMAND' "$SCRIPT" || {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mirror the latest stable Forkop release and publish its signed APK feed."""
+"""Mirror the latest verified Timeweb release and publish its signed APK feed."""
 
 import hashlib
 import json
@@ -18,7 +18,7 @@ except ModuleNotFoundError:  # Static validation can run on Windows workstations
     fcntl = None
 
 
-REPOSITORY = os.environ.get("FORKOP_GITHUB_REPOSITORY", "slayer326/forkop")
+RELEASE_BASE_URL = os.environ.get("FORKOP_RELEASE_BASE_URL", "https://fold8.ru/forkop").rstrip("/")
 MIRROR_ROOT = Path(os.environ.get("MIRROR_ROOT", "/srv/mirror/public/forkop"))
 BUILD_ROOT = Path(os.environ.get("FORKOP_BUILD_ROOT", "/srv/mirror/build/releases"))
 LOCK_FILE = Path(os.environ.get("FORKOP_RELEASE_LOCK_FILE", "/run/lock/forkop-release-sync.lock"))
@@ -29,25 +29,20 @@ PACKAGE_SPECS = tuple(
     for package in ("forkop", "luci-app-forkop", "luci-i18n-forkop-ru")
     for extension in ("apk", "ipk")
 )
-ALLOWED_DOWNLOAD_HOSTS = {
-    "api.github.com",
-    "github.com",
-    "objects.githubusercontent.com",
-    "release-assets.githubusercontent.com",
-    "github-releases.githubusercontent.com",
-}
-
-
 def safe_url(url):
     parsed = urllib.parse.urlsplit(url)
+    base = urllib.parse.urlsplit(RELEASE_BASE_URL)
     if (
         parsed.scheme != "https"
-        or parsed.hostname not in ALLOWED_DOWNLOAD_HOSTS
+        or parsed.netloc != base.netloc
         or parsed.port not in (None, 443)
         or parsed.username
         or parsed.password
+        or parsed.query
+        or parsed.fragment
+        or not parsed.path.startswith(base.path.rstrip("/") + "/")
     ):
-        raise ValueError("Unapproved GitHub asset URL")
+        raise ValueError("Unapproved Timeweb release URL")
     return url
 
 
@@ -64,7 +59,7 @@ def read_json(client, url):
     request = urllib.request.Request(
         safe_url(url),
         headers={
-            "Accept": "application/vnd.github+json",
+            "Accept": "application/json",
             "User-Agent": "Forkop-Own-Mirror/1.0",
         },
     )
@@ -77,9 +72,7 @@ def release_assets(release):
     tag = release.get("tag_name", "")
     version = tag.removeprefix("v")
     if release.get("draft") or release.get("prerelease") or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
-        raise ValueError("Latest GitHub release is not a stable x.y.z version")
-    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", REPOSITORY):
-        raise ValueError("Invalid GitHub repository")
+        raise ValueError("Latest Timeweb release is not a stable x.y.z version")
 
     assets = {asset.get("name"): asset for asset in release.get("assets", [])}
     selected = {}
@@ -88,22 +81,20 @@ def release_assets(release):
         asset = assets.get(name)
         if not asset:
             raise ValueError(f"Missing release asset: {name}")
-        digest = asset.get("digest", "")
-        if not isinstance(asset.get("size"), int) or not 0 < asset["size"] <= MAX_ASSET_SIZE:
-            raise ValueError(f"Invalid release asset size: {name}")
-        if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest or ""):
+        digest = str(asset.get("sha256", ""))
+        if not re.fullmatch(r"[0-9a-f]{64}", digest):
             raise ValueError(f"Missing SHA-256 release digest: {name}")
         url = safe_url(asset.get("browser_download_url", ""))
         parsed = urllib.parse.urlsplit(url)
-        expected_path = f"/{REPOSITORY}/releases/download/{tag}/{name}"
-        if parsed.hostname != "github.com" or parsed.path != expected_path:
+        expected_path = urllib.parse.urlsplit(RELEASE_BASE_URL).path.rstrip("/") + f"/releases/{version}/{name}"
+        if parsed.path != expected_path:
             raise ValueError(f"Unexpected release asset URL: {name}")
-        selected[name] = (url, asset["size"], digest.removeprefix("sha256:"))
+        selected[name] = (url, digest)
     return version, selected
 
 
-def download(client, url, destination, expected_size, expected_digest):
-    if destination.is_file() and destination.stat().st_size == expected_size:
+def download(client, url, destination, expected_digest):
+    if destination.is_file():
         with destination.open("rb") as stream:
             digest = hashlib.file_digest(stream, "sha256").hexdigest()
         if digest == expected_digest:
@@ -116,17 +107,17 @@ def download(client, url, destination, expected_size, expected_digest):
     total = 0
     with client.open(request, timeout=30) as response, temporary.open("wb") as output:
         content_length = response.headers.get("Content-Length")
-        if content_length is not None and int(content_length) != expected_size:
-            raise ValueError(f"Unexpected content length: {destination.name}")
+        if content_length is not None and int(content_length) > MAX_ASSET_SIZE:
+            raise ValueError(f"Release asset exceeds size limit: {destination.name}")
         while chunk := response.read(64 * 1024):
             total += len(chunk)
-            if total > expected_size or total > MAX_ASSET_SIZE:
+            if total > MAX_ASSET_SIZE:
                 raise ValueError(f"Release asset exceeds its declared size: {destination.name}")
             output.write(chunk)
             digest.update(chunk)
         output.flush()
         os.fsync(output.fileno())
-    if total != expected_size or digest.hexdigest() != expected_digest:
+    if total == 0 or digest.hexdigest() != expected_digest:
         raise ValueError(f"Release asset verification failed: {destination.name}")
     temporary.chmod(0o644)
     os.replace(temporary, destination)
@@ -138,8 +129,14 @@ def published(version):
     latest = MIRROR_ROOT / "MIRROR_LATEST"
     if not latest.is_file():
         return False
+    try:
+        catalog = json.loads((MIRROR_ROOT / "updates" / "releases.json").read_text())
+        catalog_has_version = any(item.get("tag_name") == version for item in catalog["releases"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
     return (
         latest.read_text().strip() == version
+        and catalog_has_version
         and (root / "packages.adb").is_file()
         and all((root / f"{package}-{version}.apk").is_file() for package, extension in PACKAGE_SPECS if extension == "apk")
         and all((updates / f"{package}_{version}.{extension}").is_file() for package, extension in PACKAGE_SPECS)
@@ -157,7 +154,7 @@ def main():
             print("Forkop release sync is already running", flush=True)
             return
         client = opener()
-        release = read_json(client, f"https://api.github.com/repos/{REPOSITORY}/releases/latest")
+        release = read_json(client, RELEASE_BASE_URL + "/updates/latest.json")
         version, assets = release_assets(release)
         if published(version):
             print(f"Forkop mirror is already current at {version}", flush=True)
@@ -166,10 +163,10 @@ def main():
         BUILD_ROOT.mkdir(parents=True, exist_ok=True)
         temporary_root = Path(tempfile.mkdtemp(prefix=f"release-{version}.", dir=BUILD_ROOT))
         try:
-            for name, (url, size, digest) in assets.items():
+            for name, (url, digest) in assets.items():
                 destination = temporary_root / name
                 print(f"Downloading {name}", flush=True)
-                download(client, url, destination, size, digest)
+                download(client, url, destination, digest)
             environment = os.environ.copy()
             environment["MIRROR_ROOT"] = str(MIRROR_ROOT)
             subprocess.run([PUBLISH_COMMAND, str(temporary_root), version], check=True, env=environment)

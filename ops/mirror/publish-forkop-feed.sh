@@ -94,6 +94,58 @@ cat > "$UPDATES_STAGING/release.json" <<EOF
 EOF
 rm -rf "$UPDATES_DESTINATION"
 mv "$UPDATES_STAGING" "$UPDATES_DESTINATION"
+# Only advertise versions whose complete package sets are still present and
+# match their published checksums. The index is replaced atomically so LuCI
+# never sees a half-written version list while the mirror is refreshing.
+python3 - "$MIRROR_ROOT" "$PUBLIC_BASE_URL" "$VERSION" <<'PY'
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import sys
+import tempfile
+
+root = Path(sys.argv[1]) / "updates"
+base = sys.argv[2].rstrip("/")
+releases = []
+for directory in (root / "releases").iterdir():
+    version = directory.name
+    if directory.is_symlink() or not directory.is_dir() or not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        continue
+    try:
+        release = json.loads((directory / "release.json").read_text())
+        if release.get("tag_name") != version:
+            continue
+        assets = {asset["name"]: asset for asset in release["assets"]}
+        for extension in ("apk", "ipk"):
+            for package in ("forkop", "luci-app-forkop", "luci-i18n-forkop-ru"):
+                name = f"{package}_{version}.{extension}"
+                asset = assets[name]
+                if asset["browser_download_url"] != f"{base}/updates/releases/{version}/{name}":
+                    raise ValueError(name)
+                with (directory / name).open("rb") as package_file:
+                    digest = hashlib.file_digest(package_file, "sha256").hexdigest()
+                if digest != asset["sha256"]:
+                    raise ValueError(name)
+    except (KeyError, OSError, ValueError, TypeError, json.JSONDecodeError):
+        continue
+    releases.append(release)
+
+releases.sort(key=lambda release: tuple(map(int, release["tag_name"].split("."))), reverse=True)
+if not releases or releases[0]["tag_name"] != sys.argv[3]:
+    raise RuntimeError("New Forkop release is incomplete; catalog not updated")
+catalog = {"format": 1, "releases": releases}
+with tempfile.NamedTemporaryFile("w", dir=root, prefix=".releases-", suffix=".json",
+                                 encoding="utf-8", delete=False) as output:
+    temporary = Path(output.name)
+    json.dump(catalog, output, ensure_ascii=False, indent=2)
+    output.write("\n")
+    output.flush()
+    os.fsync(output.fileno())
+os.chmod(temporary, 0o644)
+os.replace(temporary, root / "releases.json")
+PY
 cp "$UPDATES_DESTINATION/release.json" "$MIRROR_ROOT/updates/latest.json"
 
 echo "Published signed Forkop APK feed $VERSION"

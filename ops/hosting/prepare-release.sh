@@ -90,8 +90,7 @@ PY
 
 # The version picker needs an index of what is installable. The host cannot
 # build one, so it ships in the bundle next to latest.json.
-FORKOP_RELEASE_REPO="${FORKOP_RELEASE_REPO:-slayer326/forkop}" \
-  "$PYTHON_BIN" "$ROOT_DIR/ops/hosting/build-release-catalog.py" \
+"$PYTHON_BIN" "$ROOT_DIR/ops/hosting/build-release-catalog.py" \
     "$VERSION" "$RELEASE_DIR" "$METADATA_DIR/releases.json" \
     --base-url "$RELEASE_BASE_URL"
 

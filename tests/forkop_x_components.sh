@@ -20,14 +20,12 @@ grep -Fq '/forkop/sing-box-extended/latest.json' "$ACTION_UC" ||
 source_refute_text "sing-box Extended resolver must not fall back to GitHub" \
   -F 'fetch_github' "$(source_function "$ACTION_UC" resolve_sing_box_extended_release)"
 
-grep -Fq '"slayer326/forkop"' "$CONSTANTS_UC" ||
-  fail "Forkop releases must default to slayer326/forkop"
 grep -Fq '"https://fold8.ru/forkop"' "$CONSTANTS_UC" ||
   fail "Forkop releases must default to the public fold8.ru release channel"
-grep -Fq 'release_base_url + "/updates/latest.json"' "$ACTION_UC" ||
-  fail "Forkop updates must query fold8.ru before GitHub"
-grep -Fq 'return fetch_github_release_json(parts[0], parts[1]);' "$ACTION_UC" ||
-  fail "Forkop updates must retain GitHub Releases as a fallback"
+grep -Fq 'forkop_release_sources()' "$ACTION_UC" ||
+  fail "Forkop updates must use Timeweb and the home mirror"
+source_refute_text "Forkop release lookup must not use GitHub" \
+  -F 'fetch_github' "$(source_function "$ACTION_UC" latest_forkop_release_json)"
 grep -Fq 'asset_url: forkop_mirror_url(asset_url)' "$ACTION_UC" ||
   fail "sing-box Extended relative assets must stay on the dependency mirror"
 

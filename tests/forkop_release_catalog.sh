@@ -45,6 +45,21 @@ JSON
 [ "$(accepted "$WORK_DIR/valid.json")" = "1.0.30 " ] ||
   fail "a complete catalog entry was rejected"
 
+# Home mirror uses a different package path; it is accepted only when the
+# source base and path prefix are selected explicitly.
+HOME_URL="https://home.test/forkop"
+cat >"$WORK_DIR/home.json" <<JSON
+{"format":1,"releases":[
+ {"tag_name":"1.0.30","assets":[$(assets 1.0.30 ipk "$good" "$HOME_URL/updates/releases/1.0.30/")]}
+]}
+JSON
+[ "$(accepted "$WORK_DIR/home.json")" = "" ] ||
+  fail "home catalog was accepted as a Timeweb catalog"
+[ "$(FORKOP_RELEASE_BASE_URL="$BASE_URL" ucode -L "$FORKOP_LIB" "$ACTION_UC" \
+  forkop-release-catalog-fixture "$WORK_DIR/home.json" ipk "$HOME_URL" /updates/releases/ | \
+  tr '{' '\n' | sed -n 's/.*"tag_name": "\([0-9.]*\)".*/\1/p' | sort -u | tr '\n' ' ')" = "1.0.30 " ] ||
+  fail "valid home mirror catalog was rejected"
+
 # The same entry must not satisfy an apk system: the packages differ.
 [ "$(accepted "$WORK_DIR/valid.json" apk)" = "" ] ||
   fail "an ipk-only entry was accepted for apk"

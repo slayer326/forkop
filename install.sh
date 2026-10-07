@@ -1,8 +1,6 @@
 #!/bin/sh
 # shellcheck shell=dash
 
-REPO_OWNER="slayer326"
-REPO_NAME="forkop"
 RELEASE_BASE_URL="${FORKOP_RELEASE_BASE_URL:-https://fold8.ru/forkop}"
 DEFAULT_MIRROR_BASE_URL="https://mirror.infotechtg.ru"
 MIRROR_BASE_URL="${FORKOP_MIRROR_BASE_URL:-$DEFAULT_MIRROR_BASE_URL}"
@@ -1500,14 +1498,6 @@ function asset_matches(name, kind, ext, version) {
     return false;
 }
 
-function github_message() {
-    let value = read_stdin_json();
-    if (value == null)
-        exit(2);
-    if (type(value) == "object" && value.message != null)
-        print(as_string(value.message), "\n");
-}
-
 function release_tag() {
     let release = read_stdin_json();
     if (type(release) == "object" && release.tag_name != null)
@@ -1550,9 +1540,7 @@ function release_asset_sha256(kind, ext) {
 
 let mode = ARGV[0] || "";
 
-if (mode == "github-message")
-    github_message();
-else if (mode == "release-tag")
+if (mode == "release-tag")
     release_tag();
 else if (mode == "release-asset-url")
     release_asset_url(ARGV[1], ARGV[2]);
@@ -2447,30 +2435,6 @@ get_luci_main_lang() {
     install_json_ucode uci-get luci.main.lang 2>/dev/null || true
 }
 
-fetch_github_latest_release_json() {
-    owner="$1"
-    repo="$2"
-    response=""
-    message=""
-    url="https://api.github.com/repos/${owner}/${repo}/releases/latest"
-
-    response="$(http_get "$url" 2>/dev/null || true)"
-    [ -n "$response" ] || fail "Failed to query GitHub latest release metadata for ${owner}/${repo}"
-
-    message="$(printf '%s' "$response" | install_json_ucode github-message 2>/dev/null)" ||
-        fail "GitHub returned an invalid latest release response for ${owner}/${repo}"
-    case "$message" in
-        *"API rate limit"*|*"rate limit exceeded"*)
-            fail "GitHub API rate limit reached. Try again later."
-            ;;
-        "Not Found")
-            fail "No published latest release found for ${owner}/${repo}"
-            ;;
-    esac
-
-    printf '%s' "$response"
-}
-
 fetch_forkop_latest_release_json() {
     release_url="${RELEASE_BASE_URL%/}/updates/latest.json"
     response="$(http_get "$release_url" 2>/dev/null || true)"
@@ -2480,7 +2444,14 @@ fetch_forkop_latest_release_json() {
         return 0
     fi
 
-    fetch_github_latest_release_json "$REPO_OWNER" "$REPO_NAME"
+    release_url="${MIRROR_BASE_URL%/}/forkop/updates/latest.json"
+    response="$(http_get "$release_url" 2>/dev/null || true)"
+    if [ -n "$response" ] &&
+        [ -n "$(printf '%s' "$response" | install_json_ucode release-tag 2>/dev/null)" ]; then
+        printf '%s' "$response"
+        return 0
+    fi
+    fail "Forkop release metadata is unavailable on Timeweb and the home mirror"
 }
 
 release_asset_url() {

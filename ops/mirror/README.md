@@ -55,9 +55,12 @@ architecture. A merged code change does not enable a platform on the public
 mirror; the mirror operator must update the production configuration and finish
 a full successful synchronization first.
 
-`sync-forkop-release.py` checks the latest stable GitHub release assets, verifies
-their declared size and SHA-256 digest, and calls `publish-forkop-feed.sh` to
-create the signed APK repository under `/forkop/mirror/current/`. Run it with
+`sync-forkop-release.py` reads the latest stable release from
+`https://fold8.ru/forkop/updates/latest.json`, constrains package URLs to that
+release directory, verifies SHA-256 for all six packages, and calls
+`publish-forkop-feed.sh` to create the signed APK repository under
+`/forkop/mirror/current/`. The publisher also builds an atomic
+`/forkop/updates/releases.json` catalog from complete local release sets. Run it with
 `forkop-release-sync.service` after placing the OpenWrt host `apk` tool at the
 configured path. The release service does not build packages on the mirror host.
 
