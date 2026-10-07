@@ -272,6 +272,33 @@ function validateSubnet(value) {
   return { valid: true, message: _("Valid") };
 }
 
+// src/forkop/dnsRulePresets.ts
+var DNS_RULE_PRESETS = [
+  {
+    id: "cloudflare",
+    protocol: "doh",
+    server: "cloudflare-dns.com/dns-query"
+  },
+  { id: "google", protocol: "doh", server: "dns.google/dns-query" },
+  { id: "quad9", protocol: "doh", server: "dns.quad9.net/dns-query" },
+  {
+    id: "adguard",
+    protocol: "doh",
+    server: "dns.adguard-dns.com/dns-query"
+  },
+  { id: "yandex", protocol: "udp", server: "77.88.8.8" }
+];
+function dnsRulePresetById(id) {
+  return DNS_RULE_PRESETS.find((preset) => preset.id === id);
+}
+function dnsRulePresetId(protocol, server) {
+  const normalizedProtocol = protocol.trim().toLowerCase();
+  const normalizedServer = server.trim().toLowerCase();
+  return DNS_RULE_PRESETS.find(
+    (preset) => preset.protocol === normalizedProtocol && preset.server === normalizedServer
+  )?.id || "custom";
+}
+
 // src/validators/bulkValidate.ts
 function bulkValidate(values, validate) {
   const results = values.map((value) => ({ ...validate(value), value }));
@@ -22318,6 +22345,7 @@ return baseclass.extend({
   AutotuneTab,
   BOOTSTRAP_DNS_SERVER_OPTIONS,
   DEFAULT_LATENCY_TEST_URL,
+  DNS_RULE_PRESETS,
   DNS_SERVER_OPTIONS,
   DOMAIN_LIST_OPTIONS,
   DashboardTab,
@@ -22334,6 +22362,8 @@ return baseclass.extend({
   bulkValidate,
   confirmAction,
   coreService,
+  dnsRulePresetById,
+  dnsRulePresetId,
   domainListLabel,
   getClashUIUrl,
   getProxyUrlName,

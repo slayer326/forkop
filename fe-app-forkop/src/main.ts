@@ -17,6 +17,11 @@ export {
 export { validateUrl } from './validators/validateUrl';
 export { validatePath } from './validators/validatePath';
 export { validateSubnet } from './validators/validateSubnet';
+export {
+  DNS_RULE_PRESETS,
+  dnsRulePresetById,
+  dnsRulePresetId,
+} from './forkop/dnsRulePresets';
 export { bulkValidate } from './validators/bulkValidate';
 export { validateOutboundJson } from './validators/validateOutboundJson';
 export { validateProxyUrl } from './validators/validateProxyUrl';
