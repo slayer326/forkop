@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-06 23:12+0300\n"
-"PO-Revision-Date: 2026-10-06 23:12+0300\n"
+"POT-Creation-Date: 2026-10-07 09:09+0300\n"
+"PO-Revision-Date: 2026-10-07 09:09+0300\n"
 "Last-Translator: slayer\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -149,6 +149,9 @@ msgstr "Группа — это одно DPI-правило Zapret. Forkop X м�
 msgid "A list of a DPI rule. Each check takes a few of its domains; keywords and regular expressions are skipped."
 msgstr "Список DPI-правила. Каждая проверка берёт несколько его доменов; ключевые слова и регулярные выражения пропускаются."
 
+msgid "A preset fills the DNS protocol and server below. Select Custom DNS to enter your own values."
+msgstr "Готовый вариант заполнит протокол и адрес DNS ниже. Выберите «Свой DNS», чтобы указать свои значения."
+
 msgid "a previous apply is not resolved"
 msgstr "предыдущее применение не завершено"
 
@@ -265,6 +268,9 @@ msgstr "Адрес"
 
 msgid "Address set for checking"
 msgstr "Набор адресов для проверки"
+
+msgid "AdGuard DNS (DoH, ad blocking)"
+msgstr "AdGuard DNS (DoH, блокировка рекламы)"
 
 msgid "Ads (Hagezi Pro)"
 msgstr "Реклама (Hagezi Pro)"
@@ -812,6 +818,9 @@ msgstr "закрыто"
 msgid "Closed"
 msgstr "Закрытые"
 
+msgid "Cloudflare (DoH)"
+msgstr "Cloudflare (DoH)"
+
 msgid "Component update available"
 msgstr "Доступно обновление компонента"
 
@@ -979,6 +988,9 @@ msgstr "Текущую секцию нельзя использовать как
 
 msgid "Current section cannot download its own subscription"
 msgstr "Текущую секцию нельзя выбрать для скачивания её же подписки"
+
+msgid "Custom DNS"
+msgstr "Свой DNS"
 
 msgid "custom list"
 msgstr "свой список"
@@ -1159,6 +1171,9 @@ msgstr "Тип протокола DNS"
 
 msgid "DNS protocol used by the resolver"
 msgstr "DNS-протокол, который будет использовать резолвер"
+
+msgid "DNS provider"
+msgstr "DNS-провайдер"
 
 msgid "DNS requests through section"
 msgstr "DNS-запросы через секцию"
@@ -1717,6 +1732,9 @@ msgstr "Получить глобальную проверку"
 
 msgid "Global check"
 msgstr "Глобальная проверка"
+
+msgid "Google Public DNS (DoH)"
+msgstr "Google Public DNS (DoH)"
 
 msgid "has no effect"
 msgstr "ни на что не влияет"
@@ -2800,6 +2818,9 @@ msgstr "Провайдер"
 
 msgid "Proxy"
 msgstr "Прокси"
+
+msgid "Quad9 (DoH, malware blocking)"
+msgstr "Quad9 (DoH, защита от вредоносных сайтов)"
 
 msgid "RAM"
 msgstr "ОЗУ"
@@ -4300,6 +4321,9 @@ msgstr "Работает без обхода."
 
 msgid "YACD Secret Key"
 msgstr "Секретный ключ YACD"
+
+msgid "Yandex DNS (UDP, unencrypted)"
+msgstr "Яндекс DNS (UDP, без шифрования)"
 
 msgid "Yes"
 msgstr "Да"

@@ -8436,6 +8436,70 @@ function createSectionContent(section) {
   o = section.taboption(
     "target",
     form.ListValue,
+    "_dns_preset",
+    _("DNS provider"),
+    _(
+      "A preset fills the DNS protocol and server below. Select Custom DNS to enter your own values.",
+    ),
+  );
+  o.depends("action", "dns");
+  o.value("custom", _("Custom DNS"));
+  o.value("cloudflare", _("Cloudflare (DoH)"));
+  o.value("google", _("Google Public DNS (DoH)"));
+  o.value("quad9", _("Quad9 (DoH, malware blocking)"));
+  o.value("adguard", _("AdGuard DNS (DoH, ad blocking)"));
+  o.value("yandex", _("Yandex DNS (UDP, unencrypted)"));
+  o.default = "custom";
+  o.modalonly = true;
+  // This is a form-only shortcut. The existing dns_type/dns_server fields
+  // remain the only values saved to UCI and consumed by sing-box.
+  o.cfgvalue = function (section_id) {
+    return main.dnsRulePresetId(
+      optionMapValue(this, section_id, "dns_type") || "udp",
+      optionMapValue(this, section_id, "dns_server") || "",
+    );
+  };
+  o.write = function () {};
+  o.remove = function () {};
+  const dnsPresetOption = o;
+  let dnsTypeOption;
+  let dnsServerOption;
+  let applyingDnsPreset = false;
+  o.onchange = function (_event, section_id) {
+    if (applyingDnsPreset) return;
+    const preset = main.dnsRulePresetById(this.formvalue(section_id));
+    if (!preset) return;
+    const serverWidget = dnsServerOption.getUIElement(section_id);
+    const typeWidget = dnsTypeOption.getUIElement(section_id);
+    if (!serverWidget || !typeWidget) return;
+    applyingDnsPreset = true;
+    try {
+      serverWidget.setValue(preset.server);
+      typeWidget.setValue(preset.protocol);
+    } finally {
+      applyingDnsPreset = false;
+    }
+  };
+  function syncDnsPreset(section_id) {
+    if (applyingDnsPreset) return;
+    const widget = dnsPresetOption.getUIElement(section_id);
+    if (!widget) return;
+    const presetId = main.dnsRulePresetId(
+      dnsTypeOption.formvalue(section_id) || "udp",
+      dnsServerOption.formvalue(section_id) || "",
+    );
+    if (widget.getValue() === presetId) return;
+    applyingDnsPreset = true;
+    try {
+      widget.setValue(presetId);
+    } finally {
+      applyingDnsPreset = false;
+    }
+  }
+
+  o = section.taboption(
+    "target",
+    form.ListValue,
     "dns_type",
     _("DNS protocol"),
     _("DNS protocol used by the resolver"),
@@ -8445,6 +8509,10 @@ function createSectionContent(section) {
   o.default = "udp";
   o.rmempty = false;
   o.modalonly = true;
+  o.onchange = function (_event, section_id) {
+    syncDnsPreset(section_id);
+  };
+  dnsTypeOption = o;
 
   o = section.taboption(
     "target",
@@ -8456,6 +8524,9 @@ function createSectionContent(section) {
   o.depends("action", "dns");
   o.rmempty = false;
   o.modalonly = true;
+  o.onchange = function (_event, section_id) {
+    syncDnsPreset(section_id);
+  };
   o.validate = function (_section_id, value) {
     const normalized = `${value || ""}`.trim();
     if (!normalized) {
@@ -8467,6 +8538,7 @@ function createSectionContent(section) {
     );
     return validation.valid ? true : _("Enter a valid DNS server address");
   };
+  dnsServerOption = o;
 
   o = section.taboption(
     "target",
