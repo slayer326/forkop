@@ -95,6 +95,8 @@ export const SECONDARY_RULESET_OPTIONS = {
 
 export const DNS_SERVER_OPTIONS = {
   '77.88.8.8': '77.88.8.8 (Yandex DNS)',
+  '111.88.96.54': '111.88.96.54 (Xbox DNS)',
+  '111.88.96.55': '111.88.96.55 (Xbox DNS backup)',
   '1.1.1.1': '1.1.1.1 (Cloudflare)',
   '8.8.8.8': '8.8.8.8 (Google)',
   '9.9.9.9': '9.9.9.9 (Quad9)',
@@ -106,6 +108,8 @@ export const DNS_SERVER_OPTIONS = {
 export const BOOTSTRAP_DNS_SERVER_OPTIONS = {
   '77.88.8.8': '77.88.8.8 (Yandex DNS)',
   '77.88.8.1': '77.88.8.1 (Yandex DNS)',
+  '111.88.96.54': '111.88.96.54 (Xbox DNS)',
+  '111.88.96.55': '111.88.96.55 (Xbox DNS backup)',
   '1.1.1.1': '1.1.1.1 (Cloudflare DNS)',
   '1.0.0.1': '1.0.0.1 (Cloudflare DNS)',
   '8.8.8.8': '8.8.8.8 (Google DNS)',

@@ -2121,6 +2121,20 @@ function dnsTypeChoices() {
   ];
 }
 
+function addDnsPresetChoices(option) {
+  option.value("custom", _("Custom DNS"));
+  option.value("cloudflare", _("Cloudflare (DoH)"));
+  option.value("google", _("Google Public DNS (DoH)"));
+  option.value("quad9", _("Quad9 (DoH, malware blocking)"));
+  option.value("adguard", _("AdGuard DNS (DoH, ad blocking)"));
+  option.value("yandex", _("Yandex DNS (UDP, unencrypted)"));
+  option.value("yandex_doh", _("Yandex DNS (DoH)"));
+  option.value("yandex_dot", _("Yandex DNS (DoT, port 853)"));
+  option.value("xbox", _("Xbox DNS (UDP, unencrypted)"));
+  option.value("xbox_doh", _("Xbox DNS (DoH)"));
+  option.value("xbox_dot", _("Xbox DNS (DoT, port 853)"));
+}
+
 function isConnectionNetworkInterfaceAllowed(deviceName, device) {
   if (CONNECTIONS_BLOCKED_INTERFACES.includes(deviceName)) {
     return false;
@@ -2390,6 +2404,56 @@ function optionMapValue(option, section_id, key) {
       : uci.get(UCI_PACKAGE, section_id, key);
 
   return value == null ? "" : value;
+}
+
+function configureDnsPreset(
+  presetOption,
+  typeOption,
+  serverOption,
+  typeKey,
+  serverKey,
+  enabledKey,
+  enabledValue,
+) {
+  presetOption.default = "custom";
+  presetOption.rmempty = false;
+  presetOption.cfgvalue = function (section_id) {
+    return main.dnsRulePresetId(
+      optionMapValue(this, section_id, typeKey) || "udp",
+      optionMapValue(this, section_id, serverKey) || "",
+    );
+  };
+  // The selected provider writes both fields atomically. Hidden custom inputs
+  // must not overwrite the preset or delete its UCI values during form.parse().
+  presetOption.write = function (section_id, presetId) {
+    const preset = main.dnsRulePresetById(presetId);
+    if (!preset) return;
+    this.map.data.set(this.map.config, section_id, typeKey, preset.protocol);
+    this.map.data.set(this.map.config, section_id, serverKey, preset.server);
+  };
+  presetOption.remove = function () {};
+
+  for (const option of [typeOption, serverOption]) {
+    option.depends({
+      [enabledKey]: enabledValue,
+      [presetOption.option]: "custom",
+    });
+    const remove = option.remove;
+    option.remove = function (section_id) {
+      const enabled = this.section.formvalue(section_id, enabledKey);
+      // GridSection clones options for its modal, so resolve its own picker.
+      const picker = this.section.children.find(
+        (sibling) => sibling.option === presetOption.option,
+      );
+      if (
+        enabled === enabledValue &&
+        main.dnsRulePresetById(picker?.formvalue(section_id))
+      ) {
+        return;
+      }
+      return remove.call(this, section_id);
+    };
+  }
 }
 
 function subscriptionUrlSettingsKeys() {
@@ -2733,15 +2797,26 @@ function addInterfaceItemOptions(itemSection) {
   o.default = "0";
   o.rmempty = false;
 
+  const presetOption = itemSection.option(
+    form.ListValue,
+    "_domain_dns_preset",
+    _("DNS provider"),
+    _(
+      "Choose a ready DNS provider, or Custom DNS to enter a protocol and server.",
+    ),
+  );
+  presetOption.depends("domain_resolver_enabled", "1");
+  addDnsPresetChoices(presetOption);
+
   o = itemSection.option(
     form.ListValue,
     "domain_resolver_dns_type",
     _("DNS protocol"),
     _("DNS protocol used by the resolver"),
   );
-  o.depends("domain_resolver_enabled", "1");
   dnsTypeChoices().forEach((choice) => o.value(choice.value, choice.label));
   o.default = "udp";
+  const typeOption = o;
 
   o = itemSection.option(
     form.Value,
@@ -2749,7 +2824,6 @@ function addInterfaceItemOptions(itemSection) {
     _("DNS server"),
     _("DNS server used by the resolver"),
   );
-  o.depends("domain_resolver_enabled", "1");
   o.default = "8.8.8.8";
   o.validate = function (itemId, value) {
     if (optionMapValue(this, itemId, "domain_resolver_enabled") !== "1") {
@@ -2761,6 +2835,15 @@ function addInterfaceItemOptions(itemSection) {
     );
     return validation.valid ? true : validation.message;
   };
+  configureDnsPreset(
+    presetOption,
+    typeOption,
+    o,
+    "domain_resolver_dns_type",
+    "domain_resolver_dns_server",
+    "domain_resolver_enabled",
+    "1",
+  );
 }
 
 function addUrlTestItemOptions(itemSection, options = {}) {
@@ -8439,65 +8522,13 @@ function createSectionContent(section) {
     "_dns_preset",
     _("DNS provider"),
     _(
-      "A preset fills the DNS protocol and server below. Select Custom DNS to enter your own values.",
+      "Choose a ready DNS provider, or Custom DNS to enter a protocol and server.",
     ),
   );
   o.depends("action", "dns");
-  o.value("custom", _("Custom DNS"));
-  o.value("cloudflare", _("Cloudflare (DoH)"));
-  o.value("google", _("Google Public DNS (DoH)"));
-  o.value("quad9", _("Quad9 (DoH, malware blocking)"));
-  o.value("adguard", _("AdGuard DNS (DoH, ad blocking)"));
-  o.value("yandex", _("Yandex DNS (UDP, unencrypted)"));
-  o.value("yandex_doh", _("Yandex DNS (DoH)"));
-  o.value("yandex_dot", _("Yandex DNS (DoT, port 853)"));
-  o.default = "custom";
+  addDnsPresetChoices(o);
   o.modalonly = true;
-  // This is a form-only shortcut. The existing dns_type/dns_server fields
-  // remain the only values saved to UCI and consumed by sing-box.
-  o.cfgvalue = function (section_id) {
-    return main.dnsRulePresetId(
-      optionMapValue(this, section_id, "dns_type") || "udp",
-      optionMapValue(this, section_id, "dns_server") || "",
-    );
-  };
-  o.write = function () {};
-  o.remove = function () {};
   const dnsPresetOption = o;
-  let dnsTypeOption;
-  let dnsServerOption;
-  let applyingDnsPreset = false;
-  o.onchange = function (_event, section_id) {
-    if (applyingDnsPreset) return;
-    const preset = main.dnsRulePresetById(this.formvalue(section_id));
-    if (!preset) return;
-    const serverWidget = dnsServerOption.getUIElement(section_id);
-    const typeWidget = dnsTypeOption.getUIElement(section_id);
-    if (!serverWidget || !typeWidget) return;
-    applyingDnsPreset = true;
-    try {
-      serverWidget.setValue(preset.server);
-      typeWidget.setValue(preset.protocol);
-    } finally {
-      applyingDnsPreset = false;
-    }
-  };
-  function syncDnsPreset(section_id) {
-    if (applyingDnsPreset) return;
-    const widget = dnsPresetOption.getUIElement(section_id);
-    if (!widget) return;
-    const presetId = main.dnsRulePresetId(
-      dnsTypeOption.formvalue(section_id) || "udp",
-      dnsServerOption.formvalue(section_id) || "",
-    );
-    if (widget.getValue() === presetId) return;
-    applyingDnsPreset = true;
-    try {
-      widget.setValue(presetId);
-    } finally {
-      applyingDnsPreset = false;
-    }
-  }
 
   o = section.taboption(
     "target",
@@ -8506,15 +8537,11 @@ function createSectionContent(section) {
     _("DNS protocol"),
     _("DNS protocol used by the resolver"),
   );
-  o.depends("action", "dns");
   dnsTypeChoices().forEach((choice) => o.value(choice.value, choice.label));
   o.default = "udp";
   o.rmempty = false;
   o.modalonly = true;
-  o.onchange = function (_event, section_id) {
-    syncDnsPreset(section_id);
-  };
-  dnsTypeOption = o;
+  const dnsTypeOption = o;
 
   o = section.taboption(
     "target",
@@ -8523,12 +8550,8 @@ function createSectionContent(section) {
     _("DNS server"),
     _("DNS server used by the resolver"),
   );
-  o.depends("action", "dns");
   o.rmempty = false;
   o.modalonly = true;
-  o.onchange = function (_event, section_id) {
-    syncDnsPreset(section_id);
-  };
   o.validate = function (_section_id, value) {
     const normalized = `${value || ""}`.trim();
     if (!normalized) {
@@ -8540,7 +8563,15 @@ function createSectionContent(section) {
     );
     return validation.valid ? true : _("Enter a valid DNS server address");
   };
-  dnsServerOption = o;
+  configureDnsPreset(
+    dnsPresetOption,
+    dnsTypeOption,
+    o,
+    "dns_type",
+    "dns_server",
+    "action",
+    "dns",
+  );
 
   o = section.taboption(
     "target",
