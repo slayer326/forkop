@@ -27,6 +27,24 @@ describe('DNS rule presets', () => {
     expect(dnsRulePresetById('custom')).toBeUndefined();
   });
 
+  it('offers encrypted Yandex DNS without changing its existing UDP preset', () => {
+    expect(dnsRulePresetById('yandex')).toEqual({
+      id: 'yandex',
+      protocol: 'udp',
+      server: '77.88.8.8',
+    });
+    expect(dnsRulePresetById('yandex_doh')).toEqual({
+      id: 'yandex_doh',
+      protocol: 'doh',
+      server: 'common.dot.dns.yandex.net/dns-query',
+    });
+    expect(dnsRulePresetById('yandex_dot')).toEqual({
+      id: 'yandex_dot',
+      protocol: 'dot',
+      server: 'common.dot.dns.yandex.net',
+    });
+  });
+
   it('matches saved presets despite harmless casing or surrounding spaces', () => {
     expect(dnsRulePresetId(' DOH ', ' DNS.GOOGLE/dns-query ')).toBe('google');
   });

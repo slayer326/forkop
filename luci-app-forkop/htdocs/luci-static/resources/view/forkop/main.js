@@ -286,7 +286,17 @@ var DNS_RULE_PRESETS = [
     protocol: "doh",
     server: "dns.adguard-dns.com/dns-query"
   },
-  { id: "yandex", protocol: "udp", server: "77.88.8.8" }
+  { id: "yandex", protocol: "udp", server: "77.88.8.8" },
+  {
+    id: "yandex_doh",
+    protocol: "doh",
+    server: "common.dot.dns.yandex.net/dns-query"
+  },
+  {
+    id: "yandex_dot",
+    protocol: "dot",
+    server: "common.dot.dns.yandex.net"
+  }
 ];
 function dnsRulePresetById(id) {
   return DNS_RULE_PRESETS.find((preset) => preset.id === id);

@@ -78,8 +78,8 @@
     "call": "%d ms",
     "key": "%d ms",
     "places": [
-      "src/forkop/tabs/dashboard/initController.ts:1081",
       "src/forkop/tabs/autotune/model.ts:522",
+      "src/forkop/tabs/dashboard/initController.ts:1081",
       "src/forkop/tabs/dashboard/partials/renderSections.ts:318",
       "src/forkop/tabs/dashboard/partials/renderSections.ts:487"
     ]
@@ -184,7 +184,7 @@
     "call": "+ Add JSON outbound",
     "key": "+ Add JSON outbound",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8853"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8855"
     ]
   },
   {
@@ -198,14 +198,14 @@
     "call": "+ Add priority",
     "key": "+ Add priority",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8940"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8942"
     ]
   },
   {
     "call": "+ Add URLTest",
     "key": "+ Add URLTest",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8880"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8882"
     ]
   },
   {
@@ -550,28 +550,28 @@
     "call": "Add URLs or local paths to .lst lists containing domains and subnets.",
     "key": "Add URLs or local paths to .lst lists containing domains and subnets.",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9495"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9497"
     ]
   },
   {
     "call": "Add URLs or local paths to .lst lists containing domains. IP entries are ignored.",
     "key": "Add URLs or local paths to .lst lists containing domains. IP entries are ignored.",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9516"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9518"
     ]
   },
   {
     "call": "Add URLs or local paths to .srs / .json lists. Only domain rules are supported.",
     "key": "Add URLs or local paths to .srs / .json lists. Only domain rules are supported.",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9470"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9472"
     ]
   },
   {
     "call": "Add URLs or local paths to .srs / .json lists. Subnets are ignored by default.",
     "key": "Add URLs or local paths to .srs / .json lists. Subnets are ignored by default.",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9435"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9437"
     ]
   },
   {
@@ -675,8 +675,8 @@
     "call": "All events",
     "key": "All events",
     "places": [
-      "src/forkop/tabs/dashboard/overviewCards.ts:312",
-      "src/forkop/tabs/autotune/initController.ts:1493"
+      "src/forkop/tabs/autotune/initController.ts:1493",
+      "src/forkop/tabs/dashboard/overviewCards.ts:312"
     ]
   },
   {
@@ -725,7 +725,7 @@
     "call": "All traffic from these IP addresses will be routed through the section unconditionally, ignoring all other conditions.",
     "key": "All traffic from these IP addresses will be routed through the section unconditionally, ignoring all other conditions.",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9560"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9562"
     ]
   },
   {
@@ -909,7 +909,7 @@
     "call": "Apply section rules only to the specified local IP addresses",
     "key": "Apply section rules only to the specified local IP addresses",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9540"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9542"
     ]
   },
   {
@@ -1306,8 +1306,8 @@
     "call": "Built-in rule sets",
     "key": "Built-in rule sets",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9358",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9378"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9360",
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9380"
     ]
   },
   {
@@ -1415,7 +1415,7 @@
     "call": "ByeDPI Strategy",
     "key": "ByeDPI Strategy",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8689"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8691"
     ]
   },
   {
@@ -1476,8 +1476,8 @@
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:353",
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:4982",
       "src/forkop/ui/confirmAction.ts:30",
-      "src/forkop/tabs/dashboard/initController.ts:1432",
       "src/forkop/tabs/autotune/initController.ts:434",
+      "src/forkop/tabs/dashboard/initController.ts:1432",
       "src/forkop/tabs/updates/fullUninstall.ts:11",
       "src/forkop/tabs/updates/releaseSelector.ts:50",
       "src/forkop/tabs/updates/releaseSelector.ts:111"
@@ -1514,16 +1514,16 @@
     "call": "Cannot save the rule",
     "key": "Cannot save the rule",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9723"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9725"
     ]
   },
   {
     "call": "Cascade connection",
     "key": "Cascade connection",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8973",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9045",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9066"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8975",
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9047",
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9068"
     ]
   },
   {
@@ -1778,9 +1778,9 @@
     "key": "Checking…",
     "places": [
       "src/forkop/ui/status.ts:140",
-      "src/forkop/tabs/dashboard/overview.ts:219",
       "src/forkop/tabs/autotune/initController.ts:985",
       "src/forkop/tabs/autotune/initController.ts:1207",
+      "src/forkop/tabs/dashboard/overview.ts:219",
       "src/forkop/tabs/diagnostic/connectivityMatrix.ts:104",
       "src/forkop/tabs/diagnostic/dpiPlayground.ts:48",
       "src/forkop/tabs/diagnostic/siteCheck.ts:247",
@@ -1798,17 +1798,17 @@
     "call": "Checks failed",
     "key": "Checks failed",
     "places": [
-      "src/forkop/tabs/diagnostic/helpers/getMeta.ts:26",
-      "src/forkop/tabs/diagnostic/checks/getCheckItemsMeta.ts:10"
+      "src/forkop/tabs/diagnostic/checks/getCheckItemsMeta.ts:10",
+      "src/forkop/tabs/diagnostic/helpers/getMeta.ts:26"
     ]
   },
   {
     "call": "Checks passed",
     "key": "Checks passed",
     "places": [
-      "src/forkop/tabs/diagnostic/helpers/getMeta.ts:13",
       "src/forkop/tabs/diagnostic/checks/getCheckItemsMeta.ts:23",
-      "src/forkop/tabs/diagnostic/checks/runFakeIPCheck.ts:43"
+      "src/forkop/tabs/diagnostic/checks/runFakeIPCheck.ts:43",
+      "src/forkop/tabs/diagnostic/helpers/getMeta.ts:13"
     ]
   },
   {
@@ -1909,10 +1909,10 @@
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:3585",
       "src/partials/modal/renderModal.ts:263",
+      "src/forkop/tabs/autotune/initController.ts:795",
       "src/forkop/tabs/dashboard/initController.ts:1306",
       "src/forkop/tabs/dashboard/initController.ts:1691",
       "src/forkop/tabs/history/initController.ts:255",
-      "src/forkop/tabs/autotune/initController.ts:795",
       "src/forkop/tabs/updates/releaseSelector.ts:121"
     ]
   },
@@ -2143,7 +2143,7 @@
     "call": "Connect through",
     "key": "Connect through",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9016"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9018"
     ]
   },
   {
@@ -2172,7 +2172,7 @@
     "call": "Connection URL",
     "key": "Connection URL",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8733"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8735"
     ]
   },
   {
@@ -2320,13 +2320,13 @@
     "key": "Could not load data",
     "places": [
       "src/forkop/ui/states.ts:115",
-      "src/forkop/tabs/history/initController.ts:269",
       "src/forkop/tabs/diagnostic/initController.ts:588",
       "src/forkop/tabs/diagnostic/initController.ts:592",
       "src/forkop/tabs/diagnostic/initController.ts:627",
       "src/forkop/tabs/diagnostic/initController.ts:631",
       "src/forkop/tabs/diagnostic/initController.ts:667",
-      "src/forkop/tabs/diagnostic/initController.ts:671"
+      "src/forkop/tabs/diagnostic/initController.ts:671",
+      "src/forkop/tabs/history/initController.ts:269"
     ]
   },
   {
@@ -2377,7 +2377,7 @@
     "call": "Current section cannot be used as its own transit section",
     "key": "Current section cannot be used as its own transit section",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9035"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9037"
     ]
   },
   {
@@ -2405,7 +2405,7 @@
     "call": "Custom outbound configurations in JSON format",
     "key": "Custom outbound configurations in JSON format",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8848"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8850"
     ]
   },
   {
@@ -2608,7 +2608,7 @@
     "call": "Device filter",
     "key": "Device filter",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9539"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9541"
     ]
   },
   {
@@ -2824,7 +2824,7 @@
     "key": "DNS protocol",
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:2739",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8504"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8506"
     ]
   },
   {
@@ -2839,7 +2839,7 @@
     "key": "DNS protocol used by the resolver",
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:2740",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8505"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8507"
     ]
   },
   {
@@ -2853,7 +2853,7 @@
     "call": "DNS requests through section",
     "key": "DNS requests through section",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8559",
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8561",
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/settings.js:426"
     ]
   },
@@ -2869,14 +2869,14 @@
     "key": "DNS server",
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:2749",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8521"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8523"
     ]
   },
   {
     "call": "DNS server address cannot be empty",
     "key": "DNS server address cannot be empty",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8533",
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8535",
       "src/validators/validateDns.ts:8"
     ]
   },
@@ -2892,7 +2892,7 @@
     "key": "DNS server used by the resolver",
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:2750",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8522"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8524"
     ]
   },
   {
@@ -2920,7 +2920,7 @@
     "call": "DNS through section",
     "key": "DNS through section",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8547"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8549"
     ]
   },
   {
@@ -2934,7 +2934,7 @@
     "call": "Do not apply this section to the specified local IP addresses; matching continues with the next section.",
     "key": "Do not apply this section to the specified local IP addresses; matching continues with the next section.",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9571"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9573"
     ]
   },
   {
@@ -2998,7 +2998,7 @@
     "call": "Domain and IP lists",
     "key": "Domain and IP lists",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9494"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9496"
     ]
   },
   {
@@ -3012,7 +3012,7 @@
     "call": "Domain lists",
     "key": "Domain lists",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9515"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9517"
     ]
   },
   {
@@ -3033,7 +3033,7 @@
     "call": "Domains",
     "key": "Domains",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9317"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9319"
     ]
   },
   {
@@ -3350,14 +3350,14 @@
     "call": "Enable Mixed Proxy",
     "key": "Enable Mixed Proxy",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9122"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9124"
     ]
   },
   {
     "call": "Enable Mixed Proxy Authentication",
     "key": "Enable Mixed Proxy Authentication",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9169"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9171"
     ]
   },
   {
@@ -3454,7 +3454,7 @@
     "call": "Enter a valid DNS server address",
     "key": "Enter a valid DNS server address",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8539"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8541"
     ]
   },
   {
@@ -3475,7 +3475,7 @@
     "call": "Enter the subscription URL",
     "key": "Enter the subscription URL",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8759"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8761"
     ]
   },
   {
@@ -3551,7 +3551,7 @@
     "call": "Exclude devices",
     "key": "Exclude devices",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9570"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9572"
     ]
   },
   {
@@ -3615,7 +3615,7 @@
     "call": "Expose this section as a local HTTP+SOCKS proxy",
     "key": "Expose this section as a local HTTP+SOCKS proxy",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9123"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9125"
     ]
   },
   {
@@ -3835,7 +3835,7 @@
     "call": "Forced device routing",
     "key": "Forced device routing",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9559"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9561"
     ]
   },
   {
@@ -4291,8 +4291,8 @@
     "call": "History is unavailable",
     "key": "History is unavailable",
     "places": [
-      "src/forkop/tabs/history/initController.ts:140",
-      "src/forkop/tabs/autotune/initController.ts:1457"
+      "src/forkop/tabs/autotune/initController.ts:1457",
+      "src/forkop/tabs/history/initController.ts:140"
     ]
   },
   {
@@ -4610,8 +4610,8 @@
     "call": "Invalid ByeDPI strategy",
     "key": "Invalid ByeDPI strategy",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8710",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8724"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8712",
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8726"
     ]
   },
   {
@@ -4768,7 +4768,7 @@
     "call": "Invalid NFQWS2 strategy",
     "key": "Invalid NFQWS2 strategy",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8660"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8662"
     ]
   },
   {
@@ -4782,7 +4782,7 @@
     "call": "Invalid port number. Must be between 1 and 65535",
     "key": "Invalid port number. Must be between 1 and 65535",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9162",
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9164",
       "src/validators/validateShadowsocksUrl.ts:91"
     ]
   },
@@ -4988,7 +4988,7 @@
     "call": "IPs",
     "key": "IPs",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9347"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9349"
     ]
   },
   {
@@ -5016,8 +5016,8 @@
     "call": "Issues detected",
     "key": "Issues detected",
     "places": [
-      "src/forkop/tabs/diagnostic/helpers/getMeta.ts:20",
-      "src/forkop/tabs/diagnostic/checks/getCheckItemsMeta.ts:17"
+      "src/forkop/tabs/diagnostic/checks/getCheckItemsMeta.ts:17",
+      "src/forkop/tabs/diagnostic/helpers/getMeta.ts:20"
     ]
   },
   {
@@ -5090,7 +5090,7 @@
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:1408",
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:3918",
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:4156",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8847"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8849"
     ]
   },
   {
@@ -5288,7 +5288,7 @@
     "call": "Legacy settings",
     "key": "Legacy settings",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9599"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9601"
     ]
   },
   {
@@ -5379,17 +5379,17 @@
     "key": "Loading…",
     "places": [
       "src/forkop/ui/states.ts:36",
-      "src/forkop/tabs/dashboard/render.ts:14",
-      "src/forkop/tabs/history/render.ts:13",
-      "src/forkop/tabs/history/render.ts:17",
-      "src/forkop/tabs/history/render.ts:29",
       "src/forkop/tabs/autotune/domainPicker.ts:121",
       "src/forkop/tabs/autotune/initController.ts:1263",
       "src/forkop/tabs/autotune/render.ts:14",
       "src/forkop/tabs/autotune/render.ts:25",
       "src/forkop/tabs/autotune/render.ts:29",
       "src/forkop/tabs/autotune/render.ts:33",
-      "src/forkop/tabs/diagnostic/initController.ts:737"
+      "src/forkop/tabs/dashboard/render.ts:14",
+      "src/forkop/tabs/diagnostic/initController.ts:737",
+      "src/forkop/tabs/history/render.ts:13",
+      "src/forkop/tabs/history/render.ts:17",
+      "src/forkop/tabs/history/render.ts:29"
     ]
   },
   {
@@ -5473,14 +5473,14 @@
     "call": "Match destination IPs or subnets",
     "key": "Match destination IPs or subnets",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9348"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9350"
     ]
   },
   {
     "call": "Match destination ports. Use a single port or a range",
     "key": "Match destination ports. Use a single port or a range",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9586"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9588"
     ]
   },
   {
@@ -5522,21 +5522,21 @@
     "call": "Mixed Proxy Password",
     "key": "Mixed Proxy Password",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9238"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9240"
     ]
   },
   {
     "call": "Mixed Proxy Port",
     "key": "Mixed Proxy Port",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9140"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9142"
     ]
   },
   {
     "call": "Mixed Proxy Username",
     "key": "Mixed Proxy Username",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9187"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9189"
     ]
   },
   {
@@ -5633,11 +5633,11 @@
     "places": [
       "src/forkop/ui/status.ts:164",
       "src/forkop/ui/status.ts:260",
-      "src/forkop/tabs/history/model.ts:81",
-      "src/forkop/tabs/history/model.ts:84",
       "src/forkop/tabs/diagnostic/statusLabels.ts:24",
       "src/forkop/tabs/diagnostic/statusLabels.ts:45",
-      "src/forkop/tabs/diagnostic/statusLabels.ts:56"
+      "src/forkop/tabs/diagnostic/statusLabels.ts:56",
+      "src/forkop/tabs/history/model.ts:81",
+      "src/forkop/tabs/history/model.ts:84"
     ]
   },
   {
@@ -5645,7 +5645,7 @@
     "key": "Network Interface",
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:2163",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8806"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8808"
     ]
   },
   {
@@ -5704,7 +5704,7 @@
     "call": "NFQWS Strategy",
     "key": "NFQWS Strategy",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8585"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8587"
     ]
   },
   {
@@ -5718,7 +5718,7 @@
     "call": "NFQWS2 Strategy",
     "key": "NFQWS2 Strategy",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8639"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8641"
     ]
   },
   {
@@ -6224,9 +6224,9 @@
     "call": "Now",
     "key": "Now",
     "places": [
-      "src/forkop/tabs/history/initController.ts:218",
       "src/forkop/tabs/autotune/initController.ts:1110",
-      "src/forkop/tabs/autotune/model.ts:948"
+      "src/forkop/tabs/autotune/model.ts:948",
+      "src/forkop/tabs/history/initController.ts:218"
     ]
   },
   {
@@ -6537,7 +6537,7 @@
     "call": "Password cannot be empty",
     "key": "Password cannot be empty",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9280"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9282"
     ]
   },
   {
@@ -6685,14 +6685,14 @@
     "call": "Port cannot be empty",
     "key": "Port cannot be empty",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9154"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9156"
     ]
   },
   {
     "call": "Port for the local mixed proxy of this section",
     "key": "Port for the local mixed proxy of this section",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9141"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9143"
     ]
   },
   {
@@ -6714,7 +6714,7 @@
     "call": "Ports",
     "key": "Ports",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9585"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9587"
     ]
   },
   {
@@ -6763,7 +6763,7 @@
     "call": "Priority",
     "key": "Priority",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8934",
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8936",
       "src/forkop/tabs/dashboard/partials/renderSections.ts:281"
     ]
   },
@@ -7105,7 +7105,7 @@
     "call": "Require a username and password for the local mixed proxy",
     "key": "Require a username and password for the local mixed proxy",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9170"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9172"
     ]
   },
   {
@@ -7120,14 +7120,14 @@
     "call": "Resolve domain names before routing so sing-box can use real destination IPs.",
     "key": "Resolve domain names before routing so sing-box can use real destination IPs.",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9291"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9293"
     ]
   },
   {
     "call": "Resolve real IP for routing",
     "key": "Resolve real IP for routing",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9290"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9292"
     ]
   },
   {
@@ -7471,7 +7471,7 @@
     "call": "Route requests to this DNS server through another section.",
     "key": "Route requests to this DNS server through another section.",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8548"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8550"
     ]
   },
   {
@@ -7563,8 +7563,8 @@
     "call": "Rule sets",
     "key": "Rule sets",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9434",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9469"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9436",
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9471"
     ]
   },
   {
@@ -7649,9 +7649,9 @@
     "key": "Save",
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:3594",
-      "src/forkop/tabs/dashboard/initController.ts:1427",
       "src/forkop/tabs/autotune/initController.ts:533",
-      "src/forkop/tabs/autotune/initController.ts:735"
+      "src/forkop/tabs/autotune/initController.ts:735",
+      "src/forkop/tabs/dashboard/initController.ts:1427"
     ]
   },
   {
@@ -7742,28 +7742,28 @@
     "call": "Select a network interface",
     "key": "Select a network interface",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8812"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8814"
     ]
   },
   {
     "call": "Select a predefined domain list",
     "key": "Select a predefined domain list",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9359"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9361"
     ]
   },
   {
     "call": "Select a predefined IP rule set from b4geoip-forkop",
     "key": "Select a predefined IP rule set from b4geoip-forkop",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9379"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9381"
     ]
   },
   {
     "call": "Select a section",
     "key": "Select a section",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8576",
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8578",
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/settings.js:168"
     ]
   },
@@ -7778,7 +7778,7 @@
     "call": "Select a transit section",
     "key": "Select a transit section",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9017"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9019"
     ]
   },
   {
@@ -7792,7 +7792,7 @@
     "call": "Select an intermediate section",
     "key": "Select an intermediate section",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9032"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9034"
     ]
   },
   {
@@ -7806,7 +7806,7 @@
     "call": "Select network interface for VPN connection",
     "key": "Select network interface for VPN connection",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8807"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8809"
     ]
   },
   {
@@ -7900,14 +7900,14 @@
     "call": "Server group for automatic lowest-latency selection",
     "key": "Server group for automatic lowest-latency selection",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8875"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8877"
     ]
   },
   {
     "call": "Server group for priority failover",
     "key": "Server group for priority failover",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8935"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8937"
     ]
   },
   {
@@ -7959,8 +7959,8 @@
     "call": "Service list",
     "key": "Service list",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9362",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9399"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9364",
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9401"
     ]
   },
   {
@@ -8187,7 +8187,7 @@
     "call": "Sort by latency",
     "key": "Sort by latency",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9109"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9111"
     ]
   },
   {
@@ -8201,7 +8201,7 @@
     "call": "Sorts servers in this section by lowest latency in the dashboard.",
     "key": "Sorts servers in this section by lowest latency in the dashboard.",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9110"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9112"
     ]
   },
   {
@@ -8353,10 +8353,10 @@
     "call": "State",
     "key": "State",
     "places": [
-      "src/forkop/tabs/dashboard/overviewCards.ts:192",
       "src/forkop/tabs/autotune/initController.ts:871",
       "src/forkop/tabs/autotune/initController.ts:879",
-      "src/forkop/tabs/autotune/initController.ts:885"
+      "src/forkop/tabs/autotune/initController.ts:885",
+      "src/forkop/tabs/dashboard/overviewCards.ts:192"
     ]
   },
   {
@@ -8467,7 +8467,7 @@
     "call": "Subscription URL",
     "key": "Subscription URL",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8758"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8760"
     ]
   },
   {
@@ -9230,7 +9230,7 @@
     "call": "The rule applies to the domain and all its subdomains. Use full:, keyword:, or regex: prefixes for exact match, keyword match, or regular expression.",
     "key": "The rule applies to the domain and all its subdomains. Use full:, keyword:, or regex: prefixes for exact match, keyword match, or regular expression.",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9318"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9320"
     ]
   },
   {
@@ -9302,14 +9302,14 @@
     "call": "The rule was not removed because the page could not be saved: %s",
     "key": "The rule was not removed because the page could not be saved: %s",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9898"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9900"
     ]
   },
   {
     "call": "The rule window was closed before the save finished. Nothing was saved.",
     "key": "The rule window was closed before the save finished. Nothing was saved.",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9757"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9759"
     ]
   },
   {
@@ -9951,7 +9951,7 @@
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6394",
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:7806",
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8612"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8614"
     ]
   },
   {
@@ -10197,7 +10197,7 @@
     "call": "URLTest",
     "key": "URLTest",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8874"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8876"
     ]
   },
   {
@@ -10242,7 +10242,7 @@
     "call": "Use another section as an intermediate hop to connect to servers in this section. Does not apply to network interfaces or JSON outbounds.",
     "key": "Use another section as an intermediate hop to connect to servers in this section. Does not apply to network interfaces or JSON outbounds.",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8974"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8976"
     ]
   },
   {
@@ -10308,7 +10308,7 @@
     "call": "Username cannot be empty",
     "key": "Username cannot be empty",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9228"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9230"
     ]
   },
   {
@@ -10382,7 +10382,7 @@
     "call": "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links",
     "key": "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8734"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8736"
     ]
   },
   {
@@ -10511,14 +10511,14 @@
     "call": "With another action the rule cannot use its cascade setting: saving the rule removes it, and its servers no longer connect through the rule “%s”.",
     "key": "With another action the rule cannot use its cascade setting: saving the rule removes it, and its servers no longer connect through the rule “%s”.",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9095"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9097"
     ]
   },
   {
     "call": "With another action the rule cannot use its cascade setting: saving the rule removes the switched-off cascade setting.",
     "key": "With another action the rule cannot use its cascade setting: saving the rule removes the switched-off cascade setting.",
     "places": [
-      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9098"
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9100"
     ]
   },
   {
@@ -10533,6 +10533,20 @@
     "key": "YACD Secret Key",
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/settings.js:601"
+    ]
+  },
+  {
+    "call": "Yandex DNS (DoH)",
+    "key": "Yandex DNS (DoH)",
+    "places": [
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8452"
+    ]
+  },
+  {
+    "call": "Yandex DNS (DoT, port 853)",
+    "key": "Yandex DNS (DoT, port 853)",
+    "places": [
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8453"
     ]
   },
   {
