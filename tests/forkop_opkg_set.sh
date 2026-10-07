@@ -35,6 +35,7 @@ let versions = {};
 let failure = "";
 let uncommitted = "";
 let rollback_failure = "";
+let checksummed_previous = false;
 let events = [];
 let downloads = [];
 let recovery_dir = false;
@@ -67,11 +68,16 @@ function previous_forkop_release(version) {
     check(version == FORKOP_VERSION, "wrong previous release");
     return { backend_name: "forkop_1.0.0.ipk", backend_url: "old-backend",
         app_name: "luci-app-forkop_1.0.0.ipk", app_url: "old-app",
-        i18n_name: "luci-i18n-forkop-ru_1.0.0.ipk", i18n_url: "old-i18n" };
+        i18n_name: "luci-i18n-forkop-ru_1.0.0.ipk", i18n_url: "old-i18n",
+        checksums: checksummed_previous ? { "forkop_1.0.0.ipk": "expected" } : null };
 }
 function download_with_retry(url, path, label) { push(downloads, path); return true; }
 function command_from_args(args) { return join(" ", args); }
-function command_output_from_args(args) { check(args[0] == "dirname", "unexpected path command"); return "/"; }
+function command_output_from_args(args) {
+    if (args[0] == "sha256sum") return "mismatch  " + args[1];
+    check(args[0] == "dirname", "unexpected path command");
+    return "/";
+}
 function ensure_dir(path) { return path == "/"; }
 // This probe drives the opkg branch; the apk branch is covered separately.
 function is_apk() { return false; }
@@ -112,6 +118,7 @@ function reset() {
     marker = "";
     marker_tmp = "";
     rollback_failure = "";
+    checksummed_previous = false;
     uncommitted = "";
     forkop_was_running = true;
     service_running = true;
@@ -134,6 +141,11 @@ for (let target in [ "", "forkop", "luci-app-forkop", "luci-i18n-forkop-ru" ]) {
         check(marker == "", "restored upgrade retained recovery marker");
     }
 }
+reset(); checksummed_previous = true;
+let checksum_error = install_forkop_package_set("1.1.0", "/new/forkop_1.1.0.ipk",
+    "/new/luci-app-forkop_1.1.0.ipk", "/new/luci-i18n-forkop-ru_1.1.0.ipk");
+check(index(checksum_error, "checksum mismatch") >= 0, "bad rollback checksum was accepted");
+check(opkg_forkop_set_versions_match("1.0.0", true), "bad rollback checksum changed packages");
 reset(); uncommitted = "luci-i18n-forkop-ru";
 check(index(install_forkop_package_set("1.1.0", "/new/forkop_1.1.0.ipk",
     "/new/luci-app-forkop_1.1.0.ipk", "/new/luci-i18n-forkop-ru_1.1.0.ipk"),

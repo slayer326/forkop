@@ -2079,9 +2079,54 @@ function forkop_release_matches(package_name, version) {
         match(substr(installed, length(revision_prefix)), /^[0-9]+$/) != null);
 }
 
+// Older builds may be present on the release host without a GitHub Release.
+// Never infer a rollback set from filenames alone: require the published
+// SHA256SUMS entry for every package in the set.
+function parse_previous_forkop_checksums(version, sums, ext) {
+    if (match(as_string(version), /^[0-9]+[.][0-9]+[.][0-9]+$/) == null ||
+        (ext != "apk" && ext != "ipk"))
+        return null;
+
+    let names = [ "forkop_" + version + "." + ext,
+        "luci-app-forkop_" + version + "." + ext,
+        "luci-i18n-forkop-ru_" + version + "." + ext ];
+    let digests = {};
+    for (let line in split(as_string(sums), "\n")) {
+        let fields = split(trim(line), /[ \t]+/);
+        if (length(fields) != 2 || index(names, fields[1]) < 0)
+            continue;
+        if (digests[fields[1]] != null || match(fields[0], /^[a-f0-9]{64}$/) == null)
+            return null;
+        digests[fields[1]] = fields[0];
+    }
+
+    let assets = [];
+    for (let name in names) {
+        if (digests[name] == null)
+            return null;
+        push(assets, { name: name, sha256: digests[name],
+            browser_download_url: "/releases/" + version + "/" + name });
+    }
+    return { tag_name: version, assets: assets, checksums: digests };
+}
+
 function previous_forkop_release(version) {
     if (match(version, /^[0-9]+[.][0-9]+[.][0-9]+$/) == null)
         return null;
+    if (FORKOP_RELEASE_BASE_URL != "") {
+        let base = FORKOP_RELEASE_BASE_URL;
+        while (substr(base, length(base) - 1, 1) == "/")
+            base = substr(base, 0, length(base) - 1);
+        let release = parse_previous_forkop_checksums(version,
+            http_get(base + "/releases/" + version + "/SHA256SUMS"), pkg_set_extension());
+        if (release != null) {
+            let resolved = resolve_forkop_release_json(version, sprintf("%J", release));
+            if (resolved != null) {
+                resolved.checksums = release.checksums;
+                return resolved;
+            }
+        }
+    }
     let parts = split(FORKOP_RELEASE_REPO, "/");
     if (length(parts) != 2 || match(parts[0], /^[A-Za-z0-9_.-]+$/) == null ||
         match(parts[1], /^[A-Za-z0-9_.-]+$/) == null)
@@ -2225,14 +2270,14 @@ function forkop_package_set_space_error(new_files, staged_files) {
     return "";
 }
 
-function install_forkop_package_set(latest_version, backend_file, app_file, i18n_file) {
+function install_forkop_package_set(latest_version, backend_file, app_file, i18n_file, prechecked_previous) {
     let with_i18n = i18n_file != "";
     if (file_exists(FORKOP_OPKG_RECOVERY_DIR + "/pending"))
         return "Forkop package-set recovery is pending; a fresh component action is required";
     if (!opkg_forkop_set_versions_match(FORKOP_VERSION, with_i18n))
         return "Installed Forkop package versions are inconsistent; automatic upgrade refused";
 
-    let previous = previous_forkop_release(FORKOP_VERSION);
+    let previous = prechecked_previous != null ? prechecked_previous : previous_forkop_release(FORKOP_VERSION);
     if (previous == null || (with_i18n && previous.i18n_url == ""))
         return "Previous Forkop release packages are unavailable; automatic upgrade refused";
 
@@ -2254,6 +2299,19 @@ function install_forkop_package_set(latest_version, backend_file, app_file, i18n
         (with_i18n && !download_with_retry(previous.i18n_url, old_i18n, previous.i18n_name))) {
         command_success_from_args([ "rm", "-rf", FORKOP_OPKG_RECOVERY_DIR ]);
         return "Failed to stage previous Forkop release packages; automatic upgrade refused";
+    }
+
+    if (previous.checksums != null) {
+        for (let pair in [ [ old_backend, previous.backend_name ],
+            [ old_app, previous.app_name ], [ old_i18n, previous.i18n_name ] ]) {
+            if (pair[0] == "")
+                continue;
+            let actual = split(trim(command_output_from_args([ "sha256sum", pair[0] ])), /[ \t]+/)[0];
+            if (actual != previous.checksums[pair[1]]) {
+                command_success_from_args([ "rm", "-rf", FORKOP_OPKG_RECOVERY_DIR ]);
+                return "Previous Forkop release checksum mismatch; automatic upgrade refused";
+            }
+        }
     }
 
     let old_files = [ old_backend, old_app ];
@@ -2499,6 +2557,15 @@ function install_forkop(requested_version) {
         updates_log("Forkop configuration backup: " + backup);
     }
 
+    // A missing rollback release is a preflight failure, not a reason to
+    // interrupt the currently working service.
+    let with_i18n = i18n_file != "";
+    if (!opkg_forkop_set_versions_match(FORKOP_VERSION, with_i18n))
+        action_fail("forkop", "install", "Installed Forkop package versions are inconsistent; automatic upgrade refused", FORKOP_VERSION, latest_version);
+    let previous = previous_forkop_release(FORKOP_VERSION);
+    if (previous == null || (with_i18n && previous.i18n_url == ""))
+        action_fail("forkop", "install", "Previous Forkop release packages are unavailable; automatic upgrade refused", FORKOP_VERSION, latest_version);
+
     // Capture the exact managed sing-box process before apk/opkg runs the
     // currently installed package's prerm.
     capture_managed_upgrade_sing_box_marker();
@@ -2506,7 +2573,7 @@ function install_forkop(requested_version) {
     if (!stop_old_sing_box_before_forkop_upgrade())
         action_fail("forkop", "install", "Old sing-box processes have ambiguous ownership or did not stop", FORKOP_VERSION, latest_version);
 
-    let error = install_forkop_package_set(latest_version, backend_file, app_file, i18n_file);
+    let error = install_forkop_package_set(latest_version, backend_file, app_file, i18n_file, previous);
     if (error != "")
         action_fail("forkop", "install", error, FORKOP_VERSION, latest_version);
 
@@ -2777,6 +2844,8 @@ else if (mode == "pkg-set-extension-fixture")
 else if (mode == "forkop-release-catalog-fixture")
     print(sprintf("%J", parse_forkop_release_catalog(read_file(ARGV[1]), ARGV[2])), "
 ");
+else if (mode == "previous-forkop-checksums-fixture")
+    print(sprintf("%J", parse_previous_forkop_checksums(ARGV[1], read_file(ARGV[2]), ARGV[3])), "\n");
 else if (mode == "latest-forkop-release-json")
     print(latest_forkop_release_json());
 else if (mode == "latest-forkop-version")
