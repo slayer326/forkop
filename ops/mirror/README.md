@@ -94,10 +94,43 @@ projects. Rollback: restore that Caddyfile, restart only
 
 The home mirror uses `home/prune_stale_snapshots.py` to reclaim completed
 OpenWrt snapshots no longer referenced by public feeds. It preserves published
-and incomplete snapshots, and deletes only unlinked content-addressed objects.
+snapshots and incomplete snapshots modified in the last seven days. Older
+unfinished snapshots are removed only while holding the synchronizer lock;
+the same rule runs before each scheduled sync so abandoned attempts cannot
+accumulate indefinitely. Unreferenced dated list snapshots are removed after
+the next list snapshot is published; a broken or missing public list target
+blocks their cleanup. Published sing-box releases remain intact. Unlinked
+content-addressed objects are removed too.
 Run it without arguments for a dry-run; `--apply` performs cleanup under the
 same lock as the synchronizer. The deployed synchronizer also runs this cleanup
 before each daily refresh, so no separate cleanup timer is needed.
+
+The home synchronizer source and its tests are in `home/sync.py`,
+`home/guard.py`, `home/fast_https.py`, `home/test_sync.py`, and
+`home/test_fast_https.py`. A downloaded OpenWrt package must match the package
+index before it is published. Verification mismatches are retried with a fresh
+request. A response that ends before its declared length is retried with HTTP
+Range when a package digest or strong ETag can validate the combined file.
+Mismatched ranges are never appended. Persistent failures defer only the
+affected platform and preserve the last published feed; the journal records
+the failing package name and distinguishes incomplete transfers from content
+mismatches. Run `python3 -m unittest -q test_sync test_fast_https test_archive_sing_box`
+from `home/` on Linux before deploying a synchronizer change. Do not restart
+the web service to apply a synchronizer-only change.
+
+After OpenWrt feed work, `home/archive_sing_box.py` retains `sing-box` and
+`sing-box-tiny` IPK/APK packages from complete published feeds under
+`/forkop/sing-box-archive/blobs/<sha256>/`. Its atomic `packages.json` catalog
+lists the exact version, architecture, format and hash. Existing archived
+versions remain available when an upstream feed rotates; corrupt blobs stop
+archive publication without replacing the last catalog. The archive is not
+used as a rollback source on routers until the matching client-side change has
+passed package and router validation. Include `test_archive_sing_box` in the
+Linux test run before deploying the next synchronizer revision.
+To populate the archive once without restarting a running sync, run
+`python3 /mnt/storage/forkop-mirror/config/archive_sing_box.py --wait` as
+the dedicated mirror user. The command waits for the synchronizer lock,
+rechecks the storage mount, and publishes only verified packages.
 
 On the home server, after the synchronization service is idle:
 
@@ -105,6 +138,10 @@ On the home server, after the synchronization service is idle:
 python3 /mnt/storage/forkop-mirror/config/prune_stale_snapshots.py
 python3 /mnt/storage/forkop-mirror/config/prune_stale_snapshots.py --apply
 ```
+
+For a one-time cleanup while synchronization is active, add `--wait` to the
+`--apply` command. It waits for the same lock and rechecks the storage mount
+before deleting anything; do not run a second concurrent cleanup.
 
 Release branches `codex/release-*` build downloadable candidate artifacts without
 publishing. Tag publication is gated by backend and frontend tests. A real OpenWrt

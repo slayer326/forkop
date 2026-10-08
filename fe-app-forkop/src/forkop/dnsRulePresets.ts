@@ -30,13 +30,6 @@ export const DNS_RULE_PRESETS: readonly DnsRulePreset[] = [
     protocol: 'dot',
     server: 'common.dot.dns.yandex.net',
   },
-  { id: 'xbox', protocol: 'udp', server: '111.88.96.54' },
-  {
-    id: 'xbox_doh',
-    protocol: 'doh',
-    server: 'xbox-dns.ru/dns-query',
-  },
-  { id: 'xbox_dot', protocol: 'dot', server: 'xbox-dns.ru' },
 ];
 
 export function dnsRulePresetById(id: string): DnsRulePreset | undefined {

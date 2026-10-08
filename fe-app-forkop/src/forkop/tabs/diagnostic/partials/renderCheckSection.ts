@@ -16,7 +16,6 @@ import { checkStatus, renderStatusBadge } from '../statusLabels';
 import {
   checkAdvice,
   checkSummary,
-  groupChecks,
   provenFacts,
   type AdviceLink,
 } from '../checkCards';
@@ -109,6 +108,7 @@ export function renderCheckSection(props: Check, handlers: CheckHandlers) {
   const advice = checkAdvice(props);
   return E('div', { class: `fkp-check fkp-check--${status.tone}` }, [
     renderHead(props),
+    E('div', { class: 'fkp-check__items' }, renderItems(props)),
     ...(advice
       ? [
           E('dl', { class: 'fkp-check__advice' }, [
@@ -153,17 +153,11 @@ export function renderCheckSection(props: Check, handlers: CheckHandlers) {
         _('Copy details'),
       ),
     ]),
-    props.items.length
-      ? E('details', { class: 'fkp-check__details' }, [
-          E('summary', {}, _('All check results')),
-          E('div', { class: 'fkp-check__description' }, props.description),
-          ...renderItems(props),
-        ])
-      : '',
   ]);
 }
 
-// Passed, pending, running or unavailable: one compact line, details folded.
+// Passed checks are also visible: a user should not have to expand a group
+// to see which DNS, sing-box or nftables checks succeeded.
 export function renderCheckRow(props: Check) {
   const status = checkStatus(props.state);
   return E(
@@ -175,40 +169,28 @@ export function renderCheckRow(props: Check) {
       props.state === 'unsupported'
         ? E('div', { class: 'fkp-check__description' }, props.description)
         : '',
-      props.state === 'success' && props.items.length
-        ? E('details', { class: 'fkp-check__details' }, [
-            E('summary', {}, _('Details')),
+      ...(props.state === 'success'
+        ? [
             E('div', { class: 'fkp-check__description' }, props.description),
-            ...renderItems(props),
-          ])
-        : '',
+            E('div', { class: 'fkp-check__items' }, renderItems(props)),
+          ]
+        : []),
     ],
   );
 }
 
 export function renderChecks(checks: Check[], handlers: CheckHandlers) {
-  const groups = groupChecks(checks);
   const summary = checkSummary(checks);
   return [
     ...(summary.text
       ? [E('p', { class: 'fkp-diag-summary', role: 'status' }, summary.text)]
       : []),
-    ...groups.attention.map((check) => renderCheckSection(check, handlers)),
-    ...groups.other.map(renderCheckRow),
-    ...(groups.passed.length
-      ? [
-          E('details', { class: 'fkp-check-passed' }, [
-            E(
-              'summary',
-              {},
-              _('Passed checks: %d').replace(
-                '%d',
-                String(groups.passed.length),
-              ),
-            ),
-            ...groups.passed.map(renderCheckRow),
-          ]),
-        ]
-      : []),
+    ...[...checks]
+      .sort((a, b) => a.order - b.order)
+      .map((check) =>
+        check.state === 'error' || check.state === 'warning'
+          ? renderCheckSection(check, handlers)
+          : renderCheckRow(check),
+      ),
   ];
 }

@@ -2130,9 +2130,6 @@ function addDnsPresetChoices(option) {
   option.value("yandex", _("Yandex DNS (UDP, unencrypted)"));
   option.value("yandex_doh", _("Yandex DNS (DoH)"));
   option.value("yandex_dot", _("Yandex DNS (DoT, port 853)"));
-  option.value("xbox", _("Xbox DNS (UDP, unencrypted)"));
-  option.value("xbox_doh", _("Xbox DNS (DoH)"));
-  option.value("xbox_dot", _("Xbox DNS (DoT, port 853)"));
 }
 
 function isConnectionNetworkInterfaceAllowed(deviceName, device) {

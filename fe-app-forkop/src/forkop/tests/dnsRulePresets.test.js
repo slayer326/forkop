@@ -49,32 +49,17 @@ describe('DNS rule presets', () => {
     });
   });
 
-  it('offers only the Xbox DNS protocols documented by its operator', () => {
-    expect(dnsRulePresetById('xbox')).toEqual({
-      id: 'xbox',
-      protocol: 'udp',
-      server: '111.88.96.54',
-    });
-    expect(dnsRulePresetById('xbox_doh')).toEqual({
-      id: 'xbox_doh',
-      protocol: 'doh',
-      server: 'xbox-dns.ru/dns-query',
-    });
-    expect(dnsRulePresetById('xbox_dot')).toEqual({
-      id: 'xbox_dot',
-      protocol: 'dot',
-      server: 'xbox-dns.ru',
-    });
-    expect(dnsRulePresetById('xbox_doq')).toBeUndefined();
-    expect(DNS_SERVER_OPTIONS).toHaveProperty('111.88.96.54');
-    expect(DNS_SERVER_OPTIONS).toHaveProperty('111.88.96.55');
-    // The global list has a separate protocol selector; encrypted endpoints
-    // must not appear as one-click suggestions while it is still on UDP.
-    expect(DNS_SERVER_OPTIONS).not.toHaveProperty('xbox-dns.ru/dns-query');
-    expect(DNS_SERVER_OPTIONS).not.toHaveProperty('xbox-dns.ru');
-    expect(BOOTSTRAP_DNS_SERVER_OPTIONS).toHaveProperty('111.88.96.54');
-    expect(BOOTSTRAP_DNS_SERVER_OPTIONS).toHaveProperty('111.88.96.55');
-    expect(BOOTSTRAP_DNS_SERVER_OPTIONS).not.toHaveProperty('xbox-dns.ru');
+  it('does not suggest Xbox DNS but preserves old entries as custom values', () => {
+    for (const id of ['xbox', 'xbox_doh', 'xbox_dot']) {
+      expect(dnsRulePresetById(id)).toBeUndefined();
+    }
+    expect(dnsRulePresetId('udp', '111.88.96.54')).toBe('custom');
+    expect(dnsRulePresetId('doh', 'xbox-dns.ru/dns-query')).toBe('custom');
+    expect(dnsRulePresetId('dot', 'xbox-dns.ru')).toBe('custom');
+    for (const address of ['111.88.96.54', '111.88.96.55']) {
+      expect(DNS_SERVER_OPTIONS).not.toHaveProperty(address);
+      expect(BOOTSTRAP_DNS_SERVER_OPTIONS).not.toHaveProperty(address);
+    }
   });
 
   it('matches saved presets despite harmless casing or surrounding spaces', () => {
