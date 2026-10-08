@@ -79,6 +79,10 @@ jobs:
           find forkop/files/usr/lib -name '*.uc' -print0 | xargs -0 -n1 ucode -c -o /dev/null
           find forkop/files/usr/lib -name '*.uc' -print0 | xargs -0 -n1 ucode -S -c -o /dev/null
 
+      - name: Test home mirror synchronization and retention
+        shell: bash
+        run: python3 -m unittest discover -s ops/mirror/home -p 'test_*.py' -v
+
       - name: Run backend tests
         shell: bash
         run: |
