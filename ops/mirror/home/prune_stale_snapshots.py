@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Remove completed OpenWrt mirror snapshots no longer served publicly.
+"""Remove unreferenced mirror snapshots without touching published files.
 
 Dry-run is the default. --apply shares the mirror synchronizer's lock and
-retains every published or incomplete snapshot.
+retains every published or recently incomplete snapshot.
 """
 
 import argparse
@@ -161,15 +161,22 @@ def cleanup(data, apply=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="delete stale snapshots after safety checks")
+    parser.add_argument("--wait", action="store_true", help="wait for a running mirror sync to release its lock")
     args = parser.parse_args()
 
     guard()
     data = ROOT / "data"
     with (data / ".sync.lock").open("a") as lock:
-        try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as error:
-            raise SystemExit("Mirror synchronization is running; try later") from error
+        if args.wait:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+        else:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as error:
+                raise SystemExit("Mirror synchronization is running; try later") from error
+        # A long wait may outlive a storage unmount/remount. Never clean the
+        # underlying system disk if the dedicated mirror volume disappeared.
+        guard()
         result = cleanup(data, apply=args.apply)
     print(json.dumps(result, indent=2))
 

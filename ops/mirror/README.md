@@ -135,6 +135,10 @@ python3 /mnt/storage/forkop-mirror/config/prune_stale_snapshots.py
 python3 /mnt/storage/forkop-mirror/config/prune_stale_snapshots.py --apply
 ```
 
+For a one-time cleanup while synchronization is active, add `--wait` to the
+`--apply` command. It waits for the same lock and rechecks the storage mount
+before deleting anything; do not run a second concurrent cleanup.
+
 Release branches `codex/release-*` build downloadable candidate artifacts without
 publishing. Tag publication is gated by backend and frontend tests. A real OpenWrt
 router smoke test (upgrade, arbitrary HTTPS subscription, URLTest/Priority, latency,
