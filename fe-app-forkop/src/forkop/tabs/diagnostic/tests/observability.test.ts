@@ -506,7 +506,7 @@ describe('system checks', () => {
     expect(busyRetry?.attrs.disabled).toBe(true);
   });
 
-  it('puts problems first and folds passed checks', () => {
+  it('keeps diagnostic groups in their configured order with passed details visible', () => {
     const passed = {
       ...dnsFailed,
       code: 'NFT',
@@ -516,8 +516,9 @@ describe('system checks', () => {
     const nodes = renderChecks([passed, dnsFailed], handlers);
     expect(text(nodes[0])).toBe('Errors: 1 · Passed: 1');
     expect(text(nodes[1])).toContain('What it means');
-    expect((nodes[2] as unknown as FakeNode).tag).toBe('details');
-    expect(text(nodes[2])).toContain('Passed checks: 1');
+    expect((nodes[2] as unknown as FakeNode).tag).toBe('div');
+    expect(text(nodes[2])).toContain('Main DNS');
+    expect(text(nodes[2])).not.toContain('Passed checks: 1');
     expect(checkSummary([passed]).text).toBe('Passed: 1');
     const idle = renderCheckRow({ ...dnsFailed, state: 'skipped', items: [] });
     expect(text(idle)).toContain('Not checked');
@@ -543,11 +544,16 @@ describe('system checks', () => {
 });
 
 describe('page layout', () => {
-  it('is a single column without ignored or fake controls', () => {
+  it('keeps diagnostics and support in separate responsive columns without fake controls', () => {
     setReadonlyMode(false);
     const page = render();
     const found = ids(page);
     expect((page as unknown as FakeNode).attrs.class).toBe('fkp-diag');
+    expect(styles).toContain(
+      'grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.85fr)',
+    );
+    expect(text(page)).toContain('Troubleshooting');
+    expect(text(page)).toContain('Available actions');
     for (const id of [
       'fkp_diagnostic-page-checks',
       'fkp_diagnostic-run-reason',

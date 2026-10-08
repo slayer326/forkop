@@ -27,18 +27,18 @@ async function select(modal, value) {
     assert.equal(modal.option("_dns_preset").formvalue("rule"), "yandex");
     assert.equal(modal.active("dns_type"), false);
     assert.equal(modal.active("dns_server"), false);
-    await select(modal, "xbox_doh");
+    await select(modal, "google");
     assert.equal(modal.active("dns_type"), false);
     assert.equal(modal.active("dns_server"), false);
     await modal.save();
     assert.equal(env.uci.data.rule.dns_type, "doh");
-    assert.equal(env.uci.data.rule.dns_server, "xbox-dns.ru/dns-query");
+    assert.equal(env.uci.data.rule.dns_server, "dns.google/dns-query");
     assert.equal(env.uci.data.rule._dns_preset, undefined);
 
     const reopened = await env.openRule("rule");
-    assert.equal(reopened.option("_dns_preset").formvalue("rule"), "xbox_doh");
+    assert.equal(reopened.option("_dns_preset").formvalue("rule"), "google");
     await reopened.save();
-    assert.equal(env.uci.data.rule.dns_server, "xbox-dns.ru/dns-query");
+    assert.equal(env.uci.data.rule.dns_server, "dns.google/dns-query");
 
     const custom = await env.openRule("rule");
     await select(custom, "custom");
@@ -52,6 +52,23 @@ async function select(modal, value) {
     await custom.save();
     assert.equal(env.uci.data.rule.dns_type, "doq");
     assert.equal(env.uci.data.rule.dns_server, "dns.example.test");
+
+    const legacyEnv = createEnvironment({
+      version,
+      config: {
+        rule: rule({ dns_type: "doh", dns_server: "xbox-dns.ru/dns-query" }),
+      },
+    });
+    const legacyRule = await legacyEnv.openRule("rule");
+    assert.equal(legacyRule.option("_dns_preset").formvalue("rule"), "custom");
+    assert.equal(legacyRule.active("dns_type"), true);
+    assert.equal(legacyRule.active("dns_server"), true);
+    await legacyRule.save();
+    assert.equal(legacyEnv.uci.data.rule.dns_type, "doh");
+    assert.equal(
+      legacyEnv.uci.data.rule.dns_server,
+      "xbox-dns.ru/dns-query",
+    );
 
     const otherAction = await env.openRule("rule");
     otherAction.option("action").getUIElement("rule").setValue("block");
@@ -78,7 +95,7 @@ async function select(modal, value) {
       "interfaces",
       "wan",
     );
-    interfaceModal.setValue("_domain_dns_preset", "xbox_dot");
+    interfaceModal.setValue("_domain_dns_preset", "yandex_dot");
     interfaceModal.map.checkDepends();
     const interfaceOptions = interfaceModal.map.children[0].children;
     const field = (name) =>
@@ -89,7 +106,7 @@ async function select(modal, value) {
     assert.equal(interfaceEnv.uci.data.wan.domain_resolver_dns_type, "dot");
     assert.equal(
       interfaceEnv.uci.data.wan.domain_resolver_dns_server,
-      "xbox-dns.ru",
+      "common.dot.dns.yandex.net",
     );
   }
 })().then(

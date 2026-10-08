@@ -38,14 +38,21 @@ export const styles = `
     box-sizing: border-box;
 }
 
-.fkp-diag-help,
-.fkp-diag-details {
+.fkp-diag-primary,
+.fkp-diag-sidebar {
+    display: grid;
+    align-content: start;
+    gap: 12px;
+    min-width: 0;
+}
+
+.fkp-diag > .fkp-diag-details {
     grid-column: 1 / -1;
 }
 
 @media (min-width: 960px) {
     .fkp-diag {
-        grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+        grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.85fr);
         align-items: start;
     }
 }
@@ -54,22 +61,19 @@ export const styles = `
     text-align: left;
 }
 
-/* Service actions: a wrapping row of buttons instead of a tall column. */
+/* The utility rail mirrors the diagnostic content without squeezing checks. */
 .fkp-diag .fkp_diagnostic-page__right-bar__actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-content: flex-start;
-    gap: 6px;
+    display: grid;
+    gap: 8px;
 }
 
 .fkp-diag .fkp_diagnostic-page__right-bar__actions > b,
 .fkp-diag .fkp_diagnostic-page__right-bar__actions > p {
-    flex-basis: 100%;
     margin: 0;
 }
 
 .fkp-diag .fkp_diagnostic-page__right-bar__actions > .fkp-partial-button {
-    width: auto;
+    width: 100%;
     margin: 0;
 }
 
@@ -196,8 +200,8 @@ export const styles = `
     vertical-align: top;
 }
 
-/* System checks: problems first as full-width cards, then one-line rows;
-   passed checks fold into one group. */
+/* Show every check as its own full-width card, matching the scan order of the
+   router diagnostic rather than hiding successful checks in an accordion. */
 .fkp-diag-checks {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -227,22 +231,6 @@ export const styles = `
     margin: 0;
 }
 
-.fkp-check-passed > summary {
-    cursor: pointer;
-    color: var(--success-color-medium, green);
-}
-
-.fkp-check-passed[open] {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    align-items: start;
-    gap: 8px;
-}
-
-.fkp-check-passed[open] > summary {
-    grid-column: 1 / -1;
-}
-
 .fkp-check__advice {
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr);
@@ -265,10 +253,11 @@ export const styles = `
 }
 
 .fkp-diag-help {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: -4px;
+    display: grid;
+    gap: 8px;
 }
+
+.fkp-diag-help a { display: block; }
 
 .fkp-diag-subsection h4 {
     margin: 12px 0 4px;
@@ -288,14 +277,14 @@ export const styles = `
 
 .fkp-check {
     border: 1px solid var(--border-color-low, lightgray);
-    border-radius: 6px;
-    padding: 8px 10px;
+    border-radius: 8px;
+    padding: 12px 14px;
     min-width: 0;
 }
 
-.fkp-check--success { border-color: var(--success-color-medium, green); }
-.fkp-check--warning { border-color: var(--warn-color-medium, orange); }
-.fkp-check--error { border-color: var(--error-color-medium, red); }
+.fkp-check--success { border: 2px solid var(--success-color-medium, green); }
+.fkp-check--warning { border: 2px solid var(--warn-color-medium, orange); }
+.fkp-check--error { border: 2px solid var(--error-color-medium, red); }
 .fkp-check--loading { border-color: var(--primary-color-high, dodgerblue); }
 
 .fkp-check__head {
@@ -314,6 +303,7 @@ export const styles = `
 .fkp-check__details { margin-top: 6px; }
 .fkp-check__details > summary { cursor: pointer; }
 .fkp-check__description { margin: 4px 0; }
+.fkp-check__items { display: grid; gap: 6px; margin-top: 8px; }
 
 .fkp-check__item {
     display: grid;
@@ -339,7 +329,7 @@ export const styles = `
     margin-top: 6px;
 }
 
-.fkp_diagnostic-page__run_check_wrapper button { margin: 0; }
+.fkp_diagnostic-page__run_check_wrapper button { width: 100%; margin: 8px 0 0; }
 
 /* Reachability table: header and rows share one grid, so the action column can
    size to the real (translated) button labels; stacked cards on narrow screens. */
@@ -432,10 +422,6 @@ export const styles = `
 }
 
 .fkp_diagnostic-page__right-bar__actions {
-    border: 2px var(--background-color-low, lightgray) solid;
-    border-radius: 4px;
-    padding: 10px;
-
     display: grid;
     grid-template-columns: auto;
     grid-row-gap: 10px;
@@ -449,10 +435,6 @@ export const styles = `
 }
 
 .fkp_diagnostic-page__right-bar__system-info {
-    border: 2px var(--background-color-low, lightgray) solid;
-    border-radius: 4px;
-    padding: 10px;
-
     display: grid;
     grid-template-columns: auto;
     grid-row-gap: 10px;

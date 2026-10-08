@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-07 17:21+0300\n"
-"PO-Revision-Date: 2026-10-07 17:21+0300\n"
+"POT-Creation-Date: 2026-10-08 23:08+0300\n"
+"PO-Revision-Date: 2026-10-08 23:08+0300\n"
 "Last-Translator: slayer\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -505,6 +505,9 @@ msgstr "Автоподбор: ручное применение"
 
 msgid "Autotune: manual apply of %s"
 msgstr "Автоподбор: ручное применение %s"
+
+msgid "Available actions"
+msgstr "Доступные действия"
 
 msgid "Available to administrators only."
 msgstr "Доступно только администратору."
@@ -4064,6 +4067,9 @@ msgstr "Режим прозрачного прокси несовместим с
 msgid "Transport"
 msgstr "Транспорт"
 
+msgid "Troubleshooting"
+msgstr "Устранение неполадок"
+
 msgid "TTL must be a positive number"
 msgstr "TTL должно быть положительным числом"
 
@@ -4318,15 +4324,6 @@ msgstr "С другим действием правило не может исп
 
 msgid "Works without bypass."
 msgstr "Работает без обхода."
-
-msgid "Xbox DNS (DoH)"
-msgstr "Xbox DNS (DoH)"
-
-msgid "Xbox DNS (DoT, port 853)"
-msgstr "Xbox DNS (DoT, порт 853)"
-
-msgid "Xbox DNS (UDP, unencrypted)"
-msgstr "Xbox DNS (UDP, без шифрования)"
 
 msgid "YACD Secret Key"
 msgstr "Секретный ключ YACD"

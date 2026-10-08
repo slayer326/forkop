@@ -41,6 +41,8 @@ cat >"$WORK_DIR/fixture.json" <<'JSON'
       "enabled": "1",
       "action": "connection",
       "outbound_jsons": [ "{\"type\":\"direct\"}" ],
+      "excluded_source_ip_cidr": [ "192.0.2.133/32" ],
+      "community_lists": [ "discord" ],
       "domain_suffix": [ "vpn.example" ]
     }
   ]
@@ -51,6 +53,7 @@ generate() {
   local version="$1"
   local output="$WORK_DIR/config-$version.json"
   mkdir -p "$output.section-cache" "$output.rulesets"
+  printf '%s\n' '{"version":3,"rules":[{"ip_cidr":["192.0.2.0/24"]}]}' > "$output.rulesets/vpn-community-subnets-lists-ruleset.json"
   ucode -L "$FORKOP_LIB" "$GENERATOR" generate-config-fixture \
     "$WORK_DIR/fixture.json" "$output" "127.0.0.1" "0" "1" "" "$version"
 }
@@ -76,6 +79,12 @@ function domain_rule(rule) {
     for (let child in rule.rules || []) if (domain_rule(child)) return true;
     return false;
 }
+function no_empty_children(rule) {
+    for (let child in rule.rules || []) {
+        assert(length(child) > 0, "logical DNS rule must not contain an empty matcher");
+        no_empty_children(child);
+    }
+}
 function find(value, predicate) {
     for (let rule in rules(value)) if (predicate(rule)) return rule;
     return null;
@@ -97,6 +106,11 @@ for (let version in [ "1.12.25", "1.13.18" ]) {
 }
 
 let value = config("1.14.0");
+for (let rule in rules(value)) no_empty_children(rule);
+let excluded_evaluate = find(value, r => r.action == "evaluate" && r.server == "dns-server" &&
+    r.invert === true && contains(r.source_ip_cidr, "192.0.2.133/32"));
+assert(excluded_evaluate != null && excluded_evaluate.type == null,
+    "1.14 unconditional evaluate must preserve device exclusion without an empty logical child");
 let evaluate_index = index(value, r => r.action == "evaluate" && r.server == "dnsmasq-server" && domain_rule(r));
 let respond_index = index(value, r => r.action == "respond" && r.type == "logical" && domain_rule(r));
 let fallback_index = index(value, r => r.action == "route" && r.server == "dns-server" && domain_rule(r));

@@ -24,7 +24,7 @@ describe('wide tab layouts', () => {
       /@media \(max-width: 900px\) \{[\s\S]*?\.fkp-overview__grid \{\s*grid-template-columns: minmax\(0, 1fr\);/,
     );
     expect(diagnosticStyles).toContain(
-      'grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr)',
+      'grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.85fr)',
     );
     expect(historyStyles).toContain(
       'grid-template-columns: minmax(480px, 0.95fr) minmax(0, 1.5fr)',

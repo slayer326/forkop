@@ -296,14 +296,7 @@ var DNS_RULE_PRESETS = [
     id: "yandex_dot",
     protocol: "dot",
     server: "common.dot.dns.yandex.net"
-  },
-  { id: "xbox", protocol: "udp", server: "111.88.96.54" },
-  {
-    id: "xbox_doh",
-    protocol: "doh",
-    server: "xbox-dns.ru/dns-query"
-  },
-  { id: "xbox_dot", protocol: "dot", server: "xbox-dns.ru" }
+  }
 ];
 function dnsRulePresetById(id) {
   return DNS_RULE_PRESETS.find((preset) => preset.id === id);
@@ -1126,8 +1119,6 @@ var SECONDARY_RULESET_OPTIONS = {
 };
 var DNS_SERVER_OPTIONS = {
   "77.88.8.8": "77.88.8.8 (Yandex DNS)",
-  "111.88.96.54": "111.88.96.54 (Xbox DNS)",
-  "111.88.96.55": "111.88.96.55 (Xbox DNS backup)",
   "1.1.1.1": "1.1.1.1 (Cloudflare)",
   "8.8.8.8": "8.8.8.8 (Google)",
   "9.9.9.9": "9.9.9.9 (Quad9)",
@@ -1138,8 +1129,6 @@ var DNS_SERVER_OPTIONS = {
 var BOOTSTRAP_DNS_SERVER_OPTIONS = {
   "77.88.8.8": "77.88.8.8 (Yandex DNS)",
   "77.88.8.1": "77.88.8.1 (Yandex DNS)",
-  "111.88.96.54": "111.88.96.54 (Xbox DNS)",
-  "111.88.96.55": "111.88.96.55 (Xbox DNS backup)",
   "1.1.1.1": "1.1.1.1 (Cloudflare DNS)",
   "1.0.0.1": "1.0.0.1 (Cloudflare DNS)",
   "8.8.8.8": "8.8.8.8 (Google DNS)",
@@ -9760,76 +9749,88 @@ function renderSiteCheck() {
 }
 function render2() {
   return E("div", { id: "diagnostic-status", class: "fkp-diag" }, [
-    E("div", { class: "fkp-diag-help" }, [
+    E("div", { class: "fkp-diag-primary" }, [
+      E("section", { class: "fkp-diag-card fkp-diag-system" }, [
+        E("div", { class: "fkp-diag-card__head" }, [
+          E("div", {}, [
+            E("h3", { class: "fkp-diag-card__title" }, _("System check")),
+            E("span", {
+              id: "fkp_diagnostic-last-run",
+              class: "fkp-diag-hint",
+              role: "status"
+            })
+          ])
+        ]),
+        E("div", { id: "fkp_diagnostic-page-run-check" }),
+        E("div", {
+          id: "fkp_diagnostic-run-reason",
+          class: "fkp-diag-run-reason",
+          role: "status"
+        }),
+        E("div", {
+          class: "fkp-diag-checks",
+          id: "fkp_diagnostic-page-checks"
+        })
+      ]),
+      renderSiteCheck(),
       E(
-        "a",
-        { href: HELP_URL, target: "_blank", rel: "noopener noreferrer" },
-        _("Help")
+        "details",
+        { class: "fkp-diag-card fkp-diag-details", id: "connectivity-matrix" },
+        [
+          E("summary", {}, _("Address set for checking")),
+          E(
+            "p",
+            { class: "fkp-diag-hint" },
+            _(
+              "Checks run on the router and do not prove the path of a LAN client."
+            )
+          ),
+          E("div", { id: "connectivity-rows", class: "fkp-conn" }),
+          E("div", { class: "fkp-diag-actions" }, [
+            E(
+              "button",
+              {
+                id: "connectivity-add",
+                type: "button",
+                class: "btn cbi-button"
+              },
+              `+ ${_("Add address")}`
+            ),
+            E(
+              "button",
+              {
+                id: "connectivity-run",
+                type: "button",
+                class: "btn cbi-button cbi-button-apply"
+              },
+              _("Check all")
+            )
+          ])
+        ]
       )
     ]),
-    E("section", { class: "fkp-diag-card fkp-diag-system" }, [
-      E("div", { class: "fkp-diag-card__head" }, [
-        E("div", {}, [
-          E("h3", { class: "fkp-diag-card__title" }, _("System check")),
-          E("span", {
-            id: "fkp_diagnostic-last-run",
-            class: "fkp-diag-hint",
-            role: "status"
-          })
-        ]),
-        E("div", { id: "fkp_diagnostic-page-run-check" })
-      ]),
-      E("div", {
-        id: "fkp_diagnostic-run-reason",
-        class: "fkp-diag-run-reason",
-        role: "status"
-      }),
-      E("div", {
-        class: "fkp-diag-checks",
-        id: "fkp_diagnostic-page-checks"
-      })
-    ]),
-    renderSiteCheck(),
-    E(
-      "details",
-      { class: "fkp-diag-card fkp-diag-details", id: "connectivity-matrix" },
-      [
-        E("summary", {}, _("Address set for checking")),
+    E("aside", { class: "fkp-diag-sidebar" }, [
+      E("section", { class: "fkp-diag-card fkp-diag-help" }, [
+        E("h3", { class: "fkp-diag-card__title" }, _("Troubleshooting")),
         E(
-          "p",
-          { class: "fkp-diag-hint" },
-          _(
-            "Checks run on the router and do not prove the path of a LAN client."
-          )
-        ),
-        E("div", { id: "connectivity-rows", class: "fkp-conn" }),
-        E("div", { class: "fkp-diag-actions" }, [
-          E(
-            "button",
-            { id: "connectivity-add", type: "button", class: "btn cbi-button" },
-            `+ ${_("Add address")}`
-          ),
-          E(
-            "button",
-            {
-              id: "connectivity-run",
-              type: "button",
-              class: "btn cbi-button cbi-button-apply"
-            },
-            _("Check all")
-          )
-        ])
-      ]
-    ),
+          "a",
+          { href: HELP_URL, target: "_blank", rel: "noopener noreferrer" },
+          _("Help")
+        )
+      ]),
+      E("section", { class: "fkp-diag-card" }, [
+        E("h3", { class: "fkp-diag-card__title" }, _("Available actions")),
+        E("div", { id: "fkp_diagnostic-page-actions" })
+      ]),
+      E("section", { class: "fkp-diag-card" }, [
+        E("div", { id: "fkp_diagnostic-page-system-info" })
+      ])
+    ]),
     E(
       "details",
       { class: "fkp-diag-card fkp-diag-details", id: "technical-data" },
       [
         E("summary", {}, _("Technical data")),
-        E("div", { class: "fkp-diag-row" }, [
-          E("div", { id: "fkp_diagnostic-page-actions" }),
-          E("div", { id: "fkp_diagnostic-page-system-info" })
-        ]),
         E("div", { class: "fkp-diag-subsection", id: "dpi-playground" }, [
           E("h4", {}, _("DPI strategy syntax check")),
           ...renderDpiValidator()
@@ -10720,17 +10721,6 @@ function provenFacts(check) {
     (item) => item.value ? `${item.key}: ${item.value}` : item.key
   ) : [check.description].filter(Boolean);
 }
-var RANK = { error: 0, warning: 1 };
-function groupChecks(checks) {
-  const sorted = [...checks].sort((a, b) => a.order - b.order);
-  return {
-    attention: sorted.filter((check) => check.state === "error" || check.state === "warning").sort((a, b) => RANK[a.state] - RANK[b.state] || a.order - b.order),
-    other: sorted.filter(
-      (check) => !["error", "warning", "success"].includes(check.state)
-    ),
-    passed: sorted.filter((check) => check.state === "success")
-  };
-}
 function checkSummary(checks) {
   const count = (state) => checks.filter((check) => check.state === state).length;
   const errors = count("error");
@@ -10806,6 +10796,7 @@ function renderCheckSection(props, handlers) {
   const advice = checkAdvice(props);
   return E("div", { class: `fkp-check fkp-check--${status2.tone}` }, [
     renderHead(props),
+    E("div", { class: "fkp-check__items" }, renderItems(props)),
     ...advice ? [
       E("dl", { class: "fkp-check__advice" }, [
         E("dt", {}, _("What it means")),
@@ -10848,12 +10839,7 @@ function renderCheckSection(props, handlers) {
         },
         _("Copy details")
       )
-    ]),
-    props.items.length ? E("details", { class: "fkp-check__details" }, [
-      E("summary", {}, _("All check results")),
-      E("div", { class: "fkp-check__description" }, props.description),
-      ...renderItems(props)
-    ]) : ""
+    ])
   ]);
 }
 function renderCheckRow(props) {
@@ -10865,34 +10851,20 @@ function renderCheckRow(props) {
       renderHead(props),
       // An unsupported check explains why instead of pretending to have run.
       props.state === "unsupported" ? E("div", { class: "fkp-check__description" }, props.description) : "",
-      props.state === "success" && props.items.length ? E("details", { class: "fkp-check__details" }, [
-        E("summary", {}, _("Details")),
+      ...props.state === "success" ? [
         E("div", { class: "fkp-check__description" }, props.description),
-        ...renderItems(props)
-      ]) : ""
+        E("div", { class: "fkp-check__items" }, renderItems(props))
+      ] : []
     ]
   );
 }
 function renderChecks(checks, handlers) {
-  const groups = groupChecks(checks);
   const summary = checkSummary(checks);
   return [
     ...summary.text ? [E("p", { class: "fkp-diag-summary", role: "status" }, summary.text)] : [],
-    ...groups.attention.map((check) => renderCheckSection(check, handlers)),
-    ...groups.other.map(renderCheckRow),
-    ...groups.passed.length ? [
-      E("details", { class: "fkp-check-passed" }, [
-        E(
-          "summary",
-          {},
-          _("Passed checks: %d").replace(
-            "%d",
-            String(groups.passed.length)
-          )
-        ),
-        ...groups.passed.map(renderCheckRow)
-      ])
-    ] : []
+    ...[...checks].sort((a, b) => a.order - b.order).map(
+      (check) => check.state === "error" || check.state === "warning" ? renderCheckSection(check, handlers) : renderCheckRow(check)
+    )
   ];
 }
 
@@ -13164,14 +13136,21 @@ var styles4 = `
     box-sizing: border-box;
 }
 
-.fkp-diag-help,
-.fkp-diag-details {
+.fkp-diag-primary,
+.fkp-diag-sidebar {
+    display: grid;
+    align-content: start;
+    gap: 12px;
+    min-width: 0;
+}
+
+.fkp-diag > .fkp-diag-details {
     grid-column: 1 / -1;
 }
 
 @media (min-width: 960px) {
     .fkp-diag {
-        grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+        grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.85fr);
         align-items: start;
     }
 }
@@ -13180,22 +13159,19 @@ var styles4 = `
     text-align: left;
 }
 
-/* Service actions: a wrapping row of buttons instead of a tall column. */
+/* The utility rail mirrors the diagnostic content without squeezing checks. */
 .fkp-diag .fkp_diagnostic-page__right-bar__actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-content: flex-start;
-    gap: 6px;
+    display: grid;
+    gap: 8px;
 }
 
 .fkp-diag .fkp_diagnostic-page__right-bar__actions > b,
 .fkp-diag .fkp_diagnostic-page__right-bar__actions > p {
-    flex-basis: 100%;
     margin: 0;
 }
 
 .fkp-diag .fkp_diagnostic-page__right-bar__actions > .fkp-partial-button {
-    width: auto;
+    width: 100%;
     margin: 0;
 }
 
@@ -13322,8 +13298,8 @@ var styles4 = `
     vertical-align: top;
 }
 
-/* System checks: problems first as full-width cards, then one-line rows;
-   passed checks fold into one group. */
+/* Show every check as its own full-width card, matching the scan order of the
+   router diagnostic rather than hiding successful checks in an accordion. */
 .fkp-diag-checks {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -13353,22 +13329,6 @@ var styles4 = `
     margin: 0;
 }
 
-.fkp-check-passed > summary {
-    cursor: pointer;
-    color: var(--success-color-medium, green);
-}
-
-.fkp-check-passed[open] {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    align-items: start;
-    gap: 8px;
-}
-
-.fkp-check-passed[open] > summary {
-    grid-column: 1 / -1;
-}
-
 .fkp-check__advice {
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr);
@@ -13391,10 +13351,11 @@ var styles4 = `
 }
 
 .fkp-diag-help {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: -4px;
+    display: grid;
+    gap: 8px;
 }
+
+.fkp-diag-help a { display: block; }
 
 .fkp-diag-subsection h4 {
     margin: 12px 0 4px;
@@ -13414,14 +13375,14 @@ var styles4 = `
 
 .fkp-check {
     border: 1px solid var(--border-color-low, lightgray);
-    border-radius: 6px;
-    padding: 8px 10px;
+    border-radius: 8px;
+    padding: 12px 14px;
     min-width: 0;
 }
 
-.fkp-check--success { border-color: var(--success-color-medium, green); }
-.fkp-check--warning { border-color: var(--warn-color-medium, orange); }
-.fkp-check--error { border-color: var(--error-color-medium, red); }
+.fkp-check--success { border: 2px solid var(--success-color-medium, green); }
+.fkp-check--warning { border: 2px solid var(--warn-color-medium, orange); }
+.fkp-check--error { border: 2px solid var(--error-color-medium, red); }
 .fkp-check--loading { border-color: var(--primary-color-high, dodgerblue); }
 
 .fkp-check__head {
@@ -13440,6 +13401,7 @@ var styles4 = `
 .fkp-check__details { margin-top: 6px; }
 .fkp-check__details > summary { cursor: pointer; }
 .fkp-check__description { margin: 4px 0; }
+.fkp-check__items { display: grid; gap: 6px; margin-top: 8px; }
 
 .fkp-check__item {
     display: grid;
@@ -13465,7 +13427,7 @@ var styles4 = `
     margin-top: 6px;
 }
 
-.fkp_diagnostic-page__run_check_wrapper button { margin: 0; }
+.fkp_diagnostic-page__run_check_wrapper button { width: 100%; margin: 8px 0 0; }
 
 /* Reachability table: header and rows share one grid, so the action column can
    size to the real (translated) button labels; stacked cards on narrow screens. */
@@ -13558,10 +13520,6 @@ var styles4 = `
 }
 
 .fkp_diagnostic-page__right-bar__actions {
-    border: 2px var(--background-color-low, lightgray) solid;
-    border-radius: 4px;
-    padding: 10px;
-
     display: grid;
     grid-template-columns: auto;
     grid-row-gap: 10px;
@@ -13575,10 +13533,6 @@ var styles4 = `
 }
 
 .fkp_diagnostic-page__right-bar__system-info {
-    border: 2px var(--background-color-low, lightgray) solid;
-    border-radius: 4px;
-    padding: 10px;
-
     display: grid;
     grid-template-columns: auto;
     grid-row-gap: 10px;

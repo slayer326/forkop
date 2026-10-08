@@ -2627,6 +2627,13 @@ function exclude_sources_from_matchers(matchers, section) {
         else
             conditions[key] = value;
     }
+    // A response rule may evaluate unconditionally. Extended 1.14 rejects
+    // a logical AND with an empty child; the exclusion alone is sufficient.
+    if (length(conditions) == 0) {
+        result.source_ip_cidr = single_or_array(excluded);
+        result.invert = true;
+        return result;
+    }
     let wrapped = {
         type: "logical",
         mode: "and",
