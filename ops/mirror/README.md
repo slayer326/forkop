@@ -127,6 +127,10 @@ archive publication without replacing the last catalog. The archive is not
 used as a rollback source on routers until the matching client-side change has
 passed package and router validation. Include `test_archive_sing_box` in the
 Linux test run before deploying the next synchronizer revision.
+To populate the archive once without restarting a running sync, run
+`python3 /mnt/storage/forkop-mirror/config/archive_sing_box.py --wait` as
+the dedicated mirror user. The command waits for the synchronizer lock,
+rechecks the storage mount, and publishes only verified packages.
 
 On the home server, after the synchronization service is idle:
 

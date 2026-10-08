@@ -5,11 +5,15 @@ catalog and blobs are immutable from a router's perspective; a changed
 upstream package becomes a new SHA-256-addressed entry.
 """
 
+import argparse
+import fcntl
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
+
+from guard import ROOT, guard
 
 NAMES = ('sing-box', 'sing-box-tiny')
 VERSION = r'[0-9][A-Za-z0-9.+~_-]*'
@@ -115,3 +119,29 @@ def collect(public, snapshots, destination):
     temporary.chmod(0o644)
     os.replace(temporary, catalog_path)
     return len(entries)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--wait', action='store_true',
+                        help='wait until mirror synchronization releases its lock')
+    args = parser.parse_args()
+
+    guard()
+    data = ROOT / 'data'
+    with (data / '.sync.lock').open('a') as lock:
+        if args.wait:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+        else:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as error:
+                raise SystemExit('Mirror synchronization is running; try later') from error
+        guard()
+        retained = collect(data / 'public', data / 'snapshots' / 'openwrt',
+                           data / 'public' / 'forkop' / 'sing-box-archive')
+    print(json.dumps({'archived_packages': retained}))
+
+
+if __name__ == '__main__':
+    main()
