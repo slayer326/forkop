@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import time
 import unittest
 import urllib.error
 from unittest.mock import patch
@@ -321,6 +322,27 @@ class MirrorTests(unittest.TestCase):
                 self.assertTrue(current_object.is_file())
                 self.assertTrue(incomplete_object.is_file())
                 self.assertFalse(stale_object.exists())
+
+    def test_prunes_week_old_incomplete_snapshot_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch.object(sync, 'DATA', root), patch.object(sync, 'PUBLIC', root / 'public'):
+                old = root / 'snapshots/openwrt/feed/old'
+                recent = root / 'snapshots/openwrt/feed/recent'
+                published = root / 'snapshots/openwrt/feed/published'
+                for path in (old, recent, published):
+                    path.mkdir(parents=True)
+                (published / '.complete').write_text('ok')
+                public = root / 'public/openwrt/releases/1/packages'
+                public.parent.mkdir(parents=True)
+                public.symlink_to(os.path.relpath(published, public.parent), target_is_directory=True)
+                eight_days_ago = time.time() - 8 * 24 * 60 * 60
+                os.utime(old, (eight_days_ago, eight_days_ago))
+                result = sync.prune_openwrt_snapshots()
+                self.assertEqual(result['incomplete'], 1)
+                self.assertFalse(old.exists())
+                self.assertTrue(recent.exists())
+                self.assertTrue(published.exists())
 
     def test_prune_fails_closed_without_published_snapshots(self):
         with tempfile.TemporaryDirectory() as directory:

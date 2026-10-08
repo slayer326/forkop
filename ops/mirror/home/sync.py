@@ -27,6 +27,7 @@ import urllib.request
 from guard import ROOT, guard
 from fast_https import FastHTTPSHandler
 from archive_sing_box import collect as collect_sing_box_archive
+from prune_stale_snapshots import INCOMPLETE_MAX_AGE, cleanup_lists
 
 DATA = ROOT / 'data'
 PUBLIC = DATA / 'public'
@@ -94,15 +95,14 @@ def publish(snapshot, destination):
 
 
 def prune_openwrt_snapshots():
-    """Remove completed OpenWrt snapshots no longer exposed by the mirror.
+    """Keep published snapshots and recent partials; prune orphaned old data.
 
-    Published snapshots and every incomplete snapshot are retained. Objects are
-    content-addressed hard links, so an object with one remaining link is not
-    referenced by any snapshot and can be downloaded again if needed.
+    This runs under the synchronizer lock before downloads. An incomplete
+    snapshot older than a week no longer provides reliable restart progress.
     """
     snapshot_root = DATA / 'snapshots' / 'openwrt'
     if not snapshot_root.exists():
-        return {'snapshots': 0, 'objects': 0, 'bytes': 0}
+        return {'snapshots': 0, 'incomplete': 0, 'objects': 0, 'bytes': 0}
     snapshot_root = snapshot_root.resolve()
 
     published = set()
@@ -121,19 +121,33 @@ def prune_openwrt_snapshots():
                 published.add(target)
 
     completed = []
+    incomplete = []
     for feed in snapshot_root.iterdir():
-        if feed.is_symlink() or not feed.is_dir():
+        if feed.is_symlink():
+            raise RuntimeError('Refusing mirror cleanup because a feed is a symbolic link')
+        if not feed.is_dir():
             continue
         for snapshot in feed.iterdir():
             if snapshot.is_symlink():
                 raise RuntimeError('Refusing mirror cleanup because a snapshot is a symbolic link')
-            if snapshot.is_dir() and (snapshot / '.complete').is_file():
+            if not snapshot.is_dir():
+                continue
+            if (snapshot / '.complete').is_file():
                 completed.append(snapshot.resolve())
+            else:
+                incomplete.append(snapshot.resolve())
     if completed and not published:
         raise RuntimeError('Refusing mirror cleanup without published OpenWrt snapshots')
 
     stale = [snapshot for snapshot in completed if snapshot not in published]
-    for snapshot in stale:
+    old_partials = [snapshot for snapshot in incomplete
+                    if snapshot.stat().st_mtime < time.time() - INCOMPLETE_MAX_AGE]
+    for snapshot in stale + old_partials:
+        if not snapshot.is_relative_to(snapshot_root) or \
+                (snapshot / '.complete').is_file() != (snapshot in stale):
+            raise RuntimeError('Snapshot changed while pruning')
+        if snapshot in old_partials and snapshot.stat().st_mtime >= time.time() - INCOMPLETE_MAX_AGE:
+            raise RuntimeError('Incomplete snapshot became recent while pruning')
         shutil.rmtree(snapshot)
     for feed in snapshot_root.iterdir():
         if feed.is_dir() and not feed.is_symlink() and not any(feed.iterdir()):
@@ -144,14 +158,15 @@ def prune_openwrt_snapshots():
     object_root = DATA / 'objects'
     if object_root.exists():
         for item in object_root.iterdir():
-            if not item.is_file() or not re.fullmatch(r'[0-9a-f]{64}', item.name):
+            if item.is_symlink() or not item.is_file() or not re.fullmatch(r'[0-9a-f]{64}', item.name):
                 continue
             details = item.stat()
             if details.st_nlink == 1:
                 reclaimed += details.st_size
                 item.unlink()
                 objects += 1
-    return {'snapshots': len(stale), 'objects': objects, 'bytes': reclaimed}
+    return {'snapshots': len(stale), 'incomplete': len(old_partials),
+            'objects': objects, 'bytes': reclaimed}
 
 
 class Links(html.parser.HTMLParser):
@@ -212,9 +227,13 @@ class Mirror:
         for name in ['objects', 'requests', 'snapshots', 'staging', 'public']:
             (DATA / name).mkdir(exist_ok=True)
         pruned = prune_openwrt_snapshots()
-        if pruned['snapshots'] or pruned['objects']:
+        if pruned['snapshots'] or pruned['incomplete'] or pruned['objects']:
             print(stamp(), 'pruned stale OpenWrt snapshots=' + str(pruned['snapshots']),
+                  'incomplete=' + str(pruned['incomplete']),
                   'objects=' + str(pruned['objects']), 'bytes=' + str(pruned['bytes']), flush=True)
+        lists_pruned = cleanup_lists(DATA, apply=True)
+        if lists_pruned:
+            print(stamp(), 'pruned unreferenced list snapshots=' + str(lists_pruned), flush=True)
         # du counts hard links only once, including links shared across feeds.
         import subprocess
         # The Zapret-Manager cache is a separate service with its own size cap
@@ -562,6 +581,9 @@ class Mirror:
                     raise ValueError('Invalid binary ruleset')
             self.link(source, snapshot / name)
         publish(snapshot, PUBLIC / 'forkop/lists')
+        lists_pruned = cleanup_lists(DATA, apply=True)
+        if lists_pruned:
+            print(stamp(), 'pruned unreferenced list snapshots=' + str(lists_pruned), flush=True)
 
     def singbox(self):
         self.report('sing-box-extended')

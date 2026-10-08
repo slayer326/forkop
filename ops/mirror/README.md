@@ -94,7 +94,13 @@ projects. Rollback: restore that Caddyfile, restart only
 
 The home mirror uses `home/prune_stale_snapshots.py` to reclaim completed
 OpenWrt snapshots no longer referenced by public feeds. It preserves published
-and incomplete snapshots, and deletes only unlinked content-addressed objects.
+snapshots and incomplete snapshots modified in the last seven days. Older
+unfinished snapshots are removed only while holding the synchronizer lock;
+the same rule runs before each scheduled sync so abandoned attempts cannot
+accumulate indefinitely. Unreferenced dated list snapshots are removed after
+the next list snapshot is published; a broken or missing public list target
+blocks their cleanup. Published sing-box releases remain intact. Unlinked
+content-addressed objects are removed too.
 Run it without arguments for a dry-run; `--apply` performs cleanup under the
 same lock as the synchronizer. The deployed synchronizer also runs this cleanup
 before each daily refresh, so no separate cleanup timer is needed.
