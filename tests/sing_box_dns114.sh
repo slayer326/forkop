@@ -134,7 +134,7 @@ for (let version in [ "1.12.25", "1.13.18" ]) {
 let value = config("1.14.0");
 for (let rule in rules(value)) no_empty_children(rule);
 let discord_query = find(value, r => r.server == fakeip_tag(value) &&
-    match(sprintf("%J", r.rule_set || ""), /discord/) != null);
+    match(sprintf("%J", r), /vpn-discord-community-ruleset/) != null);
 assert(discord_query != null && discord_query.match_response == null,
     "Discord DNS must select its domain rule set before resolving shared Cloudflare IPs");
 let excluded_evaluate = find(value, r => r.action == "evaluate" && r.server == "dns-server" &&

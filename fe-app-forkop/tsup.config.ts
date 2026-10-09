@@ -34,6 +34,11 @@ export default defineConfig({
             }
         );
 
+        // LuCI (and its test harness) discover dependencies only when each
+        // require directive occupies a whole line. Whitespace minification
+        // otherwise joins them to the bundled JavaScript.
+        code = code.replace(/"require [\w.]+(?: as \w+)?";/g, (directive) => `\n${directive}\n`);
+
         fs.writeFileSync(file, code, 'utf8');
         console.log(`✅ Patched LuCI build: ${file}`);
     },
