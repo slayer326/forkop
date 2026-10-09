@@ -137,10 +137,9 @@ let discord_query = find(value, r => r.server == fakeip_tag(value) &&
     match(sprintf("%J", r), /vpn-discord-community-ruleset/) != null);
 assert(discord_query != null && discord_query.match_response == null,
     "Discord DNS must select its domain rule set before resolving shared Cloudflare IPs");
-let excluded_evaluate = find(value, r => r.action == "evaluate" && r.server == "dns-server" &&
-    r.invert === true && contains(r.source_ip_cidr, "192.0.2.133/32"));
-assert(excluded_evaluate != null && excluded_evaluate.type == null,
-    "1.14 unconditional evaluate must preserve device exclusion without an empty logical child");
+assert(discord_query.type == "logical" && discord_query.rules[1].invert === true &&
+    contains(discord_query.rules[1].source_ip_cidr, "192.0.2.133/32"),
+    "1.14 Discord DNS must preserve device exclusion in the domain query rule");
 let evaluate_index = index(value, r => r.action == "evaluate" && r.server == "dnsmasq-server" && domain_rule(r));
 let respond_index = index(value, r => r.action == "respond" && r.type == "logical" && domain_rule(r));
 let fallback_index = index(value, r => r.action == "route" && r.server == "dns-server" && domain_rule(r));
