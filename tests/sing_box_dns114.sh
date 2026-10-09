@@ -95,6 +95,32 @@ function index(value, predicate) {
     return -1;
 }
 function assert(ok, message) { if (!ok) { warn(message, "\n"); exit(1); } }
+function fakeip_tag(value) {
+    for (let server in value.dns.servers || [])
+        if (server.type == "fakeip") return server.tag;
+    return null;
+}
+function address_only(rule) {
+    if (rule.type == "logical") {
+        for (let child in rule.rules || [])
+            if (contains(child.query_type, "A") && contains(child.query_type, "AAAA")) return true;
+        return false;
+    }
+    return contains(rule.query_type, "A") && contains(rule.query_type, "AAAA");
+}
+
+for (let version in [ "1.12.25", "1.13.18", "1.14.0" ]) {
+    let value = config(version);
+    let tag = fakeip_tag(value);
+    assert(tag != null, version + " must configure a FakeIP DNS server");
+    let count = 0;
+    for (let rule in rules(value)) {
+        if (rule.server != tag) continue;
+        count++;
+        assert(address_only(rule), version + " must send only A/AAAA queries to FakeIP");
+    }
+    assert(count > 1, version + " fixture must exercise the FakeIP probe and section rules");
+}
 
 for (let version in [ "1.12.25", "1.13.18" ]) {
     let value = config(version);
@@ -107,10 +133,13 @@ for (let version in [ "1.12.25", "1.13.18" ]) {
 
 let value = config("1.14.0");
 for (let rule in rules(value)) no_empty_children(rule);
-let excluded_evaluate = find(value, r => r.action == "evaluate" && r.server == "dns-server" &&
-    r.invert === true && contains(r.source_ip_cidr, "192.0.2.133/32"));
-assert(excluded_evaluate != null && excluded_evaluate.type == null,
-    "1.14 unconditional evaluate must preserve device exclusion without an empty logical child");
+let discord_query = find(value, r => r.server == fakeip_tag(value) &&
+    match(sprintf("%J", r), /vpn-discord-community-ruleset/) != null);
+assert(discord_query != null && discord_query.match_response == null,
+    "Discord DNS must select its domain rule set before resolving shared Cloudflare IPs");
+assert(discord_query.type == "logical" && discord_query.rules[1].invert === true &&
+    contains(discord_query.rules[1].source_ip_cidr, "192.0.2.133/32"),
+    "1.14 Discord DNS must preserve device exclusion in the domain query rule");
 let evaluate_index = index(value, r => r.action == "evaluate" && r.server == "dnsmasq-server" && domain_rule(r));
 let respond_index = index(value, r => r.action == "respond" && r.type == "logical" && domain_rule(r));
 let fallback_index = index(value, r => r.action == "route" && r.server == "dns-server" && domain_rule(r));

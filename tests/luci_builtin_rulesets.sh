@@ -35,7 +35,7 @@ for (const option of currentSecondaryOptions) {
   }
 }
 
-const secondaryOptions = main.match(/var SECONDARY_RULESET_OPTIONS = \{([\s\S]*?)\n\};/);
+const secondaryOptions = main.match(/var SECONDARY_RULESET_OPTIONS\s*=\s*\{([^}]*)\};/);
 if (!secondaryOptions) {
   fail('secondary built-in rule set options are missing');
 }
@@ -50,7 +50,7 @@ for (const removed of [
   }
 }
 
-const actualSecondaryOptions = [...secondaryOptions[1].matchAll(/^  ([a-z0-9]+):/gm)]
+const actualSecondaryOptions = [...secondaryOptions[1].matchAll(/(?:^|,)\s*([a-z0-9]+)\s*:/g)]
   .map((match) => match[1])
   .sort();
 if (JSON.stringify(actualSecondaryOptions) !== JSON.stringify([...currentSecondaryOptions].sort())) {

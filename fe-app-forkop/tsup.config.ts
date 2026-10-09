@@ -15,6 +15,11 @@ export default defineConfig({
     },
     esbuildOptions(options) {
         options.legalComments = 'none';
+        // Keep identifiers and syntax stable for LuCI; trim only generated
+        // whitespace to reduce the package footprint on small flash devices.
+        options.minifyWhitespace = true;
+        options.minifyIdentifiers = false;
+        options.minifySyntax = false;
     },
     onSuccess: () => {
         const outDir =
@@ -28,6 +33,11 @@ export default defineConfig({
                 return `return baseclass.extend({${group}})`;
             }
         );
+
+        // LuCI (and its test harness) discover dependencies only when each
+        // require directive occupies a whole line. Whitespace minification
+        // otherwise joins them to the bundled JavaScript.
+        code = code.replace(/"require [\w.]+(?: as \w+)?";/g, (directive) => `\n${directive}\n`);
 
         fs.writeFileSync(file, code, 'utf8');
         console.log(`✅ Patched LuCI build: ${file}`);

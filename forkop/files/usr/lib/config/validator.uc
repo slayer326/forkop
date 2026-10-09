@@ -1788,7 +1788,6 @@ function context_from_runtime() {
         zapret2_queue_range_size: constant_value(constants, "ZAPRET2_QUEUE_RANGE_SIZE"),
         nft_fakeip_mark: constant_value(constants, "NFT_FAKEIP_MARK"),
         nft_outbound_mark: constant_value(constants, "NFT_OUTBOUND_MARK"),
-        coreutils_base64_required_version: constant_value(constants, "COREUTILS_BASE64_REQUIRED_VERSION"),
         sing_box_required_version: constant_value(constants, "SB_REQUIRED_VERSION"),
         sing_box_variant_state_file: constant_value(constants, "SB_VARIANT_STATE_FILE"),
         sing_box_version_state_file: constant_value(constants, "SB_VERSION_STATE_FILE"),
@@ -2057,7 +2056,6 @@ function check_runtime_requirements() {
     let sing_box_version = sing_box_compressed_marker_set(ctx) ? sing_box_version_state(ctx) : first_line_last_field(sing_box_version_output);
     if (sing_box_version == "")
         sing_box_version = installed_sing_box_version();
-    let coreutils_base64_version = first_line_field_from_text(command_output("base64 --version 2>/dev/null"), 4);
 
     if (sing_box_version == "") {
         if (!command_exists("sing-box") || !sing_box_compressed_marker_set(ctx))
@@ -2073,11 +2071,6 @@ function check_runtime_requirements() {
     if (!service_exists("sing-box"))
         fail_requirement("Service 'sing-box' is missing. Install a sing-box package or reinstall the compressed sing-box-extended binary variant. Aborted.", "error");
 
-
-    if (coreutils_base64_version == "")
-        fail_requirement("Package 'coreutils-base64' is not installed. Aborted.", "error");
-    else if (!version_at_least(coreutils_base64_version, ctx.coreutils_base64_required_version))
-        log_message("Package 'coreutils-base64' version (" + coreutils_base64_version + ") is lower than the required minimum (" + ctx.coreutils_base64_required_version + "). This may cause issues when decoding base64 streams with missing padding, as automatic padding support is not available in older versions.", "warn");
 
     if (dhcp_has_https_dns_proxy_options("/etc/config/dhcp") === true)
         log_message("https-dns-proxy is enabled in DHCP config. Disable it or edit /etc/config/dhcp before starting Forkop.", "error");

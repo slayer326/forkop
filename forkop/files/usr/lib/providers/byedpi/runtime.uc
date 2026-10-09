@@ -238,12 +238,15 @@ function stop_runtime() {
             BYEDPI_BIN, [ BYEDPI_BIN, "--ip", BYEDPI_LISTEN_ADDRESS, "--port" ]
         );
     }
-    for (let pidfile in pidfiles_in_dir(BYEDPI_PID_DIR))
+    let supervisor_pidfiles = pidfiles_in_dir(BYEDPI_PID_DIR);
+    let child_pidfiles = pidfiles_in_dir(BYEDPI_CHILD_PID_DIR);
+    for (let pidfile in supervisor_pidfiles)
         kill_pidfile_process(pidfile, "", true);
-    for (let pidfile in pidfiles_in_dir(BYEDPI_CHILD_PID_DIR))
+    for (let pidfile in child_pidfiles)
         kill_pidfile_process(pidfile, "", false);
 
-    command_success_from_args([ "sleep", "1" ]);
+    if (length(supervisor_pidfiles) > 0 || length(child_pidfiles) > 0)
+        command_success_from_args([ "sleep", "1" ]);
 
     for (let pidfile in pidfiles_in_dir(BYEDPI_PID_DIR))
         kill_pidfile_process(pidfile, "9", true);
