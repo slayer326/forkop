@@ -102,6 +102,11 @@ FORKOP_RULESET_CACHE_DIR="$WORK_DIR/cache" \
 FORKOP_RULESET_CACHE_MANIFEST="$WORK_DIR/cache/manifest.json" \
   ucode -L "$FORKOP_LIB" "$RULESET_CACHE_UC" refresh >/dev/null 2>&1 && fail "an identical refresh must report no change" || true
 [ ! -s "$WORK_DIR/validation.log" ] || fail "an identical download was validated again: $(cat "$WORK_DIR/validation.log")"
+binary_path="$(find "$WORK_DIR/cache" -maxdepth 1 -type f -name '*.srs' | head -n 1)"
+[ -n "$binary_path" ] || fail "binary cache is missing"
+[ "$(wc -l <"$binary_path.validated")" -eq 2 ] || fail "binary validation marker must contain a signature and SHA-256"
+[ "$(sed -n '2p' "$binary_path.validated")" = "$(sha256sum "$binary_path" | cut -d' ' -f1)" ] ||
+  fail "binary validation marker must match the cached bytes"
 # Changed bytes are still validated before they replace the cache.
 printf 'mock-srs changed\n' >"$WORK_DIR/source.srs"
 PATH="$WORK_DIR/bin:$PATH" \

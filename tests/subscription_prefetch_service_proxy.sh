@@ -19,7 +19,7 @@ set -euo pipefail
 #
 # The update is the real components/updates.uc with the real
 # subscription/cache.uc and service/state.uc. sing-box is a sleep process
-# that ubus and readlink stand-ins report as the running service; curl is a
+# that ubus reports as the running service; curl is a
 # stand-in that records its proxy and who holds reload.lock.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -58,7 +58,8 @@ export SING_BOX_PID_FILE="$WORK_DIR/sing-box.pid"
 mkdir -p "$WORK_DIR/bin" "$RUN" "$WORK_DIR/tmp"
 : >"$EVENTS"
 
-sleep 600 &
+cp "$(command -v sleep)" "$WORK_DIR/bin/sing-box"
+"$WORK_DIR/bin/sing-box" 600 &
 SING_BOX=$!
 pids+=("$SING_BOX")
 printf '%s\n' "$SING_BOX" >"$SING_BOX_PID_FILE"
@@ -68,14 +69,6 @@ cat >"$WORK_DIR/bin/ubus" <<'SH'
 #!/bin/sh
 [ -e "$PROXY_UP" ] || exit 1
 printf '{"sing-box":{"instances":{"sing-box":{"running":true,"pid":%s}}}}\n' "$(cat "$SING_BOX_PID_FILE")"
-SH
-cat >"$WORK_DIR/bin/readlink" <<'SH'
-#!/bin/sh
-if [ "$#" = 1 ] && [ "$1" = "/proc/$(cat "$SING_BOX_PID_FILE")/exe" ]; then
-  printf '/usr/bin/sing-box\n'
-  exit 0
-fi
-exec /bin/readlink "$@"
 SH
 # A request through the service proxy fails while the proxy is down or
 # $PROXY_FAILING exists (sing-box is being restarted).

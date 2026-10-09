@@ -2019,7 +2019,7 @@ forkop_install_required_space_kb() {
     missing_dependency_count=0
     for dependency in \
         ca-bundle kmod-inet-diag kmod-tun curl ucode \
-        ucode-mod-fs ucode-mod-uci kmod-nft-tproxy coreutils-base64 \
+        ucode-mod-fs ucode-mod-uci kmod-nft-tproxy \
         bind-dig nftables-json kmod-nft-nat ip-full luci-base; do
         pkg_is_installed "$dependency" ||
             missing_dependency_count=$((missing_dependency_count + 1))

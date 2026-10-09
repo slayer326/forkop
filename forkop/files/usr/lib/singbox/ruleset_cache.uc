@@ -232,9 +232,36 @@ function binary_stat_signature(path) {
     return join(":", [ stat.inode, stat.size, stat.mtime, stat.ctime ]);
 }
 
+function binary_digest(path) {
+    if (fs.stat(path) == null)
+        return "";
+    let digest = split(trim(command_output([ "sha256sum", path ])), /[ \t\r\n]+/)[0];
+    return match(as_string(digest), /^[0-9a-f]{64}$/) != null ? digest : "";
+}
+
 function mark_binary_valid(path) {
     let signature = binary_stat_signature(path);
-    return signature != "" && fs.writefile(binary_validation_path(path), signature + "\n") != null;
+    let digest = signature != "" ? binary_digest(path) : "";
+    return digest != "" && binary_stat_signature(path) == signature &&
+        fs.writefile(binary_validation_path(path), signature + "\n" + digest + "\n") != null;
+}
+
+function trusted_binary_digest(path) {
+    let signature = binary_stat_signature(path);
+    let marker = split(trim(as_string(fs.readfile(binary_validation_path(path)))), "\n");
+    if (signature == "" || length(marker) != 2 || marker[0] != signature)
+        return "";
+    let digest = binary_digest(path);
+    return digest != "" && digest == marker[1] && binary_stat_signature(path) == signature ? digest : "";
+}
+
+function reuse_binary_validation(source, target) {
+    let digest = trusted_binary_digest(source);
+    let signature = binary_stat_signature(target);
+    if (digest == "" || signature == "" || binary_digest(target) != digest ||
+        trusted_binary_digest(source) != digest || binary_stat_signature(target) != signature)
+        return false;
+    return fs.writefile(binary_validation_path(target), signature + "\n" + digest + "\n") != null;
 }
 
 function valid_binary(path) {
@@ -244,15 +271,17 @@ function valid_binary(path) {
         fs.unlink(validation_path);
         return false;
     }
-    if (trim(as_string(fs.readfile(validation_path))) == signature)
+    if (trusted_binary_digest(path) != "")
         return true;
 
     // A readable SRS is a valid one; see common.srs_validation_args(). This is
     // the cache the big remote lists land in, so not expanding them into JSON
     // is what keeps a list refresh inside the memory of a small router.
-    let ok = command_success(common.srs_validation_args(path));
+    let digest = binary_digest(path);
+    let ok = digest != "" && command_success(common.srs_validation_args(path)) &&
+        binary_stat_signature(path) == signature && binary_digest(path) == digest;
     if (ok)
-        mark_binary_valid(path);
+        fs.writefile(validation_path, signature + "\n" + digest + "\n");
     else
         fs.unlink(validation_path);
     return ok;
@@ -424,15 +453,17 @@ function commit_persistent_candidate(source, target, format) {
     let staged = target + ".download." + as_string(stamp[0]) + "." + as_string(stamp[1]);
     fs.unlink(staged);
     fs.unlink(binary_validation_path(staged));
-    if (!command_success([ "cp", source, staged ]) || !valid_cache(staged, format) || !fs.rename(staged, target)) {
+    if (!command_success([ "cp", source, staged ]) ||
+        !(format == "binary" && reuse_binary_validation(source, staged) || valid_cache(staged, format)) ||
+        !fs.rename(staged, target)) {
         fs.unlink(staged);
         fs.unlink(binary_validation_path(staged));
         return false;
     }
     fs.unlink(binary_validation_path(staged));
+    command_success([ "chmod", "0600", target ]);
     if (format == "binary")
         mark_binary_valid(target);
-    command_success([ "chmod", "0600", target ]);
     return true;
 }
 
@@ -454,12 +485,16 @@ function refresh_entry(entry, proxy_address, runtime_manifest) {
             continue;
         }
         let current = active_cache_path(runtime_manifest, url, format);
-        let old_md5 = file_md5(current);
-        let new_md5 = file_md5(temporary);
-        // The same bytes as the active cache, which was validated when it was
-        // stored: validating the download again only repeats a decompile that
-        // takes seconds for a large list.
-        let identical = old_md5 != "" && old_md5 == new_md5 && valid_cache(current, format);
+        // A matching validated digest proves the new binary is unchanged;
+        // changed or untrusted bytes still go through the sing-box parser.
+        let identical = false;
+        if (format == "binary") {
+            identical = reuse_binary_validation(current, temporary);
+        }
+        else {
+            let old_md5 = file_md5(current);
+            identical = old_md5 != "" && old_md5 == file_md5(temporary) && valid_cache(current, format);
+        }
         if (!identical && !valid_cache(temporary, format)) {
             fs.unlink(temporary);
             fs.unlink(binary_validation_path(temporary));
@@ -491,10 +526,10 @@ function refresh_entry(entry, proxy_address, runtime_manifest) {
             if (persisted)
                 fs.unlink(temporary);
             fs.unlink(binary_validation_path(temporary));
-            if (!persisted && format == "binary")
-                mark_binary_valid(target);
             if (!persisted)
                 command_success([ "chmod", "0600", target ]);
+            if (!persisted && format == "binary")
+                mark_binary_valid(target);
             let key = cache_key(url);
             if (persisted) {
                 fs.unlink(runtime_target);

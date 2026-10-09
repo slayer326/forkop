@@ -15,6 +15,11 @@ export default defineConfig({
     },
     esbuildOptions(options) {
         options.legalComments = 'none';
+        // Keep identifiers and syntax stable for LuCI; trim only generated
+        // whitespace to reduce the package footprint on small flash devices.
+        options.minifyWhitespace = true;
+        options.minifyIdentifiers = false;
+        options.minifySyntax = false;
     },
     onSuccess: () => {
         const outDir =

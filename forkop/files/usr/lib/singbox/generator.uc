@@ -478,6 +478,7 @@ function base_config(settings, service_address, runtime_context) {
         {
             action: "route",
             server: runtime_constants.FAKEIP_DNS_SERVER_TAG,
+            query_type: [ "A", "AAAA" ],
             rewrite_ttl,
             domain: [ runtime_constants.FAKEIP_TEST_DOMAIN, runtime_constants.CHECK_PROXY_IP_DOMAIN ]
         }
@@ -2425,7 +2426,9 @@ function ensure_community_ruleset(config, section_name, community) {
     }
     return {
         tag: tag_name,
-        kind: runtime_rulesets.community_kind(community)
+        // Discord's mixed set also contains shared edge IPs. Select its DNS
+        // rule by domain before resolving, not by a Cloudflare response IP.
+        kind: community == "discord" ? "domains" : runtime_rulesets.community_kind(community)
     };
 }
 
@@ -2586,6 +2589,14 @@ function add_domain_array(rule, key, values) {
 }
 
 function push_dns_matcher_rule(config, rule) {
+    // FakeIP can synthesize addresses only. Let other record types reach the
+    // normal resolver, including when source exclusions wrap a logical rule.
+    if (rule.server == runtime_constants.FAKEIP_DNS_SERVER_TAG) {
+        if (rule.type == "logical")
+            push(rule.rules, { query_type: [ "A", "AAAA" ] });
+        else
+            rule.query_type = [ "A", "AAAA" ];
+    }
     push(config.dns.rules, rule);
 }
 
