@@ -30,6 +30,7 @@ import {
   renderAvailableActions,
   renderChecks,
   renderRunAction,
+  renderServiceActions,
   renderSystemInfo,
 } from './partials';
 import { ForkopShellMethods } from '../../methods';
@@ -42,7 +43,11 @@ import { isReadonlyMode } from '../../services/accessMode.service';
 import { runSectionsCheck } from './checks/runSectionsCheck';
 import { Forkop } from '../../types';
 import { initSiteCheck } from './siteCheck';
-import { renderStartServiceAction } from '../shared/startService';
+import {
+  confirmStopForkop,
+  runForkopServiceAction,
+  setForkopAutostart,
+} from '../shared/serviceControl';
 import { initConnectivityMatrix } from './connectivityMatrix';
 import { initDpiPlayground } from './dpiPlayground';
 import {
@@ -52,7 +57,11 @@ import {
   isServiceTransitionStatus,
   shouldResetDiagnosticsChecks,
   shouldDisableDiagnosticRunAction,
+  shouldShowRestartAction,
+  shouldShowStartAction,
+  shouldShowStopAction,
   shouldSkipServicesInfoAutoRefresh,
+  serviceActionErrorText,
 } from './serviceTransition';
 import { isActiveLuciTab } from '../../helpers/isActiveLuciTab';
 import {
@@ -518,18 +527,11 @@ function renderDiagnosticRunActionWidget() {
   logger.debug('[DIAGNOSTIC]', 'renderDiagnosticRunActionWidget');
 
   const { loading } = store.get().diagnosticsRunAction;
-  const providerInfoLoaded =
-    store.get().diagnosticsSystemInfo.providerInfoLoaded;
-  const servicesInfoWidget = store.get().servicesInfoWidget;
-  const forkopRunning = Boolean(servicesInfoWidget.data.forkopRunning);
   const container = document.getElementById('fkp_diagnostic-page-run-check');
 
   const renderedAction = renderRunAction({
     loading,
     disabled: shouldDisableDiagnosticRunAction({
-      providerInfoLoaded,
-      servicesInfoLoading: servicesInfoWidget.loading,
-      forkopRunning,
       mutatingServiceActionLoading: isMutatingServiceActionLoading(),
     }),
     click: () => runChecks(),
@@ -539,27 +541,92 @@ function renderDiagnosticRunActionWidget() {
   const reason = document.getElementById('fkp_diagnostic-run-reason');
   // A disabled run button always says why.
   const blocked =
-    servicesInfoWidget.loading || loading
-      ? null
-      : !forkopRunning
-        ? {
-            text: _('Forkop X is stopped. Start it to run the checks.'),
-            actions: renderStartServiceAction(),
-          }
-        : isMutatingServiceActionLoading()
-          ? {
-              text: _('Waiting for the service action to finish.'),
-              actions: [],
-            }
-          : null;
+    !loading && isMutatingServiceActionLoading()
+      ? _('Waiting for the service action to finish.')
+      : null;
 
   return preserveScrollForPage(() => {
     container!.replaceChildren(renderedAction);
     if (lastRun) lastRun.textContent = lastRunText(localStorage);
-    reason?.replaceChildren(
-      ...(blocked ? [E('span', {}, blocked.text), ...blocked.actions] : []),
-    );
+    reason?.replaceChildren(...(blocked ? [E('span', {}, blocked)] : []));
   });
+}
+
+async function handleDiagnosticServiceAction(action: ServiceRuntimeAction) {
+  if (isReadonlyMode()) return;
+  const { servicesInfoWidget, updatesActions } = store.get();
+  const { serviceControlsDisabled } = getAvailableActionsDisabledState({
+    servicesInfoLoading: servicesInfoWidget.loading,
+    mutatingServiceActionLoading: isMutatingServiceActionLoading(),
+    componentActionLoading: hasComponentActionLoading(updatesActions),
+  });
+  if (serviceControlsDisabled) return;
+
+  const service = servicesInfoWidget.data;
+  if (
+    (action === 'start' &&
+      !shouldShowStartAction({
+        forkopRunning: Boolean(service.forkopRunning),
+        stopAvailable: Boolean(service.forkopStopAvailable),
+        restartLoading: false,
+        startLoading: false,
+        stopLoading: false,
+      })) ||
+    (action === 'restart' &&
+      !shouldShowRestartAction({
+        forkopRunning: Boolean(service.forkopRunning),
+        restartBlocked: Boolean(service.forkopRestartBlocked),
+        restartLoading: false,
+        startLoading: false,
+        stopLoading: false,
+      })) ||
+    (action === 'stop' &&
+      !shouldShowStopAction({
+        forkopRunning: Boolean(service.forkopRunning),
+        stopAvailable: Boolean(service.forkopStopAvailable),
+        restartLoading: false,
+        startLoading: false,
+        stopLoading: false,
+      }))
+  )
+    return;
+  if (action === 'stop' && !(await confirmStopForkop())) return;
+
+  setDiagnosticActionLoading(action, true, true);
+  try {
+    await runForkopServiceAction(action);
+  } catch (error) {
+    showToast(serviceActionErrorText(error), 'error', 6000);
+  } finally {
+    setDiagnosticActionLoading(action, false);
+    await refreshDiagnosticServicesInfo({ force: true, allowInactive: true });
+    resetDiagnosticsChecks();
+  }
+}
+
+async function handleDiagnosticAutostart() {
+  if (isReadonlyMode()) return;
+  const { servicesInfoWidget, updatesActions } = store.get();
+  const { serviceControlsDisabled } = getAvailableActionsDisabledState({
+    servicesInfoLoading: servicesInfoWidget.loading,
+    mutatingServiceActionLoading: isMutatingServiceActionLoading(),
+    componentActionLoading: hasComponentActionLoading(updatesActions),
+  });
+  if (serviceControlsDisabled) return;
+
+  const wanted = !servicesInfoWidget.data.forkopEnabled;
+  const action = wanted ? 'enable' : 'disable';
+  setDiagnosticActionLoading(action, true, true);
+  try {
+    if ((await setForkopAutostart(wanted)) !== wanted) {
+      showToast(_('Could not change autostart'), 'error', 6000);
+    }
+  } catch (_error) {
+    showToast(_('Could not change autostart'), 'error', 6000);
+  } finally {
+    setDiagnosticActionLoading(action, false);
+    await refreshDiagnosticServicesInfo({ force: true, allowInactive: true });
+  }
 }
 
 async function handleShowGlobalCheck() {
@@ -680,7 +747,7 @@ function renderDiagnosticAvailableActionsWidget() {
   const servicesInfoWidget = store.get().servicesInfoWidget;
   logger.debug('[DIAGNOSTIC]', 'renderDiagnosticAvailableActionsWidget');
 
-  const { utilityActionsDisabled, viewLogsDisabled } =
+  const { serviceControlsDisabled, utilityActionsDisabled, viewLogsDisabled } =
     getAvailableActionsDisabledState({
       servicesInfoLoading: servicesInfoWidget.loading,
       mutatingServiceActionLoading: isMutatingServiceActionLoading(),
@@ -688,6 +755,9 @@ function renderDiagnosticAvailableActionsWidget() {
     });
 
   const container = document.getElementById('fkp_diagnostic-page-actions');
+  const serviceContainer = document.getElementById(
+    'fkp_diagnostic-page-service-actions',
+  );
   // The read-only ACL cannot build a support report (it holds raw data).
   const readonly = isReadonlyMode();
 
@@ -718,7 +788,62 @@ function renderDiagnosticAvailableActionsWidget() {
     },
   });
 
+  const service = servicesInfoWidget.data;
+  const renderedServiceActions =
+    !readonly && serviceContainer
+      ? renderServiceActions({
+          start: {
+            loading: diagnosticsActions.start.loading,
+            visible: shouldShowStartAction({
+              forkopRunning: Boolean(service.forkopRunning),
+              stopAvailable: Boolean(service.forkopStopAvailable),
+              restartLoading: diagnosticsActions.restart.loading,
+              startLoading: diagnosticsActions.start.loading,
+              stopLoading: diagnosticsActions.stop.loading,
+            }),
+            disabled: serviceControlsDisabled,
+            onClick: () => void handleDiagnosticServiceAction('start'),
+          },
+          restart: {
+            loading: diagnosticsActions.restart.loading,
+            visible: shouldShowRestartAction({
+              forkopRunning: Boolean(service.forkopRunning),
+              restartBlocked: Boolean(service.forkopRestartBlocked),
+              restartLoading: diagnosticsActions.restart.loading,
+              startLoading: diagnosticsActions.start.loading,
+              stopLoading: diagnosticsActions.stop.loading,
+            }),
+            disabled: serviceControlsDisabled,
+            onClick: () => void handleDiagnosticServiceAction('restart'),
+          },
+          stop: {
+            loading: diagnosticsActions.stop.loading,
+            visible: shouldShowStopAction({
+              forkopRunning: Boolean(service.forkopRunning),
+              stopAvailable: Boolean(service.forkopStopAvailable),
+              restartLoading: diagnosticsActions.restart.loading,
+              startLoading: diagnosticsActions.start.loading,
+              stopLoading: diagnosticsActions.stop.loading,
+            }),
+            disabled: serviceControlsDisabled,
+            onClick: () => void handleDiagnosticServiceAction('stop'),
+          },
+          autostart: {
+            enabled: Boolean(service.forkopEnabled),
+            loading:
+              diagnosticsActions.enable.loading ||
+              diagnosticsActions.disable.loading,
+            visible: true,
+            disabled: serviceControlsDisabled,
+            onClick: () => void handleDiagnosticAutostart(),
+          },
+        })
+      : null;
+
   return preserveScrollForPage(() => {
+    if (renderedServiceActions) {
+      serviceContainer?.replaceChildren(renderedServiceActions);
+    }
     container?.replaceChildren(renderedActions);
   });
 }

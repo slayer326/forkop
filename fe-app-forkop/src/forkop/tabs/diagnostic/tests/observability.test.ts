@@ -553,9 +553,11 @@ describe('page layout', () => {
       'grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.85fr)',
     );
     expect(text(page)).toContain('Troubleshooting');
+    expect(text(page)).toContain('Service actions');
     expect(text(page)).toContain('Available actions');
     for (const id of [
       'fkp_diagnostic-page-checks',
+      'fkp_diagnostic-page-service-actions',
       'fkp_diagnostic-run-reason',
       'site-check-target',
       'site-check-device',
@@ -579,6 +581,7 @@ describe('page layout', () => {
   it('replaces the DPI validator with an explanation for read-only sessions', () => {
     setReadonlyMode(true);
     const page = render();
+    expect(ids(page)).not.toContain('fkp_diagnostic-page-service-actions');
     expect(ids(page)).not.toContain('dpi-strategy');
     expect(ids(page)).not.toContain('dpi-validate');
     expect(text(page)).toContain('Available to administrators only.');

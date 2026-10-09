@@ -170,6 +170,14 @@ export function render() {
           _('Help'),
         ),
       ]),
+      ...(!isReadonlyMode()
+        ? [
+            E('section', { class: 'fkp-diag-card' }, [
+              E('h3', { class: 'fkp-diag-card__title' }, _('Service actions')),
+              E('div', { id: 'fkp_diagnostic-page-service-actions' }),
+            ]),
+          ]
+        : []),
       E('section', { class: 'fkp-diag-card' }, [
         E('h3', { class: 'fkp-diag-card__title' }, _('Available actions')),
         E('div', { id: 'fkp_diagnostic-page-actions' }),

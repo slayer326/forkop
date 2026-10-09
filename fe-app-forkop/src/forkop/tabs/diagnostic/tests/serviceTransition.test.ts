@@ -83,21 +83,15 @@ describe('diagnostic service transitions', () => {
     ).toBe(false);
   });
 
-  it('allows diagnostics while the service is running even when autostart is disabled', () => {
+  it('allows diagnostics even when service state or provider info is unavailable', () => {
     expect(
       shouldDisableDiagnosticRunAction({
-        providerInfoLoaded: true,
-        servicesInfoLoading: false,
-        forkopRunning: true,
         mutatingServiceActionLoading: false,
       }),
     ).toBe(false);
     expect(
       shouldDisableDiagnosticRunAction({
-        providerInfoLoaded: true,
-        servicesInfoLoading: false,
-        forkopRunning: false,
-        mutatingServiceActionLoading: false,
+        mutatingServiceActionLoading: true,
       }),
     ).toBe(true);
   });

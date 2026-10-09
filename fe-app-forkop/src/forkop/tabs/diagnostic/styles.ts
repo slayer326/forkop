@@ -77,6 +77,16 @@ export const styles = `
     margin: 0;
 }
 
+.fkp-diag-service-actions {
+    display: grid;
+    gap: 8px;
+}
+
+.fkp-diag-service-actions > .fkp-partial-button {
+    width: 100%;
+    margin: 0;
+}
+
 .fkp-diag-card {
     border: 1px solid var(--border-color-medium, #777);
     border-radius: 6px;

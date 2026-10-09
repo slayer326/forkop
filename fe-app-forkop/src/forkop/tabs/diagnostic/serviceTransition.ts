@@ -49,22 +49,11 @@ export function shouldResetDiagnosticsChecks({
 }
 
 export function shouldDisableDiagnosticRunAction({
-  providerInfoLoaded,
-  servicesInfoLoading,
-  forkopRunning,
   mutatingServiceActionLoading,
 }: {
-  providerInfoLoaded: boolean;
-  servicesInfoLoading: boolean;
-  forkopRunning: boolean;
   mutatingServiceActionLoading: boolean;
 }) {
-  return (
-    !providerInfoLoaded ||
-    servicesInfoLoading ||
-    !forkopRunning ||
-    mutatingServiceActionLoading
-  );
+  return mutatingServiceActionLoading;
 }
 
 export function hasComponentActionLoading(actions: ComponentActions) {
