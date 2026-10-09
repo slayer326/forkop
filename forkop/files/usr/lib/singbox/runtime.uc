@@ -1071,6 +1071,7 @@ function init_config(populate_nft, caches_prepared, no_refresh, prepared_deferre
         exit(1);
     }
 
+    let core_version = sing_box_version();
     let generate_status = command_status(
         command_env({ FORKOP_SECTION_CACHE_DIR: generated_section_cache }) + " " + module_command([
             LIB_DIR + "/singbox/generator.uc",
@@ -1078,9 +1079,9 @@ function init_config(populate_nft, caches_prepared, no_refresh, prepared_deferre
             temp_config,
             service_listen_address_value(settings),
             mwan3_active ? "1" : "0",
-            sing_box_is_extended(sing_box_version()) ? "1" : "0",
+            sing_box_is_extended(core_version) ? "1" : "0",
             deferred_sections,
-            sing_box_version()
+            core_version
         ]) + " >" + shell_quote(runtime_log) + " 2>&1"
     );
     if (SINGBOX_CONFIG_FAIL_PHASE == "generate")
