@@ -199,7 +199,8 @@ UCODE
 cat >"$package_runtime_lib/core/uci.uc" <<'UCODE'
 function module_exports() {
   return {
-    available: function() { return false; }
+    available: function() { return false; },
+    get: function() { return "1"; }
   };
 }
 
