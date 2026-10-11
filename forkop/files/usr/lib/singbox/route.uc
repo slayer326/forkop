@@ -24,8 +24,16 @@ function config(settings, runtime) {
     if (type(runtime) == "object" && type(runtime.dns_health_inbounds) == "array")
         for (let inbound in runtime.dns_health_inbounds)
             push(sniff_inbounds, inbound);
+    let dns_hijack_inbounds = [ runtime_constants.DNS_INBOUND_TAG ];
+    if (type(runtime) == "object" && bool_value(runtime.source_aware_dns))
+        push(dns_hijack_inbounds, runtime_constants.SOURCE_DNS_INBOUND_TAG);
+    if (type(runtime) == "object" && type(runtime.dns_health_inbounds) == "array")
+        for (let inbound in runtime.dns_health_inbounds)
+            push(dns_hijack_inbounds, inbound);
     let result = {
         rules: [
+            // Dedicated DNS listeners must not depend on protocol sniffing.
+            { action: "hijack-dns", inbound: dns_hijack_inbounds },
             { action: "sniff", inbound: sniff_inbounds },
             { action: "hijack-dns", port: 53 },
             { action: "hijack-dns", protocol: "dns" }

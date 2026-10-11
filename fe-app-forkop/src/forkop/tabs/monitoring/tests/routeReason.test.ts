@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatRouteReason } from '../routeReason';
+import { customRulesetLabel, customRulesetTag } from '../rulesetLabels';
 
 describe('route reason', () => {
   it('names the matching built-in list, including hyphenated sections', () => {
@@ -25,6 +26,33 @@ describe('route reason', () => {
     expect(
       formatRouteReason('rule_set=inline-custom-123-ruleset => route(VPN-out)'),
     ).toBe('inline-custom-123-ruleset');
+  });
+
+  it('shows the custom list filename without exposing URL credentials', () => {
+    const reference = 'https://example.org/lists/twitch.srs?token=secret';
+    const tag = customRulesetTag(reference);
+    expect(
+      formatRouteReason(
+        `rule_set=${tag} => route(VPN-out)`,
+        '',
+        undefined,
+        undefined,
+        { [tag]: customRulesetLabel(reference) },
+      ),
+    ).toBe('Twitch');
+    expect(customRulesetLabel('/etc/lists/custom.json')).toBe('Custom');
+    expect(customRulesetLabel('https://example.org/?token=secret')).toBe(
+      'Custom list',
+    );
+    expect(
+      formatRouteReason(
+        'rule_set=custom',
+        'domain_suffix=ttvnw.net',
+        undefined,
+        undefined,
+        { custom: 'Twitch' },
+      ),
+    ).toBe('Twitch');
   });
 
   it('distinguishes absent metadata from a reported default route', () => {

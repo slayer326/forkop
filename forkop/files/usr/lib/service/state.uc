@@ -675,7 +675,16 @@ function sing_box_deleted_owned_service_runtime() {
 }
 
 function sing_box_process_conflict() {
-    return sing_box_process_count() > 0 && !sing_box_single_owned_service_runtime();
+    // Auxiliary version, config-check and rule-set commands use the same
+    // executable briefly. Wait for them to finish, but retain the strict
+    // procd ownership proof for every observation.
+    for (let attempt = 0; attempt <= 3; attempt++) {
+        if (sing_box_process_count() == 0 || sing_box_single_owned_service_runtime())
+            return false;
+        if (attempt < 3)
+            command_success_from_args([ "sleep", "1" ]);
+    }
+    return true;
 }
 
 function stopped_owned_pid_observation(expected_ticks, current_ticks, owned_identity, process_count, service_pid) {

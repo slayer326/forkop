@@ -40,6 +40,7 @@ import {
   type RouteRule,
 } from './connectionView';
 import { formatRouteReason } from './routeReason';
+import { customRulesetLabel, customRulesetTag } from './rulesetLabels';
 import {
   expandRouteConditions,
   type RuntimeRouteRule,
@@ -170,6 +171,7 @@ let sortMode = 'start';
 const MONITORING_PREFS_KEY = 'forkop.monitoring.preferences';
 let localDeviceChoices: LocalDeviceChoices = {};
 let routeDisplayNames: Record<string, string> = {};
+let rulesetDisplayNames: Record<string, string> = {};
 let routeSections: Array<{ sectionName: string; displayName: string }> = [];
 let routeRulesByTag: Record<string, RouteRule> = {};
 // Node tag -> the name shown in Nodes and groups (e.g. main-2-out -> NL-2).
@@ -228,6 +230,17 @@ function getDisplayName(section: Forkop.ConfigSection) {
 }
 
 function buildRouteDisplayNames(sections: Forkop.ConfigSection[]) {
+  rulesetDisplayNames = {};
+  for (const section of sections) {
+    for (const reference of [
+      ...getListValues(section.rule_set),
+      ...getListValues(section.rule_set_with_subnets),
+    ]) {
+      if (/^(?:https?:\/\/|\/)/.test(reference))
+        rulesetDisplayNames[customRulesetTag(reference)] =
+          customRulesetLabel(reference);
+    }
+  }
   const map: Record<string, string> = {
     'bypass-out': _('Bypass'),
     'direct-out': _('direct'),
@@ -428,6 +441,7 @@ function getRouteReason(connection: MonitoredConnection): string {
     connection.rulePayload,
     (value) => labels[value] || value,
     connection.metadata,
+    rulesetDisplayNames,
   );
 }
 

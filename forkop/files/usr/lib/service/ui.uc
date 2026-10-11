@@ -1134,6 +1134,9 @@ function current_ui_state_json() {
     refresh_action_dirs();
 
     let capabilities = capability_flags();
+    // The ownership check below can wait for a short-lived sing-box command.
+    // Read health afterward so LuCI reports the settled service state.
+    let restart_blocked = module_success(STATE_UC, [ "sing-box-process-conflict" ]);
     let forkop_is_running = forkop_running() ? 1 : 0;
     let forkop_is_enabled = service_enabled() ? 1 : 0;
     let sing_box_is_running = forkop_is_running ? 1 : (sing_box_running() ? 1 : 0);
@@ -1156,7 +1159,6 @@ function current_ui_state_json() {
     else if (stopped_for_component_action(forkop_is_running))
         forkop_status = "restarting";
 
-    let restart_blocked = module_success(STATE_UC, [ "sing-box-process-conflict" ]);
     // Health requires sole procd ownership, but Stop has to stay reachable
     // exactly when that check fails: something is still intercepting traffic
     // and the user needs a way to take it down.

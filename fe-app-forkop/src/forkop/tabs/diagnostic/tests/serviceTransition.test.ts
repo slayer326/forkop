@@ -165,6 +165,25 @@ describe('service action errors', () => {
     ).toBe(true);
   });
 
+  it('offers recovery for an unhealthy managed runtime but not an ambiguous one', () => {
+    const state = {
+      forkopRunning: false,
+      stopAvailable: true,
+      restartLoading: false,
+      startLoading: false,
+      stopLoading: false,
+    };
+    expect(shouldShowRestartAction({ ...state, restartBlocked: false })).toBe(
+      true,
+    );
+    expect(shouldShowRestartAction({ ...state, restartBlocked: true })).toBe(
+      false,
+    );
+    expect(shouldShowRestartAction({ ...state, stopAvailable: false })).toBe(
+      false,
+    );
+  });
+
   it('offers stop, not start, while a stray runtime is still up', () => {
     // Forkop reports unhealthy, but something is still intercepting traffic.
     expect(

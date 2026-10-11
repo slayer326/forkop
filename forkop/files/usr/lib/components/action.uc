@@ -965,8 +965,21 @@ function prepare_sing_box_package_service_install() {
     remove_managed_sing_box_service_script();
 }
 
+function managed_runtime_was_active(shutdown_correctly, managed_sing_box_running) {
+    return as_string(shutdown_correctly) == "0" && managed_sing_box_running;
+}
+
 function capture_forkop_running_state() {
-    forkop_was_running = file_exists(BIN_PATH) && forkop_status_running_with_timeout();
+    let state_module = LIB_DIR + "/service/state.uc";
+    // The API can be briefly unavailable during a core change. A managed
+    // procd sing-box process plus the lifecycle's active flag is stronger
+    // evidence than that transient API failure. Explicit Stop records 1.
+    let managed_active = managed_runtime_was_active(
+        uci_core.get(CONFIG_NAME + ".settings.shutdown_correctly"),
+        file_exists(state_module) && module_success([ state_module, "sing-box-service-running" ])
+    );
+    forkop_was_running = file_exists(BIN_PATH) &&
+        (managed_active || forkop_status_running_with_timeout());
 }
 
 function capture_managed_upgrade_sing_box_marker() {
@@ -1407,17 +1420,26 @@ function move_file_portable(source_path, target_path) {
     return true;
 }
 
-function install_staged_file(source_path, target_path, mode) {
+function install_archive_member(archive_path, member_path, target_path, mode) {
     let staged_path = as_string(target_path) + ".forkop-new." + owner_pid();
     remove_file(staged_path);
-    if (!command_success_from_args([ "cp", "-f", source_path, staged_path ]) ||
+    if (!command_success(command_from_args([ "tar", "-xzf", archive_path, "-O", member_path ]) +
+        " >" + shell_quote(staged_path)) ||
+        !file_nonempty(staged_path) ||
         !command_success_from_args([ "chmod", mode, staged_path ]) ||
         !fs.rename(staged_path, target_path)) {
         remove_file(staged_path);
         return false;
     }
-    remove_file(source_path);
     return true;
+}
+
+function archive_payload_bytes(archive_path, binary_path, library_path) {
+    let listing = command_from_args([ "tar", "-tvzf", archive_path ]);
+    let filter = "awk -v binary=" + shell_quote(binary_path) +
+        " -v library=" + shell_quote(library_path) +
+        " '$NF == binary || (library != \"\" && $NF == library) {sum += $3} END {printf \"%.0f\", sum}'";
+    return int(trim(command_output(listing + " | " + filter)));
 }
 
 function move_file_to_backup(target_path, backup_path) {
@@ -1827,43 +1849,15 @@ function install_sing_box_extended(action, compressed) {
         action_fail("sing_box", action, "sing-box binary was not found in the downloaded archive", current_version, latest_version);
     }
     let cronet_path = select_archive_member_path(archive_file, "libcronet.so");
-    let extract_error = tmp_dir + "/sing-box-extract.err";
-    let tmp_binary = tmp_dir + "/sing-box.compressed." + owner_pid();
-    let tmp_cronet = "";
-    if (!command_success(command_from_args([ "tar", "-xzf", archive_file, "-O", binary_path ]) + " >" + shell_quote(tmp_binary) + " 2>" + shell_quote(extract_error)) ||
-        !file_nonempty(tmp_binary) ||
-        !command_success_from_args([ "chmod", "0755", tmp_binary ])) {
-        for (let line in split(read_file(extract_error), "\n"))
-            if (trim(as_string(line)) != "")
-                updates_log(line);
-        remove_file(tmp_binary);
+    // Keep the archive compressed in /tmp. Measure only members that will be
+    // written to flash; unpack them there after staging the previous variant.
+    let target_bytes = archive_payload_bytes(archive_file, binary_path, cronet_path);
+    if (target_bytes <= 0) {
         remove_file(archive_file);
-        action_fail("sing_box", action, "Failed to extract " + label, current_version, latest_version);
+        action_fail("sing_box", action, "Cannot measure compressed sing-box payload", current_version, latest_version);
     }
 
-    if (cronet_path != "") {
-        tmp_cronet = tmp_dir + "/libcronet.so";
-        if (!command_success(command_from_args([ "tar", "-xzf", archive_file, "-O", cronet_path ]) + " >" + shell_quote(tmp_cronet) + " 2>" + shell_quote(extract_error)) ||
-            !file_nonempty(tmp_cronet) ||
-            !command_success_from_args([ "chmod", "0644", tmp_cronet ])) {
-            for (let line in split(read_file(extract_error), "\n"))
-                if (trim(as_string(line)) != "")
-                    updates_log(line);
-            remove_file(tmp_binary);
-            remove_file(tmp_cronet);
-            remove_file(archive_file);
-            action_fail("sing_box", action, "Failed to extract libcronet.so from sing-box-extended archive", current_version, latest_version);
-        }
-    }
-
-    remove_file(archive_file);
     stop_forkop_before_sing_box_change();
-    let new_version = validate_sing_box_extended_binary(tmp_binary, tmp_dir);
-    if (new_version == "") {
-        remove_file(tmp_binary);
-        remove_file(tmp_cronet);
-        action_fail("sing_box", action, "Downloaded " + label + " failed validation", current_version, latest_version);
-    }
 
     let backup_binary = "";
     let backup_cronet = "";
@@ -1872,8 +1866,6 @@ function install_sing_box_extended(action, compressed) {
         backup_binary = "/usr/bin/sing-box.forkop-backup." + owner_pid();
         if (!move_file_to_backup("/usr/bin/sing-box", backup_binary)) {
             remove_file(backup_binary);
-            remove_file(tmp_binary);
-            remove_file(tmp_cronet);
             remove_file(archive_file);
             action_fail("sing_box", action, "Failed to backup current sing-box binary", current_version, latest_version);
         }
@@ -1884,8 +1876,6 @@ function install_sing_box_extended(action, compressed) {
             backup_cronet = "/usr/lib/libcronet.so.forkop-backup." + owner_pid();
             if (!move_file_to_backup("/usr/lib/libcronet.so", backup_cronet)) {
                 restore_sing_box_after_failed_extended_install(current_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, archive_file, cronet_touched);
-                remove_file(tmp_binary);
-                remove_file(tmp_cronet);
                 action_fail("sing_box", action, "Failed to backup current libcronet.so", current_version, latest_version);
             }
         }
@@ -1898,29 +1888,36 @@ function install_sing_box_extended(action, compressed) {
     ]) {
         if (!run_logged_pkg_remove_sing_box_conflict(item[0], item[1])) {
             restore_sing_box_after_failed_extended_install(current_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, archive_file, cronet_touched);
-            remove_file(tmp_binary);
-            remove_file(tmp_cronet);
             action_fail("sing_box", action, "Failed to remove " + item[0] + " before " + label + " installation", current_version, latest_version);
         }
+    }
+
+    command_success_from_args([ "sync" ]);
+    let overlay_after_remove_kib = available_kib("/usr/bin");
+    let overlay_need_kib = int((target_bytes + 1023) / 1024) + 256;
+    if (overlay_after_remove_kib < overlay_need_kib) {
+        let restored = restore_sing_box_after_failed_extended_install(current_variant, backup_binary, backup_cronet,
+            previous_marker, previous_version_state, archive_file, cronet_touched);
+        action_fail("sing_box", action, "Not enough flash space for compressed sing-box: need " +
+            overlay_need_kib + " KiB free, have " + overlay_after_remove_kib + " KiB" +
+            (restored ? "" : "; previous variant could not be restored"), current_version, latest_version);
     }
 
     remove_managed_sing_box_service_script();
     if (!install_managed_sing_box_service_script()) {
         restore_sing_box_after_failed_extended_install(current_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, archive_file, cronet_touched);
-        remove_file(tmp_binary);
-        remove_file(tmp_cronet);
         action_fail("sing_box", action, "Failed to install managed sing-box service for " + label, current_version, latest_version);
     }
 
     remove_file("/usr/bin/sing-box");
-    if (!install_staged_file(tmp_binary, "/usr/bin/sing-box", "0755")) {
+    if (!install_archive_member(archive_file, binary_path, "/usr/bin/sing-box", "0755")) {
         remove_file("/usr/bin/sing-box");
         restore_sing_box_after_failed_extended_install(current_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, archive_file, cronet_touched);
         action_fail("sing_box", action, "Failed to install " + label + " binary", current_version, latest_version);
     }
-    if (tmp_cronet != "") {
+    if (cronet_path != "") {
         remove_file("/usr/lib/libcronet.so");
-        if (!install_staged_file(tmp_cronet, "/usr/lib/libcronet.so", "0644")) {
+        if (!install_archive_member(archive_file, cronet_path, "/usr/lib/libcronet.so", "0644")) {
             remove_file("/usr/lib/libcronet.so");
             restore_sing_box_after_failed_extended_install(current_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, archive_file, cronet_touched);
             action_fail("sing_box", action, "Failed to install libcronet.so for " + label, current_version, latest_version);
@@ -1928,7 +1925,7 @@ function install_sing_box_extended(action, compressed) {
     }
     remove_file(archive_file);
 
-    new_version = validate_sing_box_extended_binary("/usr/bin/sing-box", "/usr/lib");
+    let new_version = validate_sing_box_extended_binary("/usr/bin/sing-box", "/usr/lib");
     if (new_version == "") {
         if (restore_sing_box_after_failed_extended_install(current_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, archive_file, cronet_touched))
             action_fail("sing_box", action, "Installed " + label + " failed validation; previous sing-box variant was restored", current_version, latest_version);
@@ -2850,6 +2847,13 @@ else if (mode == "forkop-releases")
     forkop_releases();
 else if (mode == "available-kib-fixture")
     print(available_kib(ARGV[1]), "\n");
+else if (mode == "managed-runtime-active-fixture")
+    print(managed_runtime_was_active(ARGV[1], ARGV[2] == "1") ? "1\n" : "0\n");
+else if (mode == "archive-payload-bytes-fixture")
+    print(archive_payload_bytes(ARGV[1], ARGV[2], ARGV[3]), "\n");
+else if (mode == "archive-install-fixture") {
+    if (!install_archive_member(ARGV[1], ARGV[2], ARGV[3], "0755")) exit(1);
+}
 else if (mode == "forkop-package-set-space-error-fixture") {
     // Arguments are the new files, then "--", then the staged rollback files.
     let new_files = [];

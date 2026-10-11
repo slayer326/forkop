@@ -89,22 +89,27 @@ export function serviceActionErrorText(error: unknown) {
 
 export function shouldShowRestartAction({
   forkopRunning,
+  stopAvailable = false,
   restartBlocked = false,
   restartLoading,
   startLoading,
   stopLoading,
 }: {
   forkopRunning: boolean;
+  stopAvailable?: boolean;
   restartBlocked?: boolean;
   restartLoading: boolean;
   startLoading: boolean;
   stopLoading: boolean;
 }) {
-  // A restart cannot prove which sing-box it would be replacing, so it is
-  // withheld until the runtime has been stopped outright.
+  // An unhealthy managed runtime can be restarted, but ambiguous sing-box
+  // ownership still requires an explicit Stop first.
   return (
     restartLoading ||
-    (forkopRunning && !restartBlocked && !startLoading && !stopLoading)
+    ((forkopRunning || stopAvailable) &&
+      !restartBlocked &&
+      !startLoading &&
+      !stopLoading)
   );
 }
 

@@ -575,6 +575,7 @@ async function handleDiagnosticServiceAction(action: ServiceRuntimeAction) {
     (action === 'restart' &&
       !shouldShowRestartAction({
         forkopRunning: Boolean(service.forkopRunning),
+        stopAvailable: Boolean(service.forkopStopAvailable),
         restartBlocked: Boolean(service.forkopRestartBlocked),
         restartLoading: false,
         startLoading: false,
@@ -808,6 +809,7 @@ function renderDiagnosticAvailableActionsWidget() {
             loading: diagnosticsActions.restart.loading,
             visible: shouldShowRestartAction({
               forkopRunning: Boolean(service.forkopRunning),
+              stopAvailable: Boolean(service.forkopStopAvailable),
               restartBlocked: Boolean(service.forkopRestartBlocked),
               restartLoading: diagnosticsActions.restart.loading,
               startLoading: diagnosticsActions.start.loading,
