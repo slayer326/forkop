@@ -151,22 +151,26 @@ ucode "$WORK_DIR/action-command-success.uc" "$command_success_output" ||
 assert_eq "extracted payload" "$(cat "$command_success_output")" \
   "component command success preserves explicit output redirection"
 
+grep -Fq 'let target_bytes = archive_payload_bytes(archive_file, binary_path, cronet_path);' "$ACTION_UC" ||
+  fail "compressed sing-box must measure only the members written to flash"
+grep -Fq 'let overlay_after_remove_kib = available_kib("/usr/bin");' "$ACTION_UC" ||
+  fail "compressed sing-box must check actual flash space after removing the previous package"
+grep -Fq 'install_archive_member(archive_file, binary_path, "/usr/bin/sing-box", "0755")' "$ACTION_UC" ||
+  fail "compressed sing-box binary must be streamed to a staged flash path"
+grep -Fq 'install_archive_member(archive_file, cronet_path, "/usr/lib/libcronet.so", "0644")' "$ACTION_UC" ||
+  fail "compressed libcronet must be streamed to a staged flash path"
 awk '
 prev2 == "    remove_file(archive_file);" &&
-prev1 == "    stop_forkop_before_sing_box_change();" &&
-$0 == "    let new_version = validate_sing_box_extended_binary(tmp_binary, tmp_dir);" {
+prev1 == "" &&
+$0 == "    let new_version = validate_sing_box_extended_binary(\"/usr/bin/sing-box\", \"/usr/lib\");" {
   safe_validation = 1
 }
 { prev2 = prev1; prev1 = $0 }
 END { exit safe_validation ? 0 : 1 }
 ' "$ACTION_UC" ||
-  fail "compressed sing-box validation must release the archive and stop the running service to avoid OpenWrt OOM"
-grep -Fq 'install_staged_file(tmp_binary, "/usr/bin/sing-box", "0755")' "$ACTION_UC" ||
-  fail "compressed sing-box binary installation must support moving from tmpfs to overlay"
-grep -Fq 'install_staged_file(tmp_cronet, "/usr/lib/libcronet.so", "0644")' "$ACTION_UC" ||
-  fail "compressed libcronet installation must support moving from tmpfs to overlay"
-if grep -Fq 'fs.rename(tmp_binary, "/usr/bin/sing-box")' "$ACTION_UC"; then
-  fail "compressed sing-box installation must not rename directly across OpenWrt filesystems"
+  fail "compressed sing-box must release the archive before validating the installed binary"
+if grep -Fq 'tmp_binary = tmp_dir + "/sing-box.compressed.' "$ACTION_UC"; then
+  fail "compressed sing-box must not duplicate the full binary in tmpfs"
 fi
 grep -Fq 'let backup_on_tmpfs = previous_variant == "extended-compressed";' "$ACTION_UC" ||
   fail "package sing-box installs must move compressed backups off overlay before opkg space checks"
