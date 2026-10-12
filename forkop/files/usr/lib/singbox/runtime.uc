@@ -457,6 +457,7 @@ function managed_service_text() {
         "    [ \"$enabled\" -eq \"1\" ] || return 0\n\n" +
         "    config_get config_file \"main\" \"conffile\" \"/etc/sing-box/config.json\"\n" +
         "    config_get working_directory \"main\" \"workdir\" \"/usr/share/sing-box\"\n" +
+        "    mkdir -p \"$working_directory\" || return 1\n" +
         "    config_get_bool log_stderr \"main\" \"log_stderr\" \"1\"\n\n" +
         "    procd_open_instance\n" +
         "    procd_set_param command \"$PROG\" run -c \"$config_file\" -D \"$working_directory\"\n" +
@@ -520,6 +521,14 @@ function configure_service() {
 
     if (!ensure_sing_box_main_section())
         exit(1);
+
+    // sing-box refuses to start when its -D working directory is missing,
+    // which a fresh or compressed core install does not always create.
+    let workdir = uci_get_option("sing-box", "main", "workdir") || "/usr/share/sing-box";
+    if (!ensure_dir(workdir)) {
+        log_message("Failed to create sing-box working directory: " + workdir, "fatal");
+        exit(1);
+    }
 
     let changed = false;
     if (uci_get_option("sing-box", "main", "enabled") != "1") {

@@ -42,6 +42,38 @@ mkdir -p "$MIRROR_ROOT/updates/releases"
 rm -rf "$STAGING" "$UPDATES_STAGING"
 mkdir -p "$STAGING" "$UPDATES_STAGING"
 
+openssl ec -in "$PRIVATE_KEY" -pubout \
+    -out "$MIRROR_ROOT/forkop-apk.pem" 2>/dev/null
+# apk resolves a relative --keys-dir against its root, so pass it absolute.
+KEYS_DIR="$(cd "$MIRROR_ROOT" && pwd)"
+UNSIGNED_DIGESTS="$STAGING/.unsigned-sha256"
+: > "$UNSIGNED_DIGESTS"
+
+# Re-signing produces new bytes even for an unchanged package. Reuse the
+# signed APK already published for the same input, so republishing a
+# version never changes the hashes routers have cached for it.
+previous_signed_apk() {
+    python3 - "$UPDATES_DESTINATION/forkop-manifest.json" "$DESTINATION" "$1" "$VERSION" "$2" <<'PY'
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+manifest, destination, package, version, unsigned = sys.argv[1:]
+try:
+    assets = json.loads(Path(manifest).read_text())["assets"]
+    asset = next(a for a in assets if a["file"] == f"{package}_{version}.apk")
+    signed = Path(destination) / f"{package}-{version}.apk"
+    with signed.open("rb") as stream:
+        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+except (OSError, ValueError, KeyError, TypeError, StopIteration):
+    sys.exit(1)
+if asset.get("signed") is not True or asset.get("unsigned_sha256") != unsigned or asset.get("sha256") != digest:
+    sys.exit(1)
+print(signed)
+PY
+}
+
 for package in forkop luci-app-forkop luci-i18n-forkop-ru; do
     for extension in apk ipk; do
         source_file="$BUILD_DIRECTORY/${package}_${VERSION}.${extension}"
@@ -49,17 +81,27 @@ for package in forkop luci-app-forkop luci-i18n-forkop-ru; do
             echo "Missing package artifact: $source_file" >&2
             exit 1
         }
-        if [[ "$extension" == "apk" ]]; then
-            cp "$source_file" "$STAGING/${package}-${VERSION}.apk"
-        else
+        if [[ "$extension" != "apk" ]]; then
             cp "$source_file" "$STAGING/"
+            cp "$source_file" "$UPDATES_STAGING/${package}_${VERSION}.ipk"
+            continue
         fi
-        cp "$source_file" "$UPDATES_STAGING/${package}_${VERSION}.${extension}"
+        staged="$STAGING/${package}-${VERSION}.apk"
+        unsigned_sha256="$(sha256sum "$source_file" | awk '{print $1}')"
+        printf '%s %s\n' "${package}_${VERSION}.apk" "$unsigned_sha256" >> "$UNSIGNED_DIGESTS"
+        if previous="$(previous_signed_apk "$package" "$unsigned_sha256")"; then
+            cp "$previous" "$staged"
+        else
+            cp "$source_file" "$staged"
+        fi
+        # A second signature is never added to an already trusted package.
+        if ! "$APK_BIN" --keys-dir "$KEYS_DIR" verify "$staged" >/dev/null 2>&1; then
+            "$APK_BIN" adbsign --allow-untrusted --sign-key "$PRIVATE_KEY" "$staged"
+        fi
+        "$APK_BIN" --keys-dir "$KEYS_DIR" verify "$staged"
+        cp "$staged" "$UPDATES_STAGING/${package}_${VERSION}.apk"
     done
 done
-
-openssl ec -in "$PRIVATE_KEY" -pubout \
-    -out "$MIRROR_ROOT/forkop-apk.pem" 2>/dev/null
 
 (
     cd "$STAGING"
@@ -69,9 +111,60 @@ openssl ec -in "$PRIVATE_KEY" -pubout \
         --description "Forkop mirror packages" \
         --output packages.adb \
         ./*.apk
-    "$APK_BIN" verify --keys-dir "$MIRROR_ROOT" packages.adb
+    "$APK_BIN" verify --keys-dir "$KEYS_DIR" packages.adb
     sha256sum ./*.apk ./*.ipk packages.adb > SHA256SUMS
 )
+
+# The update directory describes itself: every package with its hash and,
+# for APK, the hash it had before signing, plus the signer's public key.
+cp "$MIRROR_ROOT/forkop-apk.pem" "$UPDATES_STAGING/forkop-apk.pem"
+python3 - "$UPDATES_STAGING" "$VERSION" "$UNSIGNED_DIGESTS" "${FORKOP_SOURCE_COMMIT:-}" <<'PY'
+import hashlib
+import json
+from pathlib import Path
+import re
+import sys
+
+directory, version, unsigned_file, source_commit = Path(sys.argv[1]), sys.argv[2], Path(sys.argv[3]), sys.argv[4]
+unsigned = dict(line.split() for line in unsigned_file.read_text().splitlines())
+
+
+def digest(path):
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+assets = []
+for extension in ("apk", "ipk"):
+    for package in ("forkop", "luci-app-forkop", "luci-i18n-forkop-ru"):
+        name = f"{package}_{version}.{extension}"
+        path = directory / name
+        asset = {
+            "file": name,
+            "package": package,
+            "format": extension,
+            "version": version,
+            "architecture": "noarch" if extension == "apk" else "all",
+            "size": path.stat().st_size,
+            "sha256": digest(path),
+        }
+        if extension == "apk":
+            asset["signed"] = True
+            asset["unsigned_sha256"] = unsigned[name]
+        assets.append(asset)
+manifest = {
+    "format": 1,
+    "version": version,
+    "apk_signed": True,
+    "signing_public_key_sha256": digest(directory / "forkop-apk.pem"),
+    "assets": assets,
+}
+if re.fullmatch(r"[0-9a-f]{40}", source_commit):
+    manifest["source_commit"] = source_commit
+(directory / "forkop-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+(directory / "SHA256SUMS").write_text("".join(f"{a['sha256']}  {a['file']}\n" for a in assets))
+PY
+rm -f "$UNSIGNED_DIGESTS"
 
 rm -rf "$DESTINATION"
 mv "$STAGING" "$DESTINATION"

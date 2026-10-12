@@ -1907,6 +1907,7 @@ function managed_sing_box_service_script(marker) {
         "\n" +
         "    config_get config_file \"main\" \"conffile\" \"/etc/sing-box/config.json\"\n" +
         "    config_get working_directory \"main\" \"workdir\" \"/usr/share/sing-box\"\n" +
+        "    mkdir -p \"$working_directory\" || return 1\n" +
         "    config_get_bool log_stderr \"main\" \"log_stderr\" \"1\"\n" +
         "\n" +
         "    procd_open_instance\n" +
