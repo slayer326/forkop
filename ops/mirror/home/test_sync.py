@@ -279,6 +279,31 @@ class MirrorTests(unittest.TestCase):
         self.assertEqual(len(m.deferred), 1)
         self.assertIn('ContentMismatch', m.deferred[0])
 
+    def test_ramips_sync_is_limited_to_25_12_5(self):
+        m = sync.Mirror.__new__(sync.Mirror)
+        m.deferred = []
+        calls = []
+
+        class KernelListing:
+            directories = {'6.12-test'}
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch.object(sync, 'PUBLIC', root), \
+                    patch.object(sync, 'RELEASES', ['24.10.5', '25.12.5']), \
+                    patch.object(sync, 'PLATFORMS', [('ramips/mt7621', 'mipsel_24kc')]), \
+                    patch.object(m, 'feed', side_effect=lambda path, index: calls.append(path)), \
+                    patch.object(m, 'links', return_value=KernelListing()), \
+                    patch.object(m, 'report'):
+                m.openwrt()
+            matrix = (root / 'openwrt/forkop-platforms.tsv').read_text()
+
+        self.assertIn('ramips/mt7621\tmipsel_24kc\t25.12.5\tapk', matrix)
+        self.assertNotIn('24.10.5', matrix)
+        self.assertTrue(calls)
+        self.assertTrue(all(path.startswith('25.12.5/') or path.startswith('packages-25.12/')
+                            for path in calls))
+
     def test_space_budget(self):
         m = sync.Mirror.__new__(sync.Mirror)
         m.used = sync.MAX_DATA
