@@ -304,6 +304,22 @@ class MirrorTests(unittest.TestCase):
         self.assertTrue(all(path.startswith('25.12.5/') or path.startswith('packages-25.12/')
                             for path in calls))
 
+    def test_run_prunes_superseded_feeds_only_after_archiving(self):
+        m = sync.Mirror.__new__(sync.Mirror)
+        m.deferred = []
+        m.status = {}
+        order = []
+        empty = {'snapshots': 0, 'incomplete': 0, 'objects': 0, 'bytes': 0}
+        with patch.object(m, 'openwrt', side_effect=lambda: order.append('openwrt')), \
+                patch.object(sync, 'collect_sing_box_archive',
+                             side_effect=lambda *args: order.append('archive') or 0), \
+                patch.object(sync, 'prune_openwrt_snapshots',
+                             side_effect=lambda: order.append('prune') or empty), \
+                patch.object(m, 'report'):
+            m.run('openwrt')
+        self.assertEqual(order, ['openwrt', 'archive', 'prune'])
+        self.assertEqual(m.status['state'], 'complete')
+
     def test_space_budget(self):
         m = sync.Mirror.__new__(sync.Mirror)
         m.used = sync.MAX_DATA
