@@ -627,29 +627,31 @@ class Mirror:
                 self.lists()
             if mode in ['openwrt', 'all']:
                 self.openwrt()
+                archive_ready = False
                 try:
                     retained = collect_sing_box_archive(
                         PUBLIC, DATA / 'snapshots' / 'openwrt',
                         PUBLIC / 'forkop' / 'sing-box-archive')
+                    archive_ready = True
                     self.report('sing-box package archive: ' + str(retained) + ' retained')
                 except (OSError, ValueError, KeyError, TypeError) as error:
                     # Do not let an optional archive invalidate complete feeds.
                     self.deferred.append('sing-box archive: ' + type(error).__name__)
                     print(stamp(), 'archive failure detail:', str(error), flush=True)
-                # Archive any older sing-box packages first, then discard only
-                # snapshots no longer referenced by the published feed links.
-                # This avoids keeping a second complete feed until tomorrow.
-                try:
-                    pruned = prune_openwrt_snapshots()
-                    if pruned['snapshots'] or pruned['incomplete'] or pruned['objects']:
-                        self.report('pruned superseded OpenWrt snapshots=' + str(pruned['snapshots']) +
-                                    ' incomplete=' + str(pruned['incomplete']) +
-                                    ' objects=' + str(pruned['objects']))
-                except (OSError, RuntimeError, ValueError) as error:
-                    # Publication is already complete; failed housekeeping must
-                    # never replace a working mirror with a failed run.
-                    self.deferred.append('snapshot cleanup: ' + type(error).__name__)
-                    print(stamp(), 'snapshot cleanup failure detail:', str(error), flush=True)
+                if archive_ready:
+                    # Keep old packages if archiving failed. Otherwise discard
+                    # only snapshots no longer referenced by published feeds.
+                    try:
+                        pruned = prune_openwrt_snapshots()
+                        if pruned['snapshots'] or pruned['incomplete'] or pruned['objects']:
+                            self.report('pruned superseded OpenWrt snapshots=' + str(pruned['snapshots']) +
+                                        ' incomplete=' + str(pruned['incomplete']) +
+                                        ' objects=' + str(pruned['objects']))
+                    except (OSError, RuntimeError, ValueError) as error:
+                        # Publication is already complete; failed housekeeping
+                        # must never replace a working mirror with a failed run.
+                        self.deferred.append('snapshot cleanup: ' + type(error).__name__)
+                        print(stamp(), 'snapshot cleanup failure detail:', str(error), flush=True)
             if self.deferred:
                 # Everything published is complete; some platforms simply did
                 # not finish this run and stay due for the next one.

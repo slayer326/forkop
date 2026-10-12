@@ -320,6 +320,18 @@ class MirrorTests(unittest.TestCase):
         self.assertEqual(order, ['openwrt', 'archive', 'prune'])
         self.assertEqual(m.status['state'], 'complete')
 
+    def test_run_preserves_old_feeds_if_archiving_fails(self):
+        m = sync.Mirror.__new__(sync.Mirror)
+        m.deferred = []
+        m.status = {}
+        with patch.object(m, 'openwrt'), \
+                patch.object(sync, 'collect_sing_box_archive', side_effect=ValueError('bad archive')), \
+                patch.object(sync, 'prune_openwrt_snapshots') as prune, \
+                patch.object(m, 'report'):
+            m.run('openwrt')
+        prune.assert_not_called()
+        self.assertEqual(m.status['state'], 'incomplete')
+
     def test_space_budget(self):
         m = sync.Mirror.__new__(sync.Mirror)
         m.used = sync.MAX_DATA
