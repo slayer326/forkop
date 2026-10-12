@@ -91,6 +91,18 @@ Forkop никогда не трогает sing-box, который ему не �
 | Ядро | sing-box (по умолчанию tiny), extended как опция |
 | Память | работает на роутерах с 256 МБ |
 
+## Благодарности
+
+Forkop X построен на работе других авторов. Спасибо им:
+
+- [itdoginfo/podkop](https://github.com/itdoginfo/podkop) — Podkop, с которого всё началось, и списки доменов [itdoginfo/allow-domains](https://github.com/itdoginfo/allow-domains).
+- [ushan0v/forkop](https://github.com/ushan0v/forkop) — Forkop (бывший Podkop Plus), основа этой сборки, и набор правил [ushan0v/sing-box-supercell-ruleset](https://github.com/ushan0v/sing-box-supercell-ruleset).
+- [Screamshow/forkop-x](https://github.com/Screamshow/forkop-x) — Forkop X: отсюда перенесены многие исправления, а [Screamshow/Zapret-Manager](https://github.com/Screamshow/Zapret-Manager) используется для установки обхода DPI. Оригинал менеджера — [StressOzz/Zapret-Manager](https://github.com/StressOzz/Zapret-Manager).
+- [SagerNet/sing-box](https://github.com/SagerNet/sing-box) и [shtorm-7/sing-box-extended](https://github.com/shtorm-7/sing-box-extended) — ядро маршрутизации.
+- [bol-van/zapret](https://github.com/bol-van/zapret), [bol-van/zapret2](https://github.com/bol-van/zapret2), [remittor/zapret-openwrt](https://github.com/remittor/zapret-openwrt) и [hufrea/byedpi](https://github.com/hufrea/byedpi) — обход DPI.
+- [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat), [zxc-rv/ad-filter](https://github.com/zxc-rv/ad-filter) и [Greeg0ry/b4geoip-forkop](https://github.com/Greeg0ry/b4geoip-forkop) — списки маршрутизации.
+- [OpenWrt](https://github.com/openwrt/openwrt), [LuCI](https://github.com/openwrt/luci) и [ucode](https://github.com/ucode-lang/ucode).
+
 ## Обратная связь
 
 Проблемы и предложения — в [Issues](https://github.com/slayer326/forkop/issues). К отчёту полезно приложить файл из **Diagnostics → Скачать отчёт для поддержки**; перед публикацией проверьте его — там могут быть приватные данные.
