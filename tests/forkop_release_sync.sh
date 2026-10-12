@@ -85,6 +85,26 @@ grep -Fq '"browser_download_url": "$PUBLIC_BASE_URL/updates/releases/$VERSION/' 
   echo "release publisher does not emit absolute package URLs" >&2
   exit 1
 }
+grep -Fq 'adbsign --allow-untrusted --sign-key "$PRIVATE_KEY" "$staged"' "$PUBLISH" || {
+  echo "release publisher does not sign APK packages" >&2
+  exit 1
+}
+grep -Fq 'verify "$staged" >/dev/null 2>&1; then' "$PUBLISH" || {
+  echo "release publisher may add a second signature to a signed package" >&2
+  exit 1
+}
+grep -Fq 'cp "$staged" "$UPDATES_STAGING/${package}_${VERSION}.apk"' "$PUBLISH" || {
+  echo "release publisher does not serve the signed APK to updaters" >&2
+  exit 1
+}
+grep -Fq 'forkop-manifest.json' "$PUBLISH" || {
+  echo "release publisher does not write a release manifest" >&2
+  exit 1
+}
+grep -Fq 'asset.get("unsigned_sha256") != unsigned' "$PUBLISH" || {
+  echo "release publisher does not reuse signed packages of an unchanged input" >&2
+  exit 1
+}
 grep -Fq 'FORKOP_APK_PRIVATE_KEY=/mnt/storage/forkop-mirror/keys/forkop-apk.pem' "$SERVICE" || {
   echo "release service does not isolate its signing key path" >&2
   exit 1

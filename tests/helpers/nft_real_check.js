@@ -96,7 +96,9 @@ const modes = {
     // The outbound (autotune probe) mark leaves mangle_output before anything
     // can re-mark, jump or queue it.
     const out = rulesOf(table, 'mangle_output');
-    const bypass = out.findIndex((r) => exactMark(r) === outbound && verdict(r) === 'return');
+    // Tested as a single bit, so policy routers' own mark bits do not hide it.
+    const ownBit = (r) => { const m = maskedMark(r); return m !== null && m.mask === outbound && m.value === outbound; };
+    const bypass = out.findIndex((r) => ownBit(r) && verdict(r) === 'return');
     assert.ok(bypass >= 0, 'mangle_output has no outbound mark bypass');
     out.forEach((r, i) => {
       if (setsMark(r) !== null || statementOf(r, 'jump') || statementOf(r, 'queue') || (exactMark(r) !== null && exactMark(r) !== outbound))

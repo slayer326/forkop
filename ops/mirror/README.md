@@ -59,7 +59,13 @@ a full successful synchronization first.
 `https://fold8.ru/forkop/updates/latest.json`, constrains package URLs to that
 release directory, verifies SHA-256 for all six packages, and calls
 `publish-forkop-feed.sh` to create the signed APK repository under
-`/forkop/mirror/current/`. The publisher also builds an atomic
+`/forkop/mirror/current/`. Each APK is signed with the mirror key before it is
+indexed (`apk adbsign`), unless it already verifies against that key. If a
+version is published again from the same input, the signed package from the
+earlier run is reused, so its hashes stay the same. The update directory also
+gets `forkop-manifest.json` (each package's size, hash and, for APK, its
+unsigned hash), the public key `forkop-apk.pem` and `SHA256SUMS`. Set
+`FORKOP_SOURCE_COMMIT` to record the source commit. The publisher also builds an atomic
 `/forkop/updates/releases.json` catalog from complete local release sets. Run it with
 `forkop-release-sync.service` after placing the OpenWrt host `apk` tool at the
 configured path. The release service does not build packages on the mirror host.
