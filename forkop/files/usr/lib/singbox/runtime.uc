@@ -1194,6 +1194,8 @@ else if (mode == "restore-config-stage")
     exit(restore_config_stage(ARGV[1] || "") ? 0 : 1);
 else if (mode == "discard-config-stage")
     exit(discard_config_stage(ARGV[1] || "") ? 0 : 1);
+else if (mode == "publish-section-cache")
+    exit(publish_section_cache(ARGV[1] || "") ? 0 : 1);
 else if (mode == "save-config-file-fixture")
     exit(save_config_file(ARGV[1] || "", ARGV[2] || "") ? 0 : 1);
 else if (mode == "publish-section-cache-fixture")

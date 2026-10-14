@@ -2,6 +2,16 @@ import { describe, expect, it, vi } from 'vitest';
 import { StoreService } from '../store.service';
 
 describe('StoreService', () => {
+  it('preserves unchanged data references when another key changes', () => {
+    const store = new StoreService({
+      light: { value: 1 },
+      heavy: { items: [{ id: 1 }] },
+    });
+    const original = store.get().heavy;
+    store.set({ light: { value: 2 }, heavy: { items: [{ id: 1 }] } });
+    expect(store.get().heavy).toBe(original);
+  });
+
   it('diffs only keys provided to set', () => {
     const store = new StoreService({
       light: { value: 1 },

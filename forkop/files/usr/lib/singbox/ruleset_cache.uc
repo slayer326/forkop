@@ -417,7 +417,8 @@ function bootstrap_resolve(url) {
 }
 
 function download_candidate(url, target, proxy_address, resolve) {
-    let args = [ "curl", "--fail", "--location", "--silent", "--show-error", "--connect-timeout", "8", "--max-time", "30" ];
+    let args = [ "curl", "--fail", "--location", "--silent", "--show-error", "--connect-timeout", "8", "--max-time", "30",
+        "--speed-time", "15", "--speed-limit", "1" ];
     if (as_string(proxy_address) != "")
         push(args, "--proxy", "http://" + as_string(proxy_address));
     if (resolve != null) {

@@ -1019,6 +1019,9 @@ msgstr "Отдельная cgroup недоступна"
 msgid "Default address for checking server availability and latency. URLTest uses its own address."
 msgstr "Адрес по умолчанию для проверки доступности и задержки серверов. Для URLTest используется собственный адрес."
 
+msgid "All traffic from device"
+msgstr "Весь трафик устройства"
+
 msgid "Default route"
 msgstr "Маршрут по умолчанию"
 

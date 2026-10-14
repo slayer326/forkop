@@ -4374,6 +4374,48 @@ function subscription_stop_auxiliary_runtimes() {
     module_success([ PRIORITY_UC, "stop-runtime" ]);
 }
 
+function subscription_config_value(value) {
+    if (type(value) == "array")
+        return map(value, item => subscription_config_value(item));
+    if (type(value) != "object")
+        return value;
+    let result = {};
+    for (let key in sort(keys(value)))
+        result[key] = subscription_config_value(value[key]);
+    return result;
+}
+
+// Build the configuration the updated caches would produce and compare it,
+// whole, with the running one. A refresh that changes nothing in it (the same
+// servers, selectors, URLTest, DNS and routing) needs no reload, so the
+// clients' open connections survive it.
+function subscription_runtime_change_check(config_path) {
+    // Do not treat a stopped or foreign runtime as an already applied config.
+    if (!service_state_success([ "sing-box-current-owned-service-runtime" ]))
+        return { ok: true, changed: true };
+    let work = trim(command_output_from_args([ "mktemp", "-d", "/tmp/forkop-subscription-check.XXXXXX" ]));
+    if (work == "")
+        return { ok: false, changed: true };
+    if (!fs.chmod(work, 0700)) {
+        command_success_from_args([ "rm", "-rf", work ]);
+        return { ok: false, changed: true };
+    }
+    let stage = work + "/candidate.json";
+    let prepared = singbox_runtime_success([ "prepare-config-stage", "0", "1", "1", "", stage ]);
+    let current = read_json_file(config_path);
+    let candidate = prepared ? read_json_file(stage) : null;
+    let valid = type(current) == "object" && type(current.outbounds) == "array" &&
+        type(candidate) == "object" && type(candidate.outbounds) == "array";
+    // Equal proxy signatures alone cannot justify skipping the reload.
+    let unchanged = valid && sprintf("%J", subscription_config_value(current)) ==
+        sprintf("%J", subscription_config_value(candidate));
+    // The running config stays; its section cache still follows the new data.
+    let published = !unchanged || singbox_runtime_success([ "publish-section-cache", stage ]);
+    singbox_runtime_success([ "discard-config-stage", stage ]);
+    command_success_from_args([ "rm", "-rf", work ]);
+    return { ok: prepared && valid && published, changed: !unchanged };
+}
+
 function subscription_update_common_locked(force, target_section, target_source_index) {
     subscription_outbounds_changed = false;
     let sing_box_config_path = option(uci_settings(), "config_path", "");
@@ -4400,6 +4442,14 @@ function subscription_update_common_locked(force, target_section, target_source_
             return true;
         }
         log_message("Subscription cache was updated; Forkop is stopped, so its runtime was left unchanged", "info");
+        return true;
+    }
+
+    let change = subscription_runtime_change_check(sing_box_config_path);
+    if (!change.ok)
+        log_message("Cannot compare the updated subscription configuration; applying it with a reload", "warn");
+    else if (!change.changed) {
+        log_message("Subscription cache refreshed; generated runtime configuration is unchanged, reload skipped", "info");
         return true;
     }
 
