@@ -55,6 +55,16 @@ if cache_ucode user-agent-matches-config "" Mihomo "$default_ua" >/dev/null 2>&1
 fi
 cache_ucode user-agent-matches-config "" Happ/2.8.0 "$default_ua" >/dev/null ||
   fail "legacy Happ compatibility UA should keep existing caches usable"
+cache_ucode user-agent-matches-config "" sing-box/1.11.4 "$default_ua" >/dev/null ||
+  fail "a cache saved by an older sing-box should stay usable after a core upgrade"
+cache_ucode user-agent-matches-config "" Happ/1.0.48 "$default_ua" >/dev/null ||
+  fail "a cache saved by an older Forkop should stay usable after a package upgrade"
+if cache_ucode user-agent-matches-config "" "sing-box/" "$default_ua" >/dev/null 2>&1; then
+  fail "an automatic profile without a version should not match"
+fi
+if cache_ucode user-agent-matches-config "Custom/1.0" sing-box/1.11.4 "$default_ua" >/dev/null 2>&1; then
+  fail "an explicit UA must not accept an automatic cached UA"
+fi
 if cache_ucode user-agent-matches-config "" "Unknown" "$default_ua" >/dev/null 2>&1; then
   fail "unknown cached UA should not match automatic config"
 fi

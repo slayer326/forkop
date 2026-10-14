@@ -432,6 +432,7 @@ function getRouteReason(connection: MonitoredConnection): string {
   const labels: Record<string, string> = {
     'Not available': _('Not available'),
     'Default route': _('Default route'),
+    'All traffic from device': _('All traffic from device'),
     'Built-in subnets': _('Built-in subnets'),
     'One of': _('One of'),
     'Exact match unavailable': _('Exact match unavailable'),

@@ -1474,6 +1474,9 @@ msgid "Default address for checking server availability and latency. URLTest use
 msgstr ""
 
 #: src/forkop/tabs/monitoring/initController.ts:421
+msgid "All traffic from device"
+msgstr ""
+
 msgid "Default route"
 msgstr ""
 

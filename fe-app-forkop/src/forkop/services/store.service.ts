@@ -55,7 +55,9 @@ export class StoreService<T extends Record<string, any>> {
       return;
     }
 
-    const merged = { ...prev, ...next };
+    // Keys whose content is unchanged keep their previous object, so views
+    // that compare by reference do not redraw for them.
+    const merged = { ...prev, ...diff };
     this.value = merged;
     this.listeners.forEach((cb) => cb(this.value, prev, diff));
   }

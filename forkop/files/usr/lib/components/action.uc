@@ -621,7 +621,9 @@ function http_get_once(url, output_path, proxy_address, timeout) {
     timeout = as_string(timeout || "30");
 
     if (command_exists("curl")) {
-        let args = [ "curl", "--connect-timeout", "5", "-m", timeout, "-fsSL" ];
+        // Abort a stalled transfer; a slow one continues while data arrives.
+        let args = [ "curl", "--connect-timeout", "5", "-m", timeout,
+            "--speed-time", "15", "--speed-limit", "1", "-fsSL" ];
         if (proxy_address != "") {
             push(args, "-x");
             push(args, "http://" + proxy_address);

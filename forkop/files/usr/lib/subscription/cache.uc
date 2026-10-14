@@ -476,6 +476,14 @@ function user_agent_supported(user_agent, default_user_agent) {
     if (user_agent == default_user_agent)
         return true;
 
+    // The automatic profiles carry the sing-box or Forkop version, so a cache
+    // saved before a core or package upgrade must stay usable after it (an
+    // offline start has nothing else). An explicit User-Agent still has to
+    // match exactly in user_agent_matches_config().
+    if (match(user_agent, /^sing-box\/[A-Za-z0-9][A-Za-z0-9._+-]*$/) != null ||
+        match(user_agent, /^Happ\/[0-9][A-Za-z0-9._+-]*$/) != null)
+        return true;
+
     return auto_user_agents[user_agent] == true;
 }
 

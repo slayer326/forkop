@@ -2035,19 +2035,17 @@ function start() {
     return status;
 }
 
-function stop_impl(allow_process_conflict) {
-    let status = 0;
+// Hand DNS back to the upstream resolvers, as an explicit stop does.
+function dnsmasq_restore_for_stop() {
+    if (!setting_bool("dont_touch_dhcp", false))
+        return dnsmasq_restore(false);
+    if (dnsmasq_has_forkop_managed_state())
+        return dnsmasq_restore(true);
+    return 0;
+}
 
-    if (!setting_bool("dont_touch_dhcp", false)) {
-        let dns_status = dnsmasq_restore(false);
-        if (dns_status != 0)
-            status = dns_status;
-    }
-    else if (dnsmasq_has_forkop_managed_state()) {
-        let dns_status = dnsmasq_restore(true);
-        if (dns_status != 0)
-            status = dns_status;
-    }
+function stop_impl(allow_process_conflict) {
+    let status = dnsmasq_restore_for_stop();
 
     let runtime_status = stop_main(allow_process_conflict);
     // A refused stop left the dataplane untouched. Report that distinctly so
@@ -2807,9 +2805,17 @@ function restart(stop_sensitive, expected_fingerprint) {
     }
 
     let selector_state = capture_selector_state();
-    let status = stop_impl(false);
-    if (status != 0)
+    // A restart is one runtime transition, not an explicit DNS shutdown. Keep
+    // dnsmasq pointed at sing-box while the core is briefly down: a client
+    // retry is better than caching real addresses that bypass FakeIP once the
+    // runtime is back. Every path that leaves Forkop stopped restores DNS.
+    let status = stop_main(false);
+    if (status != 0) {
+        // 2: the stop was refused and the old runtime still serves DNS.
+        if (status != 2)
+            cleanup_failed_runtime();
         return status;
+    }
 
     if (stop_sensitive) {
         // Do not clear or rewrite the explicit-start/stop markers in this
@@ -2819,6 +2825,8 @@ function restart(stop_sensitive, expected_fingerprint) {
         // winner. The running service already had an explicit-start record.
         if (manual_restart_stop_requested()) {
             log_message("Manual restart abandoned after stopping the old runtime: a user Stop won the transition", "info");
+            dnsmasq_restore_for_stop();
+            mark_runtime_stopped_clean();
             return 1;
         }
     }
