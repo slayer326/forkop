@@ -4194,24 +4194,15 @@ function ensureActionProvidersAvailabilityLoaded() {
 }
 
 function isZapretInstalledForUi() {
-  return (
-    !actionProvidersAvailabilityState.loaded ||
-    actionProvidersAvailabilityState.zapretInstalled
-  );
+  return actionProvidersAvailabilityState.zapretInstalled;
 }
 
 function isZapret2InstalledForUi() {
-  return (
-    !actionProvidersAvailabilityState.loaded ||
-    actionProvidersAvailabilityState.zapret2Installed
-  );
+  return actionProvidersAvailabilityState.zapret2Installed;
 }
 
 function isByedpiInstalledForUi() {
-  return (
-    !actionProvidersAvailabilityState.loaded ||
-    actionProvidersAvailabilityState.byedpiInstalled
-  );
+  return actionProvidersAvailabilityState.byedpiInstalled;
 }
 
 function getRuleConfiguredAction(section_id) {
@@ -8504,6 +8495,14 @@ function createSectionContent(section) {
     return getRuleConfiguredAction(section_id);
   };
   o.load = function (section_id) {
+    // The page grid must render immediately. Its modal map has a parent and
+    // can wait for provider status before building the editable select.
+    if (this.map?.parent) {
+      return ensureActionProvidersAvailabilityLoaded().then(() => {
+        populateActionOptionValues(this, section_id);
+        return this.cfgvalue(section_id);
+      });
+    }
     populateActionOptionValues(this, section_id);
     return this.cfgvalue(section_id);
   };
@@ -8608,6 +8607,13 @@ function createSectionContent(section) {
   o.modalonly = true;
   o.load = function (section_id) {
     const value = uci.get(UCI_PACKAGE, section_id, "dns_detour_section") || "";
+    if (this.map?.parent) {
+      return ensureActionProvidersAvailabilityLoaded().then(() => {
+        refreshDnsDetourSectionOptionValues(this, section_id);
+        keepUnavailableChoice(this, value, describeUnavailableSection);
+        return value;
+      });
+    }
     refreshDnsDetourSectionOptionValues(this, section_id);
     keepUnavailableChoice(this, value, describeUnavailableSection);
     return value;

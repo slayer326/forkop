@@ -973,6 +973,7 @@ function createEnvironment({
   version = "24.10",
   config = {},
   providers = { zapretInstalled: true, zapret2Installed: true, byedpiInstalled: true },
+  providerAvailabilityLoader = null,
   fs: fsOverrides = {},
 } = {}) {
   const baseclass = createBaseclass();
@@ -1086,7 +1087,8 @@ function createEnvironment({
   let shellModule = null;
 
   // The rules grid as page/settings.js declares it.
-  const loadActionProvidersAvailability = () => Promise.resolve(Object.assign({}, providers));
+  const loadActionProvidersAvailability = providerAvailabilityLoader ||
+    (() => Promise.resolve(Object.assign({}, providers)));
   function rulesGrid(map) {
     const rules = map.section(form.GridSection, "section");
     section.configureSectionSection(rules, { loadActionProvidersAvailability });
