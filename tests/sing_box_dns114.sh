@@ -111,6 +111,11 @@ function address_only(rule) {
 
 for (let version in [ "1.12.25", "1.13.18", "1.14.0" ]) {
     let value = config(version);
+    let https = find(value, r => r.query_type == "HTTPS");
+    assert(https != null && https.action == "predefined" && https.rcode == "NOERROR" &&
+        https.answer == null, version + " must answer HTTPS with an empty successful response");
+    assert(find(value, r => r.action == "reject" && r.query_type == "HTTPS") == null,
+        version + " must not REFUSE HTTPS queries");
     let tag = fakeip_tag(value);
     assert(tag != null, version + " must configure a FakeIP DNS server");
     let count = 0;

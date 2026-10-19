@@ -1,6 +1,7 @@
 "use strict";
 "require view";
 "require form";
+"require ui";
 "require view.forkop.main as main";
 "require view.forkop.shell as shell";
 "require view.forkop.configform as configform";
@@ -59,15 +60,19 @@ function mountReadOnlyTabs(map) {
 }
 
 const EntryPoint = {
+  handleSaveApply(ev, mode) {
+    return configform.saveApplyWithSnapshot(() =>
+      this.handleSave(ev).then(() => ui.changes.apply(mode == "0")),
+    );
+  },
+
   load() {
     // No page id: this view hosts every tab, so tab activity is the CBI tab's.
-    return shell
-      .detectAccess()
-      .then((readonly) => {
-        // Capability checks continue in the background; they must not hold up LuCI.
-        shell.startPage(null);
-        return readonly;
-      });
+    return shell.detectAccess().then((readonly) => {
+      // Capability checks continue in the background; they must not hold up LuCI.
+      shell.startPage(null);
+      return readonly;
+    });
   },
 
   async render(readonly) {

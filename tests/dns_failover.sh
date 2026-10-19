@@ -7,6 +7,13 @@ GENERATOR="$FORKOP_LIB/singbox/generator.uc"
 FAILOVER="$FORKOP_LIB/singbox/dns_failover.uc"
 WORK_DIR="$(mktemp -d)"
 
+# The endpoint may contain credentials in the DoH path or query. The status
+# message must identify only the chosen priority and failover reason.
+if grep -Eq 'values\[selected\.index\]|state\.(main_servers|bootstrap_servers).*log_message' "$FAILOVER"; then
+  printf 'FAIL: DNS failover log can disclose the configured endpoint\n' >&2
+  exit 1
+fi
+
 cleanup() {
   rm -rf "$WORK_DIR"
 }

@@ -233,9 +233,10 @@ function apply_selections(state, selections) {
     state.main_index = candidate.main_index;
     state.bootstrap_index = candidate.bootstrap_index;
     for (let item in changed) {
-        let values = item.kind == "main" ? state.main_servers : state.bootstrap_servers;
         let selected = item.selected;
-        log_message("switched " + item.kind + " DNS to priority " + as_string(selected.index + 1) + " (" + values[selected.index] + ", " + selected.reason + ")", "info");
+        // A DoH path can carry a private token. Log the priority and reason,
+        // never the configured endpoint (including its path or query).
+        log_message("switched " + item.kind + " DNS to priority " + as_string(selected.index + 1) + " (" + selected.reason + ")", "info");
     }
     return true;
 }

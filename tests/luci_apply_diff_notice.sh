@@ -42,12 +42,9 @@ function load(modules) {
 }
 
 async function saveApply(entries) {
-  const maps = [];
   const notes = [];
   class Map {
-    constructor() { maps.push(this); }
     section() { return {}; }
-    handleSaveApply() { return Promise.resolve('applied'); }
     render() { return 'rendered'; }
   }
   let health = 0;
@@ -74,8 +71,7 @@ async function saveApply(entries) {
     ui: { addNotification(title, node, type) { notes.push({ node, type }); }, addValidator() {} },
     main,
   });
-  configform.createMap('Settings', null);
-  assert.equal(await maps[0].handleSaveApply({}, undefined), 'applied');
+  assert.equal(await configform.saveApplyWithSnapshot(() => Promise.resolve('applied')), 'applied');
   assert.equal(notes.length, 1);
   assert.equal(notes[0].type, 'info');
   return notes[0].node.children.split('\n');
@@ -106,6 +102,20 @@ const change = (i) => ({ section: 'settings', option: `opt${i}`, before: 'a', af
 
   // A whole diff has no "more" line.
   assert.deepEqual(await saveApply([change(0)]), ['Configuration applied successfully', 'settings.opt0: a → b']);
+
+  // The snapshot is a hard precondition, not a notification after applying.
+  let applied = false;
+  const blocked = load({
+    baseclass: { extend: value => value },
+    form: { Map: class {}, GridSection: {}, TypedSection: {}, TableSection: { prototype: {} } },
+    uci: { get() {} },
+    ui: { addNotification() {}, addValidator() {} },
+    main: { FORKOP_UCI_PACKAGE: 'forkop', ForkopShellMethods: {
+      snapshotCreate: async () => ({ success: false, data: { status: 'busy' } }),
+    } },
+  });
+  await blocked.saveApplyWithSnapshot(() => { applied = true; });
+  assert.equal(applied, false, 'failed snapshot must prevent Save & Apply');
 
   console.log('luci_apply_diff_notice: PASS');
 })().catch((error) => {

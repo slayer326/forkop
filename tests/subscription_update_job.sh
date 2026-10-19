@@ -133,8 +133,36 @@ if (value.success !== true || value.running !== false || value.section !== "prox
   console.error("subscription async final state mismatch");
   process.exit(1);
 }
-if (value.message !== "Subscription update completed by fake worker") {
+if (value.message !== "Subscription update completed") {
   console.error(`unexpected final message: ${value.message}`);
+  process.exit(1);
+}
+NODE
+
+# A failed worker can print credential-bearing provider errors. Status must
+# report failure without leaking its captured command output to LuCI.
+cat >"$WORK_DIR/bin/forkop" <<'SH'
+#!/usr/bin/env sh
+printf 'https://private.example/token/secret-marker?key=secret-marker\n'
+exit 1
+SH
+chmod +x "$WORK_DIR/bin/forkop"
+failed_response="$(env "${ASYNC_ENV[@]}" ucode -L "$ROOT_DIR/forkop/files/usr/lib" "$UPDATES_UC" subscription-update-async proxy 1)"
+failed_job_id="$(JSON_VALUE="$failed_response" node -e 'process.stdout.write(JSON.parse(process.env.JSON_VALUE).job_id)')"
+failed_status=""
+for _ in $(seq 1 30); do
+  failed_status="$(env "${ASYNC_ENV[@]}" ucode -L "$ROOT_DIR/forkop/files/usr/lib" "$UPDATES_UC" subscription-update-status "$failed_job_id")"
+  if JSON_VALUE="$failed_status" node -e 'process.exit(JSON.parse(process.env.JSON_VALUE).running ? 1 : 0)' >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.1
+done
+JSON_VALUE="$failed_status" node - <<'NODE'
+const value = JSON.parse(process.env.JSON_VALUE);
+if (value.success !== false || value.running !== false || value.exit_code !== 1 ||
+    value.message !== 'Subscription update did not apply; see Forkop X logs' ||
+    JSON.stringify(value).includes('secret-marker')) {
+  console.error('failed subscription status must be explicit and redact worker output');
   process.exit(1);
 }
 NODE

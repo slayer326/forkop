@@ -2039,11 +2039,13 @@ function refresh_subscription_running_job_state(path) {
 function finish_subscription_job(path, exit_code, output_file) {
     let value = object_or_empty(read_json_file(path));
     let success = arg_number(exit_code) == 0;
-    let message = file_last_nonblank_line_value(
-        output_file,
-        success ? "Subscription update completed" : "Subscription update failed",
-        240
-    );
+    // The command output may include a private subscription URL or a TLS
+    // diagnostic with credentials. Do not return it through the LuCI RPC.
+    // A failed download and a failed runtime apply are both unsuccessful;
+    // neither may be presented as "subscriptions updated".
+    let message = success
+        ? "Subscription update completed"
+        : "Subscription update did not apply; see Forkop X logs";
 
     let ok = write_state_file(path, subscription_finished_job_state_value(
         success,

@@ -102,7 +102,7 @@ function stubs(canReadUci, calls) {
   }
   const baseclass = { extend: value => value };
   const uci = { load: async () => { if (!canReadUci) throw Error('Permission denied'); } };
-  const ui = { addNotification() {} };
+  const ui = { addNotification() {}, changes: { apply() { calls.push('apply'); return Promise.resolve(); } } };
   const localDevices = { loadLocalDeviceChoices: async () => ({}) };
   const mountModules = {
     dashboard: 'dashboard.js', diagnostic: 'diagnostic.js', monitoring: 'monitoring.js',
@@ -122,6 +122,7 @@ function stubs(canReadUci, calls) {
       configform: {
         createMap: (title, description) => new form.Map('forkop', title, description),
         configureGridSection() {},
+        saveApplyWithSnapshot: async apply => { calls.push('snapshot'); return apply(); },
       },
       settings: {
         createSettingsContent(sections) {
@@ -169,6 +170,10 @@ const tabsOf = record => record.sections.map(section => section.type);
     const view = load('forkop.js', context.modules);
     assert.equal(await view.load(), false, 'an administrator was detected as read-only');
     await view.render(false);
+    view.handleSave = async () => { calls.push('save'); };
+    await view.handleSaveApply({}, '0');
+    assert.deepEqual(calls.filter(call => ['snapshot', 'save', 'apply'].includes(call)),
+      ['snapshot', 'save', 'apply'], 'LuCI must snapshot before its real Save & Apply action');
     assert(!calls.some(call => call.startsWith('readonly:')), 'an administrator must not be read-only');
     assert.deepEqual(tabsOf(context.record),
       ['section', 'settings', 'diagnostic', 'dashboard', 'monitoring', 'history', 'autotune', 'updates'],
@@ -201,12 +206,14 @@ const tabsOf = record => record.sections.map(section => section.type);
   // restore from.
   const formSource = read('configform.js');
   assert.match(formSource, /new form\.Map\(UCI_PACKAGE/, 'configform must build the form');
-  assert.match(formSource, /map\.handleSaveApply = async function/,
-    'configform must keep the snapshot-first Save & Apply');
-  assert.match(formSource, /snapshotCreate\("automatic"\)[\s\S]*originalHandleSaveApply\.call/,
+  assert.match(formSource, /async function saveApplyWithSnapshot\(apply\)/,
+    'configform must expose snapshot-first Save & Apply');
+  assert.match(formSource, /snapshotCreate\("automatic"\)[\s\S]*\.then\(apply\)/,
     'a snapshot must be taken before applying');
   assert.match(read('forkop.js'), /configform\.createMap\(/,
     'the view must build its form through configform, or it loses the snapshot');
+  assert.match(read('forkop.js'), /handleSaveApply\(ev, mode\)[\s\S]*configform\.saveApplyWithSnapshot/,
+    'the actual LuCI view handler must invoke snapshot-first apply');
 
   // One menu entry, opening the one view.
   const menu = JSON.parse(fs.readFileSync(

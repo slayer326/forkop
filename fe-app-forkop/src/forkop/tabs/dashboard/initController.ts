@@ -398,6 +398,10 @@ function subscriptionUpdateErrorMessage(message: string) {
     return fallback;
   }
 
+  if (detail === 'Subscription update did not apply; see Forkop X logs') {
+    return `${fallback}. ${_('View logs')}`;
+  }
+
   return `${fallback}: ${detail}`;
 }
 

@@ -473,7 +473,10 @@ function base_config(settings, service_address, runtime_context) {
     for (let rule in dns_config.rules)
         push(dns_rules, rule);
     for (let rule in [
-        { action: "reject", query_type: "HTTPS" },
+        // HTTPS/SVCB is intentionally suppressed for FakeIP clients, but a
+        // REFUSED answer makes some resolvers retry another DNS server. An
+        // empty successful answer keeps A/AAAA resolution on this path.
+        { action: "predefined", rcode: "NOERROR", query_type: "HTTPS" },
         { action: "reject", domain_suffix: "use-application-dns.net" },
         {
             action: "route",
