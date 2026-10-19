@@ -40,4 +40,16 @@ describe('wide tab layouts', () => {
       /\.fkp-history__facts \.fkp-status \{[^}]*display: inline-block;[^}]*width: auto;[^}]*max-width: 100%;[^}]*border-radius: 999px;/,
     );
   });
+
+  it('wraps dashboard controls and subscription labels on narrow screens', () => {
+    expect(dashboardStyles).toMatch(
+      /\.fkp_dashboard-page__outbound-section__title-section \{[^}]*flex-wrap: wrap;/,
+    );
+    expect(dashboardStyles).toMatch(
+      /@media \(max-width: 700px\) \{[\s\S]*?\.fkp_dashboard-page__outbound-section__title-section__actions \{\s*justify-content: flex-start;/,
+    );
+    expect(dashboardStyles).toMatch(
+      /\.fkp_dashboard-page__subscription-meta__actions \{[^}]*flex-wrap: wrap;/,
+    );
+  });
 });

@@ -63,7 +63,11 @@ const EntryPoint = {
     // No page id: this view hosts every tab, so tab activity is the CBI tab's.
     return shell
       .detectAccess()
-      .then((readonly) => shell.startPage(null).then(() => readonly));
+      .then((readonly) => {
+        // Capability checks continue in the background; they must not hold up LuCI.
+        shell.startPage(null);
+        return readonly;
+      });
   },
 
   async render(readonly) {

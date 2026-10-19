@@ -1225,14 +1225,19 @@ function buildProxyGroupOutbounds(
     ],
     sortByLatency: shouldSortByLatency(section),
   });
-  const latencyTestCodes = sortedOutbounds
-    .filter(
-      (outbound) =>
-        outbound.runtimeAvailable !== false &&
-        !isSelectorOutbound(outbound) &&
-        !outbound.priorityInfo,
-    )
-    .map((outbound) => outbound.code);
+  const latencyTestCodes = uniqueCodes(
+    sortedOutbounds.flatMap((outbound) => {
+      if (outbound.runtimeAvailable === false || isSelectorOutbound(outbound)) {
+        return [];
+      }
+      if (outbound.priorityInfo) {
+        return outbound.priorityInfo.outbounds
+          .filter((member) => proxyByCode.has(member.code))
+          .map((member) => member.code);
+      }
+      return [outbound.code];
+    }),
+  );
 
   return {
     selector,

@@ -5,6 +5,8 @@ on:
   pull_request:
     paths:
       - 'fe-app-forkop/**'
+      - 'luci-app-forkop/htdocs/luci-static/resources/view/forkop/**'
+      - 'tests/luci_initial_render.cjs'
       - '.github/workflows/frontend-ci.yml'
 
 jobs:
@@ -56,7 +58,9 @@ jobs:
         run: yarn lint --max-warnings=0
 
       - name: Run tests
-        run: yarn test --run
+        run: |
+          yarn test --run
+          node ../tests/luci_initial_render.cjs
 
       - name: Build project
         id: build

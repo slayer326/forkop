@@ -597,6 +597,7 @@ describe('getDashboardSections', () => {
     expect(section.outbounds.map((item) => item.code)).toEqual([
       'main-priority-pg_main-out',
     ]);
+    expect(section.latencyTestCodes).toEqual(['main-2-out', 'main-1-out']);
     expect(priority?.priorityInfo).toMatchObject({
       selectedCode: 'main-2-out',
       selectedName: 'Second cached',
@@ -669,6 +670,7 @@ describe('getDashboardSections', () => {
     expect(section.outbounds.map((item) => item.code)).toEqual([
       'main-priority-pg_empty-out',
     ]);
+    expect(section.latencyTestCodes).toBeUndefined();
     expect(priority).toMatchObject({
       displayName: 'Empty Priority',
       type: 'Priority',

@@ -4194,15 +4194,24 @@ function ensureActionProvidersAvailabilityLoaded() {
 }
 
 function isZapretInstalledForUi() {
-  return actionProvidersAvailabilityState.zapretInstalled;
+  return (
+    !actionProvidersAvailabilityState.loaded ||
+    actionProvidersAvailabilityState.zapretInstalled
+  );
 }
 
 function isZapret2InstalledForUi() {
-  return actionProvidersAvailabilityState.zapret2Installed;
+  return (
+    !actionProvidersAvailabilityState.loaded ||
+    actionProvidersAvailabilityState.zapret2Installed
+  );
 }
 
 function isByedpiInstalledForUi() {
-  return actionProvidersAvailabilityState.byedpiInstalled;
+  return (
+    !actionProvidersAvailabilityState.loaded ||
+    actionProvidersAvailabilityState.byedpiInstalled
+  );
 }
 
 function getRuleConfiguredAction(section_id) {
@@ -8495,9 +8504,15 @@ function createSectionContent(section) {
     return getRuleConfiguredAction(section_id);
   };
   o.load = function (section_id) {
+    populateActionOptionValues(this, section_id);
+    return this.cfgvalue(section_id);
+  };
+  const renderActionWidget = o.renderWidget;
+  o.renderWidget = function () {
+    const args = arguments;
     return ensureActionProvidersAvailabilityLoaded().then(() => {
-      populateActionOptionValues(this, section_id);
-      return this.cfgvalue(section_id);
+      populateActionOptionValues(this, args[0]);
+      return renderActionWidget.apply(this, args);
     });
   };
   o.validate = function (section_id, value) {
@@ -8593,12 +8608,19 @@ function createSectionContent(section) {
   o.modalonly = true;
   o.load = function (section_id) {
     const value = uci.get(UCI_PACKAGE, section_id, "dns_detour_section") || "";
-    // DPI sections are offered while their provider is installed: build the
-    // list once availability is known, as the action list does.
+    refreshDnsDetourSectionOptionValues(this, section_id);
+    keepUnavailableChoice(this, value, describeUnavailableSection);
+    return value;
+  };
+  const renderDnsDetourWidget = o.renderWidget;
+  o.renderWidget = function () {
+    const args = arguments;
     return ensureActionProvidersAvailabilityLoaded().then(() => {
+      const section_id = args[0];
+      const value = uci.get(UCI_PACKAGE, section_id, "dns_detour_section") || "";
       refreshDnsDetourSectionOptionValues(this, section_id);
       keepUnavailableChoice(this, value, describeUnavailableSection);
-      return value;
+      return renderDnsDetourWidget.apply(this, args);
     });
   };
   o.validate = function (_section_id, value) {
