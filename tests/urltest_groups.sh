@@ -572,10 +572,8 @@ let native = outbound_by_tag(config, "Provider Native A");
 let detour = outbound_by_tag(config, "Provider Detour Only");
 let uses_detour = outbound_by_tag(config, "Provider Uses Detour");
 let builtin = outbound_by_tag(config, "proxy-urltest-out");
-if (!imported || !native || !detour || !uses_detour)
-    die("subscription prefix was not applied to every imported outbound\n");
-if (length(imported.outbounds || []) != 1 || imported.outbounds[0] != "Provider Native A")
-    die("subscription prefix did not rewrite imported URLTest group membership\n");
+if (imported != null || !native || !detour || !uses_detour)
+    die("unreferenced imported URLTest should be omitted but its prefixed leaf outbounds kept\n");
 if (uses_detour.detour != "Provider Detour Only")
     die("subscription prefix did not rewrite detour references\n");
 if (!builtin || length(builtin.outbounds || []) != 3)
@@ -683,8 +681,8 @@ function contains(values, needle) {
             return true;
     return false;
 }
-if (!imported || imported.url != "https://native.example/ping" || imported.interval != "1m" || imported.tolerance != 80)
-    die("generated native URLTest did not preserve subscription params\n");
+if (imported != null)
+    die("unreferenced native URLTest should be omitted from sing-box configuration\n");
 if (!builtin || length(builtin.outbounds || []) != 1 || builtin.outbounds[0] != "Native A")
     die("built-in URLTest regex filter should expand Native Group to Native A only\n");
 if (!selector || length(selector.outbounds || []) != 2 ||
@@ -702,7 +700,8 @@ if (!contains(reveal_detour_selector ? reveal_detour_selector.outbounds : [], "N
     die("legacy detour hiding options must not hide matched group members\n");
 if (contains(reveal_detour_selector ? reveal_detour_selector.outbounds : [], "Detour Only"))
     die("detour outbound must remain hidden even if a legacy setting disables hiding\n");
-if (length(object_or_empty(cache.urltestGroups)["Native Group"].outbounds || []) != 1)
+let native_group_cache = object_or_empty(cache.urltestGroups)["Native Group"] || {};
+if (length(native_group_cache.outbounds || []) != 1 || native_group_cache.url != "https://native.example/ping" || native_group_cache.interval != "1m" || native_group_cache.tolerance != 80)
     die("section cache is missing native URLTest membership\n");
 let candidates = cache.urltestCandidateTags || [];
 if (contains(candidates, "Native Group") || contains(candidates, "proxy-urltest-out"))

@@ -1667,8 +1667,8 @@ assert(stable_priority && length(stable_priority.outbounds) == 1 && stable_prior
 let xhttp_extended = cfg("subscription-xhttp-extended");
 assert(outbound(xhttp_extended, "xhttp-node") != null, "extended sing-box keeps XHTTP subscription leaf");
 assert(outbound(xhttp_extended, "Provider XHTTP Group") == null, "extended sing-box omits unreferenced provider URLTest");
-assert(outbound(xhttp_extended, "depends-on-xhttp") == null, "extended sing-box omits unreferenced XHTTP detour");
-assert(outbound(xhttp_extended, "recursive-dependent") == null, "extended sing-box omits unreferenced recursive detour");
+assert(outbound(xhttp_extended, "depends-on-xhttp").detour == "xhttp-node", "extended sing-box keeps XHTTP detour chain used by its URLTest");
+assert(outbound(xhttp_extended, "recursive-dependent").detour == "depends-on-xhttp", "extended sing-box keeps recursive detour chain used by its URLTest");
 
 let proxy_cache = json(fs.readfile(dir + "/subscription-metadata.json.section-cache/proxy.json"));
 let test_cache = json(fs.readfile(dir + "/subscription-metadata.json.section-cache/test.json"));
