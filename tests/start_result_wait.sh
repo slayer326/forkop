@@ -496,6 +496,13 @@ reset([ false ]);
 check(restart_forkop_after_successful_change() === false, "a restart that failed after a component change was reported as done");
 reset([ true ]);
 check(restart_forkop_after_successful_change() === true, "a working restart after a component change was reported as failed");
+check(join(",", calls) == "log:info,wait:restart", "an ordinary component change did not restart Forkop: " + join(",", calls));
+// The sing-box update stopped Forkop before replacing its package. A second
+// stop through init.d restart may fail and suppress the subsequent start.
+reset([ true ]);
+forkop_stopped_for_sing_box_change = true;
+check(restart_forkop_after_successful_change() === true, "a stopped Forkop was not started after a sing-box change");
+check(join(",", calls) == "log:info,wait:start", "a sing-box change invoked a second stop: " + join(",", calls));
 reset([]);
 forkop_was_running = false;
 check(restart_forkop_after_successful_change() === true, "a skipped restart was reported as failed");
@@ -546,6 +553,13 @@ check(restart_forkop_after_successful_change() === true, "a restart through an o
 check(index(join(",", calls), "wait:") < 0, "start-and-wait was used with an initd.uc that has no such mode");
 check(index(join(",", calls), "init:restart,status,status") >= 0,
     "an older initd.uc was not restarted through init.d and polled: " + join(",", calls));
+reset([]);
+initd_source = 'else if (mode == "start-service")';
+forkop_stopped_for_sing_box_change = true;
+status_results = [ false, true ];
+check(restart_forkop_after_successful_change() === true, "an older initd.uc was not started after a sing-box change");
+check(index(join(",", calls), "init:start,status,status") >= 0,
+    "an older initd.uc repeated stop after a sing-box change: " + join(",", calls));
 reset([]);
 initd_source = 'else if (mode == "start-service")';
 check(restart_forkop_after_successful_change() === false, "an older release that did not start was reported as started");

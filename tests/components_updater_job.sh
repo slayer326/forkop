@@ -114,8 +114,12 @@ grep -Fq 'command_from_args([ "apk", "add", "--force-reinstall", "--upgrade", pa
 if grep -Fq '"apk", "fix", "--reinstall", "--upgrade", package_spec' "$ACTION_UC"; then
   fail "APK sing-box reinstalls must not pass an exact version to apk fix"
 fi
-grep -Fq 'Package rollback failed; restored the previous sing-box binary backup' "$ACTION_UC" ||
-  fail "package rollback must accept a successfully restored binary backup"
+grep -Fq 'Previous sing-box package unavailable; restored its binary backup without package registration' "$ACTION_UC" ||
+  fail "package rollback must disclose when only the previous binary could be restored"
+grep -Fq 'restore_sing_box_extended_package_variant(previous_version)' "$ACTION_UC" ||
+  fail "extended package rollback must select the previous version"
+grep -Fq '"/forkop/sing-box-extended/releases/" + previous_version + "/" + asset_name' "$ACTION_UC" ||
+  fail "extended package rollback must use a versioned mirror asset, never latest.json"
 grep -Fq '!file_exists("/etc/init.d/sing-box") && file_nonempty("/usr/bin/sing-box")' "$ACTION_UC" ||
   fail "binary rollback must restore a managed sing-box service when the package script is missing"
 grep -Fq 'fail_package_sing_box_install(action, tiny, "package was installed, but sing-box binary is not available"' "$ACTION_UC" ||

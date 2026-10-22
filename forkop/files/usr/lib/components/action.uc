@@ -1001,8 +1001,11 @@ function restart_forkop_after_successful_change() {
         prepare_sing_box_service_disabled();
         return true;
     }
-    updates_log("Restarting Forkop after successful component change");
-    if (forkop_start_and_wait("restart"))
+    // A sing-box change already stopped Forkop. Restarting here invokes the
+    // stop path a second time; on procd that can fail before start is called.
+    let action = forkop_stopped_for_sing_box_change ? "start" : "restart";
+    updates_log((action == "start" ? "Starting" : "Restarting") + " Forkop after successful component change");
+    if (forkop_start_and_wait(action))
         return true;
     updates_log("Forkop did not start again after the component change", "error");
     return false;
@@ -1569,13 +1572,21 @@ function restore_sing_box_variant_state(previous_marker, previous_version_state)
     sing_box_runtime_success("restore-version-state", [ previous_version_state ]);
 }
 
-function restore_sing_box_extended_package_variant() {
-    init_tmp_dir();
-    let release = resolve_sing_box_extended_release(false);
-    if (release == null)
+function restore_sing_box_extended_package_variant(previous_version) {
+    // latest.json points to the package that just failed. Never use it for a
+    // rollback: install exactly the former release, if the mirror retains it.
+    previous_version = as_string(previous_version);
+    if (FORKOP_MIRROR_BASE_URL == "" || match(previous_version, /^[0-9][A-Za-z0-9._+-]*$/) == null)
         return false;
-    let package_file = tmp_dir + "/" + release.asset_name;
-    if (!download_with_retry(release.asset_url, package_file, release.asset_name))
+    let distrib_arch = read_openwrt_release_value("DISTRIB_ARCH");
+    if (distrib_arch == "" || match(distrib_arch, /^[A-Za-z0-9_-]+$/) == null)
+        return false;
+    if (!init_tmp_dir())
+        return false;
+    let asset_name = "sing-box-extended_" + previous_version + "_openwrt_" + distrib_arch + (is_apk() ? ".apk" : ".ipk");
+    let package_file = tmp_dir + "/" + asset_name;
+    let asset_url = FORKOP_MIRROR_BASE_URL + "/forkop/sing-box-extended/releases/" + previous_version + "/" + asset_name;
+    if (!download_with_retry(asset_url, package_file, asset_name))
         return false;
     prepare_sing_box_package_service_install();
     pkg_remove_sing_box_conflict("sing-box-tiny");
@@ -1586,7 +1597,7 @@ function restore_sing_box_extended_package_variant() {
     }
     remove_file(package_file);
     let new_version = validate_sing_box_extended_binary("/usr/bin/sing-box", "/usr/lib");
-    if (new_version == "")
+    if (new_version != previous_version)
         return false;
     write_sing_box_variant_state("extended", new_version);
     return true;
@@ -1605,13 +1616,13 @@ function replace_sing_box_package_variant(target_package, conflict_package, targ
     return pkg_install_name_downgrade(target_package, target_version);
 }
 
-function restore_sing_box_package_variant(previous_variant) {
+function restore_sing_box_package_variant(previous_variant, previous_version) {
     if (previous_variant == "tiny")
         return replace_sing_box_package_variant("sing-box-tiny", "sing-box", available_package_version("sing-box-tiny"));
     if (previous_variant == "stable")
         return replace_sing_box_package_variant("sing-box", "sing-box-tiny", available_package_version("sing-box"));
     if (previous_variant == "extended")
-        return restore_sing_box_extended_package_variant();
+        return restore_sing_box_extended_package_variant(previous_version);
     if (previous_variant == "not-installed") {
         pkg_remove_sing_box_conflict("sing-box-extended");
         pkg_remove_sing_box_conflict("sing-box-tiny");
@@ -1623,12 +1634,16 @@ function restore_sing_box_package_variant(previous_variant) {
     return false;
 }
 
-function restore_sing_box_install_backup(previous_variant, backup_binary) {
+function restore_sing_box_install_backup(previous_variant, backup_binary, previous_version_state) {
     if (sing_box_variant_is_package_managed(previous_variant)) {
-        if (restore_sing_box_package_variant(previous_variant))
+        let previous_version = as_string(previous_version_state);
+        if (previous_variant == "extended" && previous_version == "" &&
+            as_string(backup_binary) != "" && file_nonempty(backup_binary))
+            previous_version = read_sing_box_binary_version(backup_binary, "/usr/lib");
+        if (restore_sing_box_package_variant(previous_variant, previous_version))
             return true;
         if (as_string(backup_binary) != "" && restore_sing_box_backup(backup_binary)) {
-            updates_log("Package rollback failed; restored the previous sing-box binary backup", "warn");
+            updates_log("Previous sing-box package unavailable; restored its binary backup without package registration", "warn");
             return true;
         }
         return false;
@@ -1636,7 +1651,7 @@ function restore_sing_box_install_backup(previous_variant, backup_binary) {
 
     if (as_string(backup_binary) != "")
         return restore_sing_box_backup(backup_binary);
-    return restore_sing_box_package_variant(previous_variant);
+    return restore_sing_box_package_variant(previous_variant, previous_version_state);
 }
 
 function restore_sing_box_after_failed_extended_install(previous_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, archive_file, cronet_touched) {
@@ -1645,7 +1660,7 @@ function restore_sing_box_after_failed_extended_install(previous_variant, backup
     let restore_status = true;
     if (cronet_touched)
         restore_file_backup("/usr/lib/libcronet.so", backup_cronet);
-    if (!restore_sing_box_install_backup(previous_variant, backup_binary))
+    if (!restore_sing_box_install_backup(previous_variant, backup_binary, previous_version_state))
         restore_status = false;
     restore_sing_box_variant_state(previous_marker, previous_version_state);
     restore_sing_box_service_from_marker(previous_marker);
@@ -1656,22 +1671,26 @@ function restore_sing_box_after_failed_extended_install(previous_variant, backup
 function restore_sing_box_after_failed_extended_package_install(previous_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, package_file, cronet_touched) {
     if (as_string(package_file) != "")
         remove_file(package_file);
-    pkg_remove_sing_box_conflict("sing-box-extended");
-    let restore_status = restore_sing_box_install_backup(previous_variant, backup_binary);
+    let restore_status = pkg_remove_sing_box_conflict("sing-box-extended");
+    if (!restore_sing_box_install_backup(previous_variant, backup_binary, previous_version_state))
+        restore_status = false;
     if (cronet_touched) {
-        restore_file_backup("/usr/lib/libcronet.so", backup_cronet);
-        if (file_nonempty("/usr/lib/libcronet.so"))
-            command_success_from_args([ "chmod", "0644", "/usr/lib/libcronet.so" ]);
+        if (!restore_file_backup("/usr/lib/libcronet.so", backup_cronet))
+            restore_status = false;
+        if (file_nonempty("/usr/lib/libcronet.so") &&
+            !command_success_from_args([ "chmod", "0644", "/usr/lib/libcronet.so" ]))
+            restore_status = false;
     }
     restore_sing_box_variant_state(previous_marker, previous_version_state);
-    restore_sing_box_service_from_marker(previous_marker);
+    if (!restore_sing_box_service_from_marker(previous_marker))
+        restore_status = false;
     clear_version_caches();
     return restore_status;
 }
 
 function restore_sing_box_after_failed_package_install(target_package, previous_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, cronet_touched) {
     pkg_remove_sing_box_conflict(target_package);
-    let restore_status = restore_sing_box_install_backup(previous_variant, backup_binary);
+    let restore_status = restore_sing_box_install_backup(previous_variant, backup_binary, previous_version_state);
     if (cronet_touched) {
         if (!restore_file_backup("/usr/lib/libcronet.so", backup_cronet))
             restore_status = false;
