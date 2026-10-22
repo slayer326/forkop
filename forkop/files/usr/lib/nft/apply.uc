@@ -768,6 +768,23 @@ function nft_add_priority_rule_pair(table, chain, section, interface_set, localv
         nft_add_rule(table, chain, nft_priority_rule_args(section, 6, localv6_set, match6, mark));
 }
 
+function nft_add_plain_ip_priority_rules(table, chain, section, interface_set, localv4_set, localv6_set, match4, match6, mark) {
+    // Bypass is an ordinary accept and may include ICMP. Proxy rules set a
+    // policy-route mark leading to a local TPROXY route, which only has TCP
+    // and UDP listeners. Marking ICMP there would silently break ping.
+    if (section_priority_action(section) == "bypass")
+        return nft_add_priority_rule_pair(table, chain, section, interface_set,
+            localv4_set, localv6_set, match4, match6, mark);
+    for (let protocol in [ "tcp", "udp" ]) {
+        if (!nft_add_priority_rule_pair(table, chain, section, interface_set,
+            localv4_set, localv6_set,
+            [ ...match4, "meta", "l4proto", protocol ],
+            [ ...match6, "meta", "l4proto", protocol ], mark))
+            return false;
+    }
+    return true;
+}
+
 function nft_fully_routed_priority_args(section, family, interface_set, local_set, fakeip_range, protocol, mark) {
     let sets = section_priority_sets(section);
     let ip_key = family == 6 ? "ip6" : "ip";
@@ -836,8 +853,8 @@ function nft_add_section_priority_rules(table, section, interface_set, localv4_s
     let match_port6_udp = [ "udp", "dport", "@" + as_string(sets.ports) ];
 
     if (needs_plain_ip_rules &&
-        (!nft_add_priority_rule_pair(table, "priority_rules", section, interface_set, localv4_set, localv6_set, match_ip4, match_ip6, mark) ||
-            !nft_add_priority_rule_pair(table, "priority_output_rules", section, interface_set, localv4_set, localv6_set, match_ip4, match_ip6, mark)))
+        (!nft_add_plain_ip_priority_rules(table, "priority_rules", section, interface_set, localv4_set, localv6_set, match_ip4, match_ip6, mark) ||
+            !nft_add_plain_ip_priority_rules(table, "priority_output_rules", section, interface_set, localv4_set, localv6_set, match_ip4, match_ip6, mark)))
         return false;
 
     if (needs_ip_port_rules &&

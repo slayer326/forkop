@@ -19,6 +19,8 @@ let connections = require("config.connections");
 let urltest_override = require("config.urltest_override");
 let subscription_share_link = require("subscription.share_link");
 let subscription_parser = require("subscription.parser");
+let filter_identity = require("subscription.filter_identity");
+let subscription_prune = require("singbox.prune");
 let uci = null;
 let fixture_uci_data = null;
 let runtime_settings_cache = null;
@@ -27,6 +29,7 @@ let runtime_supports_xhttp = true;
 let runtime_supports_dns_response_matching = false;
 let provider_urltest_start_seed = "";
 let subscription_bootstrap_dns_section = "";
+let subscription_outbound_tags = {};
 const IPV6_TPROXY_ENABLED = core_ip.ipv6_tproxy_enabled();
 
 let as_string = common.as_string;
@@ -876,6 +879,7 @@ function add_subscription_source_with_state(config, section, source_index, sourc
         }
 
         push(config.outbounds, outbound);
+        subscription_outbound_tags[outbound.tag] = true;
         added++;
         if (!is_group)
             push(urltest_candidate_tags, outbound.tag);
@@ -1044,14 +1048,12 @@ function regex_match_set(tags, names, regexes) {
     return object_keys_set(runtime_urltest.regex_matching_tag_array(tags, names, regexes));
 }
 
-function tag_name_filter_matches(tag, names, name_filter, regex_set, metadata) {
+function tag_name_filter_matches(tag, names, name_filter, regex_set, metadata, preferred_owners) {
     let name = tag_display_name(tag, names);
-    if (array_contains(name_filter, name) || regex_set[tag])
-        return true;
-    for (let previous_name in array_or_empty(object_or_empty(object_or_empty(metadata).filterNames)[tag]))
-        if (array_contains(name_filter, previous_name))
-            return true;
-    return false;
+    return regex_set[tag] || filter_identity.preferred_name_matches(
+        tag, name, object_or_empty(object_or_empty(metadata).filterNames)[tag],
+        name_filter, preferred_owners
+    );
 }
 
 function tag_country_filter_matches(tag, countries, country_filter) {
@@ -1121,12 +1123,16 @@ function urltest_matching_candidate_outbounds(urltest_candidate_tags, names, cou
     country_filter = runtime_urltest.normalized_country_list(country_filter);
 
     let regex_set = regex_match_set(urltest_candidate_tags, names, regexes);
+    let preferred_owners = filter_identity.preferred_name_owners(
+        urltest_candidate_tags, names,
+        object_or_empty(object_or_empty(metadata).filterNames), name_filter
+    );
     let base_filter_configured = name_or_country_filter_configured(name_filter, regexes, country_filter);
     let additional_set = object_keys_set(additional_matches);
     let result = [];
 
     for (let tag in array_or_empty(urltest_candidate_tags)) {
-        let base_matches = tag_name_filter_matches(tag, names, name_filter, regex_set, metadata) ||
+        let base_matches = tag_name_filter_matches(tag, names, name_filter, regex_set, metadata, preferred_owners) ||
             tag_country_filter_matches(tag, countries, country_filter);
         let matches = additional_set[tag] || base_matches;
         if (proxy_parameters_enabled && proxy_parameters_operator == "or") {
@@ -3563,6 +3569,7 @@ function add_subscription_bootstrap_service_proxies(config, configured, selected
 }
 
 function generate_config(output_path, service_address, mwan3_active, supports_xhttp, deferred_sections, sing_box_version) {
+    subscription_outbound_tags = {};
     runtime_supports_xhttp = supports_xhttp == null || as_string(supports_xhttp) == ""
         ? true
         : cli_bool(supports_xhttp);
@@ -3641,6 +3648,9 @@ function generate_config(output_path, service_address, mwan3_active, supports_xh
             add_mixed_proxy_for_section(config, section, service_address);
     }
 
+    let pruned = subscription_prune.unused_outbounds(config, subscription_outbound_tags);
+    if (length(pruned) > 0)
+        warn("omitted ", length(pruned), " unreferenced subscription outbounds from sing-box configuration\n");
     assert_unique_outbound_tags(config);
     strip_internal_fields(config);
     if (!common.write_private_json_file(output_path, config)) {

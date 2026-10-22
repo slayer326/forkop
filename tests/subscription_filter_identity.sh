@@ -17,6 +17,17 @@ check(index(names, "provider injected alias") < 0, "provider must not control al
 after.uuid = "different-secret";
 next = identity.inherit_names({ outbounds: [ before ] }, { outbounds: [ after ] });
 check(index(identity.names(next.outbounds[0]), "Old") < 0, "changed connections must not inherit names");
+let tags = [ "same-connection", "new-connection" ];
+let display = { "same-connection": "New name", "new-connection": "Old name" };
+let aliases = { "same-connection": [ "Old name" ], "new-connection": [] };
+let owners = identity.preferred_name_owners(tags, display, aliases, [ "Old name" ]);
+check(identity.preferred_name_matches(tags[0], display[tags[0]], aliases[tags[0]], [ "Old name" ], owners),
+    "the original connection must retain the old-name filter");
+check(!identity.preferred_name_matches(tags[1], display[tags[1]], aliases[tags[1]], [ "Old name" ], owners),
+    "a different connection reusing the old name must not enter the filter");
+owners = identity.preferred_name_owners(tags, display, aliases, [ "New name" ]);
+check(identity.preferred_name_matches(tags[0], display[tags[0]], aliases[tags[0]], [ "New name" ], owners),
+    "current names must still match without a competing inherited alias");
 check(identity.connection_key({ type: "selector", tag: "Group" }) == "", "groups have no connection identity");
 print("subscription filter identity checks passed\n");
 '

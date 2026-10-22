@@ -40,6 +40,43 @@ function names(outbound) {
     return result;
 }
 
+// When a provider gives a retired name to a different connection, the old
+// owner's inherited alias wins over the new connection's display name.
+// Otherwise an exact-name filter would unexpectedly select both servers.
+function preferred_name_owners(tags, display_names, aliases, selected_names) {
+    let owners = {};
+    for (let selected in common.array_or_empty(selected_names)) {
+        selected = common.as_string(selected);
+        if (selected == "")
+            continue;
+        for (let tag in common.array_or_empty(tags)) {
+            let display = common.as_string(common.object_or_empty(display_names)[tag] || tag);
+            if (display == selected || tag == selected)
+                continue;
+            if (index(common.array_or_empty(common.object_or_empty(aliases)[tag]), selected) < 0)
+                continue;
+            if (type(owners[selected]) != "object")
+                owners[selected] = {};
+            owners[selected][tag] = true;
+        }
+    }
+    return owners;
+}
+
+function preferred_name_matches(tag, display, aliases, selected_names, owners) {
+    for (let selected in common.array_or_empty(selected_names)) {
+        selected = common.as_string(selected);
+        if (type(owners[selected]) == "object") {
+            if (owners[selected][tag])
+                return true;
+        }
+        else if (selected == display || selected == tag ||
+            index(common.array_or_empty(aliases), selected) >= 0)
+            return true;
+    }
+    return false;
+}
+
 function inherit_names(previous, next) {
     let by_connection = {};
     for (let outbound in common.array_or_empty(common.object_or_empty(previous).outbounds)) {
@@ -70,4 +107,5 @@ function preserve_file(previous_path, next_path) {
     return fs.writefile(next_path, sprintf("%J", next) + "\n") != null;
 }
 
-return { connection_key, names, inherit_names, preserve_file };
+return { connection_key, names, preferred_name_owners, preferred_name_matches,
+    inherit_names, preserve_file };
