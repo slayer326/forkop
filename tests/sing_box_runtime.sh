@@ -1658,8 +1658,7 @@ assert(outbound(xhttp_stable, "xhttp-node") == null, "stable sing-box excludes X
 assert(outbound(xhttp_stable, "depends-on-xhttp") == null, "stable sing-box excludes outbound detouring through XHTTP");
 assert(outbound(xhttp_stable, "recursive-dependent") == null, "stable sing-box recursively excludes XHTTP-dependent detours");
 let stable_provider_group = outbound(xhttp_stable, "Provider XHTTP Group");
-assert(stable_provider_group && length(stable_provider_group.outbounds) == 1 && stable_provider_group.outbounds[0] == "plain-node", "provider group removes XHTTP member");
-assert(stable_provider_group.default == null, "stable sing-box provider URLTest removes unsupported default field");
+assert(stable_provider_group == null, "unreferenced provider group is omitted after XHTTP filtering");
 let stable_urltest = outbound(xhttp_stable, "xhttp-urltest-ut_xhttp-out");
 assert(stable_urltest && length(stable_urltest.outbounds) == 1 && stable_urltest.outbounds[0] == "plain-node", "URLTest receives only compatible subscription leaves");
 let stable_priority = outbound(xhttp_stable, "xhttp-priority-pg_xhttp-out");
@@ -1667,9 +1666,9 @@ assert(stable_priority && length(stable_priority.outbounds) == 1 && stable_prior
 
 let xhttp_extended = cfg("subscription-xhttp-extended");
 assert(outbound(xhttp_extended, "xhttp-node") != null, "extended sing-box keeps XHTTP subscription leaf");
-assert(outbound(xhttp_extended, "Provider XHTTP Group").default == null, "extended sing-box provider URLTest also removes unsupported default field");
-assert(outbound(xhttp_extended, "depends-on-xhttp").detour == "xhttp-node", "extended sing-box keeps XHTTP detour chain");
-assert(outbound(xhttp_extended, "recursive-dependent").detour == "depends-on-xhttp", "extended sing-box keeps recursive detour chain");
+assert(outbound(xhttp_extended, "Provider XHTTP Group") == null, "extended sing-box omits unreferenced provider URLTest");
+assert(outbound(xhttp_extended, "depends-on-xhttp") == null, "extended sing-box omits unreferenced XHTTP detour");
+assert(outbound(xhttp_extended, "recursive-dependent") == null, "extended sing-box omits unreferenced recursive detour");
 
 let proxy_cache = json(fs.readfile(dir + "/subscription-metadata.json.section-cache/proxy.json"));
 let test_cache = json(fs.readfile(dir + "/subscription-metadata.json.section-cache/test.json"));

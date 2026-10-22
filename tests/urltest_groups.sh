@@ -369,10 +369,8 @@ for (let outbound in config.outbounds || []) {
 for (let outbound in reveal_config.outbounds || [])
     if (outbound.type == "selector" && outbound.tag == "proxy-out")
         reveal_selector = outbound;
-if (!imported || imported.url != "https://www.gstatic.com/generate_204" || imported.interval != "120s")
-    die("generated xray imported URLTest did not preserve subscription params\n");
-if (imported.tolerance != 175 || imported.idle_timeout != "30m" || imported.interrupt_exist_connections !== true)
-    die("generated xray imported URLTest is missing sing-box runtime defaults\n");
+if (imported != null)
+    die("unreferenced xray imported URLTest should be omitted from sing-box configuration\n");
 if (!builtin || length(builtin.outbounds || []) != 2)
     die("built-in URLTest should include two matched xray leaf outbounds\n");
 for (let child in builtin.outbounds || [])
