@@ -207,7 +207,7 @@ function renderSubscriptionUpdateAction(
     {
       type: 'button',
       class: 'btn fkp_dashboard-page__outbound-section__subscription-update',
-      'aria-label': _('Update subscriptions'),
+      'aria-label': _('Update all subscriptions'),
       disabled: subscriptionUpdating ? true : undefined,
       click: (event: MouseEvent) => {
         event.preventDefault();
@@ -220,8 +220,8 @@ function renderSubscriptionUpdateAction(
       },
     },
     subscriptionUpdating
-      ? [renderLoaderCircleIcon24(), _('Update subscriptions')]
-      : _('Update subscriptions'),
+      ? [renderLoaderCircleIcon24(), _('Update all subscriptions')]
+      : _('Update all subscriptions'),
   );
 }
 

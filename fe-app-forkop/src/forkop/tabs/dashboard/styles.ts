@@ -339,11 +339,12 @@ export const styles = `
     }
 
     .fkp_dashboard-page__outbound-section__title-section__actions .btn {
-        flex: 1 1 160px;
+        flex: 1 1 100%;
         min-width: 0;
         max-width: 100%;
         white-space: normal;
-        overflow-wrap: anywhere;
+        overflow-wrap: normal;
+        word-break: normal;
     }
 
     .fkp_dashboard-page__subscription-meta__main {

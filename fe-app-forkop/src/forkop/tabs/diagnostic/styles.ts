@@ -482,4 +482,16 @@ export const styles = `
     color: var(--success-color-medium, green);
 }
 
+@media (max-width: 700px) {
+    .fkp_diagnostic_alert__summary__item {
+        grid-template-columns: 16px minmax(0, 1fr);
+        row-gap: 2px;
+        margin-bottom: 8px;
+    }
+
+    .fkp_diagnostic_alert__summary__item > :nth-child(3) {
+        grid-column: 2;
+        min-width: 0;
+    }
+}
 `;

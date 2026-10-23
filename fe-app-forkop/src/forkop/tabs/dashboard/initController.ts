@@ -518,7 +518,7 @@ async function followSubscriptionUpdateState(
   state: Forkop.SubscriptionUpdateJobState,
 ) {
   const jobId = state.job_id;
-  const sectionName = state.section || '';
+  const sectionName = state.section || '*';
 
   if (!jobId || !sectionName || followedSubscriptionJobs.has(jobId)) {
     return;
@@ -1711,21 +1711,21 @@ function handleShowPriorityInfo(outbound: Forkop.Outbound) {
   );
 }
 
-async function handleUpdateSubscription(section: Forkop.OutboundGroup) {
+async function handleUpdateSubscription() {
   if (
-    store.get().sectionsWidget.subscriptionUpdatingSections[section.sectionName]
+    Object.values(store.get().sectionsWidget.subscriptionUpdatingSections).some(
+      Boolean,
+    )
   ) {
     return;
   }
 
-  setSubscriptionUpdating(section.sectionName, true, true);
+  setSubscriptionUpdating('*', true, true);
   let jobId = '';
   let ownsJobFollow = false;
 
   try {
-    const startResponse = await ForkopShellMethods.subscriptionUpdateStart(
-      section.sectionName,
-    );
+    const startResponse = await ForkopShellMethods.subscriptionUpdateStart();
 
     if (!startResponse.success) {
       throw new Error(startResponse.error);
@@ -1740,7 +1740,7 @@ async function handleUpdateSubscription(section: Forkop.OutboundGroup) {
     followedSubscriptionJobs.add(jobId);
     ownsJobFollow = true;
     const response = await ForkopShellMethods.waitSubscriptionUpdateJob(jobId);
-    await completeSubscriptionUpdateJob(jobId, section.sectionName, response);
+    await completeSubscriptionUpdateJob(jobId, '*', response);
   } catch (error) {
     logger.error('[DASHBOARD]', 'handleUpdateSubscription: failed', error);
     if (!pageUnloading) {
@@ -1749,7 +1749,7 @@ async function handleUpdateSubscription(section: Forkop.OutboundGroup) {
           ? error.message
           : _('Failed to update subscriptions');
 
-      setSubscriptionUpdating(section.sectionName, false);
+      setSubscriptionUpdating('*', false);
       if (!isTransientRpcError(message)) {
         showToast(subscriptionUpdateErrorMessage(message), 'error');
       }
@@ -1892,7 +1892,8 @@ async function renderSectionsWidget() {
       latencyProgress:
         sectionsWidget.latencyProgressSections[section.sectionName],
       subscriptionUpdating: Boolean(
-        sectionsWidget.subscriptionUpdatingSections[section.sectionName],
+        sectionsWidget.subscriptionUpdatingSections['*'] ||
+          sectionsWidget.subscriptionUpdatingSections[section.sectionName],
       ),
       selectorSwitchingTag:
         sectionsWidget.selectorSwitchingSections[section.sectionName],
@@ -1935,8 +1936,8 @@ async function renderSectionsWidget() {
       onShowPriorityInfo: (outbound) => {
         handleShowPriorityInfo(outbound);
       },
-      onUpdateSubscription: (section) => {
-        void handleUpdateSubscription(section);
+      onUpdateSubscription: () => {
+        void handleUpdateSubscription();
       },
     }),
   );

@@ -54,6 +54,26 @@ describe('applyUiStateToStore', () => {
     store.reset();
   });
 
+  it('restores a global subscription update after reloading the page', () => {
+    applyUiStateToStore(
+      createUiState({
+        subscription: [
+          {
+            success: true,
+            running: true,
+            job_id: 'subscription-all',
+            section: '',
+            message: 'Updating all subscriptions',
+          },
+        ],
+      }),
+    );
+
+    expect(store.get().sectionsWidget.subscriptionUpdatingSections).toEqual({
+      '*': true,
+    });
+  });
+
   it('keeps a stop by the user apart from a runtime that is down (D-15)', () => {
     const stopped = createUiState();
     stopped.service.forkop = {

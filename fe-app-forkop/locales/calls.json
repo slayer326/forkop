@@ -1695,7 +1695,7 @@
     "call": "Check update",
     "key": "Check update",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:806"
+      "src/forkop/tabs/updates/initController.ts:805"
     ]
   },
   {
@@ -1873,7 +1873,7 @@
     "call": "Choose version",
     "key": "Choose version",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1296"
+      "src/forkop/tabs/updates/initController.ts:1281"
     ]
   },
   {
@@ -2244,7 +2244,7 @@
     "call": "Copy address",
     "key": "Copy address",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1343"
+      "src/forkop/tabs/updates/initController.ts:1328"
     ]
   },
   {
@@ -2450,7 +2450,7 @@
     "call": "Dedicated cgroup unavailable",
     "key": "Dedicated cgroup unavailable",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1106"
+      "src/forkop/tabs/updates/initController.ts:1098"
     ]
   },
   {
@@ -2703,15 +2703,15 @@
     "call": "Direct Proxy",
     "key": "Direct Proxy",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1072"
+      "src/forkop/tabs/updates/initController.ts:1068"
     ]
   },
   {
     "call": "Disable",
     "key": "Disable",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1084",
-      "src/forkop/tabs/updates/initController.ts:1116"
+      "src/forkop/tabs/updates/initController.ts:1077",
+      "src/forkop/tabs/updates/initController.ts:1108"
     ]
   },
   {
@@ -2743,8 +2743,8 @@
       "src/forkop/ui/status.ts:172",
       "src/forkop/tabs/autotune/model.ts:630",
       "src/forkop/tabs/autotune/model.ts:663",
-      "src/forkop/tabs/updates/initController.ts:1078",
-      "src/forkop/tabs/updates/initController.ts:1111"
+      "src/forkop/tabs/updates/initController.ts:1071",
+      "src/forkop/tabs/updates/initController.ts:1103"
     ]
   },
   {
@@ -2760,13 +2760,6 @@
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:2855",
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:3312"
-    ]
-  },
-  {
-    "call": "Distributes network traffic processing across CPU cores. It may improve throughput on multi-core routers; the effect depends on the device and load.",
-    "key": "Distributes network traffic processing across CPU cores. It may improve throughput on multi-core routers; the effect depends on the device and load.",
-    "places": [
-      "src/forkop/tabs/updates/initController.ts:1047"
     ]
   },
   {
@@ -3332,8 +3325,8 @@
     "key": "Enable",
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8424",
-      "src/forkop/tabs/updates/initController.ts:1091",
-      "src/forkop/tabs/updates/initController.ts:1123"
+      "src/forkop/tabs/updates/initController.ts:1084",
+      "src/forkop/tabs/updates/initController.ts:1115"
     ]
   },
   {
@@ -3383,7 +3376,7 @@
     "call": "Enable mode 2",
     "key": "Enable mode 2",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1062"
+      "src/forkop/tabs/updates/initController.ts:1058"
     ]
   },
   {
@@ -3412,8 +3405,8 @@
     "key": "Enabled",
     "places": [
       "src/forkop/tabs/autotune/initController.ts:733",
-      "src/forkop/tabs/updates/initController.ts:1077",
-      "src/forkop/tabs/updates/initController.ts:1108"
+      "src/forkop/tabs/updates/initController.ts:1070",
+      "src/forkop/tabs/updates/initController.ts:1100"
     ]
   },
   {
@@ -3696,10 +3689,10 @@
     "places": [
       "src/forkop/methods/shell/index.ts:187",
       "src/forkop/methods/shell/index.ts:194",
+      "src/forkop/tabs/updates/initController.ts:541",
       "src/forkop/tabs/updates/initController.ts:542",
-      "src/forkop/tabs/updates/initController.ts:543",
-      "src/forkop/tabs/updates/initController.ts:603",
-      "src/forkop/tabs/updates/initController.ts:785"
+      "src/forkop/tabs/updates/initController.ts:602",
+      "src/forkop/tabs/updates/initController.ts:784"
     ]
   },
   {
@@ -4501,9 +4494,9 @@
     "call": "Install",
     "key": "Install",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:820",
-      "src/forkop/tabs/updates/initController.ts:963",
-      "src/forkop/tabs/updates/initController.ts:1303",
+      "src/forkop/tabs/updates/initController.ts:819",
+      "src/forkop/tabs/updates/initController.ts:962",
+      "src/forkop/tabs/updates/initController.ts:1288",
       "src/forkop/tabs/updates/releaseSelector.ts:52"
     ]
   },
@@ -4511,14 +4504,14 @@
     "call": "Install another build:",
     "key": "Install another build:",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1373"
+      "src/forkop/tabs/updates/initController.ts:1358"
     ]
   },
   {
     "call": "Install Extended build",
     "key": "Install Extended build",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:922"
+      "src/forkop/tabs/updates/initController.ts:921"
     ]
   },
   {
@@ -4532,7 +4525,7 @@
     "call": "Install Tiny build",
     "key": "Install Tiny build",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:913"
+      "src/forkop/tabs/updates/initController.ts:912"
     ]
   },
   {
@@ -4546,15 +4539,15 @@
     "call": "Installed (Mirror edition)",
     "key": "Installed (Mirror edition)",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1037"
+      "src/forkop/tabs/updates/initController.ts:1036"
     ]
   },
   {
     "call": "Installed version is newer than release",
     "key": "Installed version is newer than release",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:296",
-      "src/forkop/tabs/updates/initController.ts:1194"
+      "src/forkop/tabs/updates/initController.ts:295",
+      "src/forkop/tabs/updates/initController.ts:1179"
     ]
   },
   {
@@ -5278,15 +5271,15 @@
     "call": "Latest version is installed",
     "key": "Latest version is installed",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:299",
-      "src/forkop/tabs/updates/initController.ts:1192"
+      "src/forkop/tabs/updates/initController.ts:298",
+      "src/forkop/tabs/updates/initController.ts:1177"
     ]
   },
   {
     "call": "Latest version:",
     "key": "Latest version:",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1194"
+      "src/forkop/tabs/updates/initController.ts:1179"
     ]
   },
   {
@@ -5308,20 +5301,6 @@
     "key": "less than a minute",
     "places": [
       "src/forkop/tabs/autotune/model.ts:752"
-    ]
-  },
-  {
-    "call": "Lets applications use Forkop X HTTP or SOCKS5 proxy with a direct Internet route. Useful for torrents.",
-    "key": "Lets applications use Forkop X HTTP or SOCKS5 proxy with a direct Internet route. Useful for torrents.",
-    "places": [
-      "src/forkop/tabs/updates/initController.ts:1073"
-    ]
-  },
-  {
-    "call": "Lets TorrServer bypass Forkop X routing rules.",
-    "key": "Lets TorrServer bypass Forkop X routing rules.",
-    "places": [
-      "src/forkop/tabs/updates/initController.ts:1102"
     ]
   },
   {
@@ -5393,11 +5372,11 @@
     "call": "Loading...",
     "key": "Loading...",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:976",
-      "src/forkop/tabs/updates/initController.ts:987",
-      "src/forkop/tabs/updates/initController.ts:998",
-      "src/forkop/tabs/updates/initController.ts:1011",
-      "src/forkop/tabs/updates/initController.ts:1024"
+      "src/forkop/tabs/updates/initController.ts:975",
+      "src/forkop/tabs/updates/initController.ts:986",
+      "src/forkop/tabs/updates/initController.ts:997",
+      "src/forkop/tabs/updates/initController.ts:1010",
+      "src/forkop/tabs/updates/initController.ts:1023"
     ]
   },
   {
@@ -5577,7 +5556,7 @@
     "call": "Mode 2 enabled",
     "key": "Mode 2 enabled",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1050"
+      "src/forkop/tabs/updates/initController.ts:1046"
     ]
   },
   {
@@ -6063,7 +6042,7 @@
     "call": "Normal mode",
     "key": "Normal mode",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1050"
+      "src/forkop/tabs/updates/initController.ts:1046"
     ]
   },
   {
@@ -6133,10 +6112,10 @@
       "src/forkop/helpers/singBoxVariant.ts:29",
       "src/forkop/helpers/singBoxVariant.ts:37",
       "src/forkop/tabs/diagnostic/initController.ts:866",
-      "src/forkop/tabs/updates/initController.ts:1001",
-      "src/forkop/tabs/updates/initController.ts:1014",
-      "src/forkop/tabs/updates/initController.ts:1027",
-      "src/forkop/tabs/updates/initController.ts:1038"
+      "src/forkop/tabs/updates/initController.ts:1000",
+      "src/forkop/tabs/updates/initController.ts:1013",
+      "src/forkop/tabs/updates/initController.ts:1026",
+      "src/forkop/tabs/updates/initController.ts:1037"
     ]
   },
   {
@@ -6359,8 +6338,8 @@
     "call": "Open",
     "key": "Open",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1185",
-      "src/forkop/tabs/updates/initController.ts:1207"
+      "src/forkop/tabs/updates/initController.ts:1170",
+      "src/forkop/tabs/updates/initController.ts:1192"
     ]
   },
   {
@@ -7016,9 +6995,9 @@
       "src/forkop/tabs/autotune/initController.ts:743",
       "src/forkop/tabs/diagnostic/connectivityMatrix.ts:279",
       "src/forkop/tabs/diagnostic/connectivityMatrix.ts:280",
-      "src/forkop/tabs/updates/initController.ts:721",
-      "src/forkop/tabs/updates/initController.ts:865",
-      "src/forkop/tabs/updates/initController.ts:954"
+      "src/forkop/tabs/updates/initController.ts:720",
+      "src/forkop/tabs/updates/initController.ts:864",
+      "src/forkop/tabs/updates/initController.ts:953"
     ]
   },
   {
@@ -7039,7 +7018,7 @@
     "call": "Remove %s?",
     "key": "Remove %s?",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:716"
+      "src/forkop/tabs/updates/initController.ts:715"
     ]
   },
   {
@@ -7275,7 +7254,7 @@
     "call": "Restore normal mode",
     "key": "Restore normal mode",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1055"
+      "src/forkop/tabs/updates/initController.ts:1051"
     ]
   },
   {
@@ -7640,7 +7619,7 @@
     "call": "Rules that use this provider stop bypassing DPI",
     "key": "Rules that use this provider stop bypassing DPI",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:719"
+      "src/forkop/tabs/updates/initController.ts:718"
     ]
   },
   {
@@ -9113,7 +9092,7 @@
     "call": "The package is removed from the router.",
     "key": "The package is removed from the router.",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:717"
+      "src/forkop/tabs/updates/initController.ts:716"
     ]
   },
   {
@@ -9827,14 +9806,14 @@
     "call": "TorrServer Direct",
     "key": "TorrServer Direct",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1101"
+      "src/forkop/tabs/updates/initController.ts:1094"
     ]
   },
   {
     "call": "TorrServer not found",
     "key": "TorrServer not found",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1104"
+      "src/forkop/tabs/updates/initController.ts:1096"
     ]
   },
   {
@@ -10060,7 +10039,7 @@
       "src/forkop/services/systemInfo.service.ts:33",
       "src/forkop/services/systemInfo.service.ts:34",
       "src/forkop/tabs/diagnostic/initController.ts:862",
-      "src/forkop/tabs/updates/initController.ts:334"
+      "src/forkop/tabs/updates/initController.ts:333"
     ]
   },
   {
@@ -10155,30 +10134,30 @@
     "call": "Update",
     "key": "Update",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:820"
+      "src/forkop/tabs/updates/initController.ts:819"
+    ]
+  },
+  {
+    "call": "Update all subscriptions",
+    "key": "Update all subscriptions",
+    "places": [
+      "src/forkop/tabs/dashboard/partials/renderSections.ts:210",
+      "src/forkop/tabs/dashboard/partials/renderSections.ts:223",
+      "src/forkop/tabs/dashboard/partials/renderSections.ts:224"
     ]
   },
   {
     "call": "Update is available",
     "key": "Update is available",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:292"
+      "src/forkop/tabs/updates/initController.ts:291"
     ]
   },
   {
     "call": "Update is available:",
     "key": "Update is available:",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1171"
-    ]
-  },
-  {
-    "call": "Update subscriptions",
-    "key": "Update subscriptions",
-    "places": [
-      "src/forkop/tabs/dashboard/partials/renderSections.ts:210",
-      "src/forkop/tabs/dashboard/partials/renderSections.ts:223",
-      "src/forkop/tabs/dashboard/partials/renderSections.ts:224"
+      "src/forkop/tabs/updates/initController.ts:1156"
     ]
   },
   {
@@ -10442,7 +10421,7 @@
     "call": "Waiting for TorrServer",
     "key": "Waiting for TorrServer",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1110"
+      "src/forkop/tabs/updates/initController.ts:1102"
     ]
   },
   {

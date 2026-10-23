@@ -120,8 +120,8 @@ function applyActionState(actions: UiActionMap = {}) {
   const diagnosticsActions = getEmptyDiagnosticsActions();
 
   for (const state of actions.subscription || []) {
-    if (isRunningAction(state) && state.section) {
-      subscriptionUpdatingSections[state.section] = true;
+    if (isRunningAction(state)) {
+      subscriptionUpdatingSections[state.section || '*'] = true;
     }
   }
 

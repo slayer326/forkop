@@ -2611,6 +2611,10 @@ function install_forkop(requested_version) {
     if (previous == null || (with_i18n && previous.i18n_url == ""))
         action_fail("forkop", "install", "Previous Forkop release packages are unavailable; automatic upgrade refused", FORKOP_VERSION, latest_version);
 
+    // Resolve new release dependencies before stopping the working service.
+    if (!run_logged("Updating package lists before Forkop package change", pkg_list_update_command()))
+        action_fail("forkop", "install", "Failed to update package lists", FORKOP_VERSION, latest_version);
+
     // Capture the exact managed sing-box process before apk/opkg runs the
     // currently installed package's prerm.
     capture_managed_upgrade_sing_box_marker();

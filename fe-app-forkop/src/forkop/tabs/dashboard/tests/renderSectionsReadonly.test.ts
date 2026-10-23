@@ -121,7 +121,7 @@ describe('dashboard sections in a read-only session', () => {
     const { node, handlers } = render(false);
 
     expect(text(node)).toContain('Test latency');
-    expect(text(node)).toContain('Update subscriptions');
+    expect(text(node)).toContain('Update all subscriptions');
     const selectable = find(node, (n) =>
       String(n.attrs.class || '').includes('--selectable'),
     );
