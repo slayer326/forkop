@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-08 23:08+0300\n"
-"PO-Revision-Date: 2026-10-08 23:08+0300\n"
+"POT-Creation-Date: 2026-10-23 08:17+0300\n"
+"PO-Revision-Date: 2026-10-23 08:17+0300\n"
 "Last-Translator: slayer\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -284,9 +284,6 @@ msgstr "Дополнительные настройки"
 msgid "All"
 msgstr "Все"
 
-msgid "All check results"
-msgstr "Все результаты проверки"
-
 msgid "All devices"
 msgstr "Все устройства"
 
@@ -310,6 +307,9 @@ msgstr "Добавляет все серверы, которые не попал
 
 msgid "All servers"
 msgstr "Все серверы"
+
+msgid "All traffic from device"
+msgstr "Весь трафик устройства"
 
 msgid "All traffic from these IP addresses will be routed through the section unconditionally, ignoring all other conditions."
 msgstr "Весь трафик с этих IP-адресов будет направлен через секцию безусловно, игнорируя остальные условия."
@@ -1019,9 +1019,6 @@ msgstr "Отдельная cgroup недоступна"
 msgid "Default address for checking server availability and latency. URLTest uses its own address."
 msgstr "Адрес по умолчанию для проверки доступности и задержки серверов. Для URLTest используется собственный адрес."
 
-msgid "All traffic from device"
-msgstr "Весь трафик устройства"
-
 msgid "Default route"
 msgstr "Маршрут по умолчанию"
 
@@ -1141,6 +1138,9 @@ msgstr "Отключение перехвата несовместимо с acti
 
 msgid "Display name"
 msgstr "Отображаемое имя"
+
+msgid "Distributes network traffic processing across CPU cores. It may improve throughput on multi-core routers; the effect depends on the device and load."
+msgstr "Распределяет обработку сетевого трафика между ядрами процессора. На многоядерных роутерах может повысить скорость; результат зависит от устройства и нагрузки."
 
 msgid "DNS"
 msgstr "DNS"
@@ -1633,9 +1633,6 @@ msgstr "Forkop X остановлен: изменение применится, 
 
 msgid "Forkop X is stopped: the configuration is replaced and checked, but Forkop X is not started. It takes effect when you start Forkop X."
 msgstr "Forkop X остановлен: конфигурация будет заменена и проверена, но Forkop X не запустится. Она вступит в силу, когда вы запустите Forkop X."
-
-msgid "Forkop X is stopped. Start it to run the checks."
-msgstr "Forkop X остановлен. Запустите его, чтобы выполнить проверки."
 
 msgid "Forkop X kept or restored the previous configuration."
 msgstr "Forkop X сохранил или восстановил прежнюю конфигурацию."
@@ -2192,6 +2189,12 @@ msgstr "Устаревшие настройки"
 msgid "less than a minute"
 msgstr "меньше минуты"
 
+msgid "Lets applications use Forkop X HTTP or SOCKS5 proxy with a direct Internet route. Useful for torrents."
+msgstr "Позволяет приложениям использовать HTTP- или SOCKS5-прокси Forkop X с прямым выходом в интернет. Полезно для торрентов."
+
+msgid "Lets TorrServer bypass Forkop X routing rules."
+msgstr "Позволяет TorrServer обходить правила маршрутизации Forkop X."
+
 msgid "Level"
 msgstr "Уровень"
 
@@ -2674,9 +2677,6 @@ msgstr "Паника"
 
 msgid "Part of Forkop X does not work as expected."
 msgstr "Часть Forkop X работает не так, как ожидается."
-
-msgid "Passed checks: %d"
-msgstr "Пройденные проверки: %d"
 
 msgid "Passed: %d"
 msgstr "Пройдено: %d"

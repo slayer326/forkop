@@ -67,6 +67,7 @@ interface ComponentCard {
   component: Forkop.ComponentName;
   column: 0 | 1 | 2;
   title: string;
+  description?: string;
   version: string;
   latestVersion?: string;
   releaseUrl?: string;
@@ -1043,6 +1044,9 @@ function getComponentCards(): ComponentCard[] {
       component: 'packet_steering',
       column: 2,
       title: 'Packet Steering',
+      description: _(
+        'Distributes network traffic processing across CPU cores. It may improve throughput on multi-core routers; the effect depends on the device and load.',
+      ),
       version: packetSteeringEnabled ? _('Mode 2 enabled') : _('Normal mode'),
       actions: [
         packetSteeringEnabled
@@ -1066,6 +1070,9 @@ function getComponentCards(): ComponentCard[] {
       component: 'direct_proxy',
       column: 2,
       title: _('Direct Proxy'),
+      description: _(
+        'Lets applications use Forkop X HTTP or SOCKS5 proxy with a direct Internet route. Useful for torrents.',
+      ),
       version: directProxyEnabled
         ? `HTTP/SOCKS5 · ${directProxyEndpoint || _('Enabled')}`
         : _('Disabled'),
@@ -1092,6 +1099,7 @@ function getComponentCards(): ComponentCard[] {
       component: 'torrserver_direct',
       column: 2,
       title: _('TorrServer Direct'),
+      description: _('Lets TorrServer bypass Forkop X routing rules.'),
       version: !torrserverRunning
         ? _('TorrServer not found')
         : !torrserverDirectAvailable
@@ -1131,7 +1139,14 @@ function renderComponentCard(card: ComponentCard) {
 
   // 1. Header (displays Title, Current Version, no badges)
   const headerChildren: Node[] = [
-    E('b', { class: 'fkp_updates-page__component__title' }, card.title),
+    E(
+      'b',
+      {
+        class: 'fkp_updates-page__component__title',
+        title: card.description || '',
+      },
+      card.title,
+    ),
     E(
       'span',
       { class: 'fkp_updates-page__component__header-version' },
