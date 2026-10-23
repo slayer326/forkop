@@ -118,8 +118,8 @@ grep -Fq 'Previous sing-box package unavailable; restored its binary backup with
   fail "package rollback must disclose when only the previous binary could be restored"
 grep -Fq 'restore_sing_box_extended_package_variant(previous_version)' "$ACTION_UC" ||
   fail "extended package rollback must select the previous version"
-grep -Fq '"/forkop/sing-box-extended/releases/" + previous_version + "/" + asset_name' "$ACTION_UC" ||
-  fail "extended package rollback must use a versioned mirror asset, never latest.json"
+grep -Fq 'release_base + "v" + previous_version + "/" + asset_name' "$ACTION_UC" ||
+  fail "extended package rollback must use the upstream v-prefixed mirror tag, never latest.json"
 grep -Fq '!file_exists("/etc/init.d/sing-box") && file_nonempty("/usr/bin/sing-box")' "$ACTION_UC" ||
   fail "binary rollback must restore a managed sing-box service when the package script is missing"
 grep -Fq 'fail_package_sing_box_install(action, tiny, "package was installed, but sing-box binary is not available"' "$ACTION_UC" ||

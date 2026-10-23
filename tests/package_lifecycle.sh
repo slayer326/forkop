@@ -368,4 +368,35 @@ FORKOP_RT_TABLES="$WORK_DIR/rt_tables_upgrade" \
 [ ! -e "$FORKOP_PACKAGE_UPGRADE_STATE" ] ||
   fail "package removal must not schedule a restart"
 
+# A binary sing-box variant belongs to Forkop's component manager, not to
+# the backend APK. Upgrading the backend must not erase the only working core;
+# explicitly removing Forkop must still clean it up.
+printf '#!/bin/sh\n# Forkop managed sing-box service for binary variants\nexit 0\n' >"$WORK_DIR/managed-sing-box-init"
+chmod 0755 "$WORK_DIR/managed-sing-box-init"
+printf 'working core\n' >"$WORK_DIR/managed-sing-box-bin"
+printf 'working library\n' >"$WORK_DIR/managed-cronet"
+managed_prerm() {
+  FORKOP_UCI_STATE_FILE="$WORK_DIR/stop-order.state" \
+  FORKOP_INIT="$WORK_DIR/upgrade-init" \
+  FORKOP_LIB="$FORKOP_LIB" \
+  FORKOP_BIN="$WORK_DIR/missing-forkop-bin" \
+  FORKOP_DNS_APPLY_UC="$WORK_DIR/missing-dns-apply.uc" \
+  FORKOP_SING_BOX_INIT="$WORK_DIR/managed-sing-box-init" \
+  FORKOP_SING_BOX_BIN="$WORK_DIR/managed-sing-box-bin" \
+  FORKOP_SING_BOX_CRONET="$WORK_DIR/managed-cronet" \
+  FORKOP_RT_TABLES="$WORK_DIR/rt_tables_upgrade" \
+  FORKOP_RUNTIME_STATE_DIR="$WORK_DIR/upgrade-run" \
+    ucode -L "$FORKOP_LIB" "$PACKAGE_UC" prerm "$1"
+}
+managed_prerm upgrade || fail "managed sing-box upgrade prerm exited non-zero"
+[ -e "$WORK_DIR/managed-sing-box-init" ] &&
+[ -e "$WORK_DIR/managed-sing-box-bin" ] &&
+[ -e "$WORK_DIR/managed-cronet" ] ||
+  fail "backend upgrade removed a managed sing-box binary variant"
+managed_prerm remove || fail "managed sing-box removal prerm exited non-zero"
+[ ! -e "$WORK_DIR/managed-sing-box-init" ] &&
+[ ! -e "$WORK_DIR/managed-sing-box-bin" ] &&
+[ ! -e "$WORK_DIR/managed-cronet" ] ||
+  fail "backend removal left managed sing-box files behind"
+
 printf 'package lifecycle checks passed\n'

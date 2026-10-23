@@ -30,6 +30,7 @@ let lock_held = false;
 let forkop_was_running = false;
 let last_logged_output = "";
 let forkop_stopped_for_sing_box_change = false;
+let forkop_stopped_for_release_upgrade = false;
 
 function as_string(value) {
     return value == null ? "" : "" + value;
@@ -351,6 +352,27 @@ function restart_forkop_after_failed_sing_box_change() {
         updates_log("Forkop did not start again after the failed sing-box component change", "error");
 }
 
+function restart_forkop_after_failed_release_upgrade() {
+    if (!forkop_stopped_for_release_upgrade || !forkop_was_running || !file_exists(SERVICE_INIT) ||
+        file_exists(FORKOP_OPKG_RECOVERY_DIR + "/pending") ||
+        !opkg_forkop_set_versions_match(FORKOP_VERSION, pkg_is_installed("luci-i18n-forkop-ru")))
+        return;
+    if (forkop_status_running_with_timeout())
+        return;
+    // Do not clear the provenance guard or attempt a start while an old or
+    // ambiguously owned sing-box process still exists. A failed pre-commit
+    // stop with no remaining process can safely restore the old release.
+    let processes = upgrade_sing_box_processes();
+    if (processes == null || upgrade_sing_box_count(processes) != 0) {
+        updates_log("Forkop was not restarted after failed release upgrade: sing-box ownership is unresolved", "error");
+        return;
+    }
+    remove_file(MANAGED_UPGRADE_SING_BOX_MARKER);
+    updates_log("Restoring Forkop after failed release upgrade");
+    if (!forkop_start_and_wait("start"))
+        updates_log("Forkop did not start again after failed release upgrade", "error");
+}
+
 function action_success(component, action, message, current_version, latest_version, changed, status, release_url) {
     updates_response(true, component, action, message, current_version, latest_version, changed || 0, status || "", release_url || "");
     cleanup_action();
@@ -360,6 +382,7 @@ function action_success(component, action, message, current_version, latest_vers
 function action_fail(component, action, message, current_version, latest_version, status, release_url) {
     updates_log(message, "error");
     restart_forkop_after_failed_sing_box_change();
+    restart_forkop_after_failed_release_upgrade();
     updates_response(false, component, action, message, current_version || "", latest_version || "", 0, status || "", release_url || "");
     cleanup_action();
     exit(1);
@@ -1585,8 +1608,11 @@ function restore_sing_box_extended_package_variant(previous_version) {
         return false;
     let asset_name = "sing-box-extended_" + previous_version + "_openwrt_" + distrib_arch + (is_apk() ? ".apk" : ".ipk");
     let package_file = tmp_dir + "/" + asset_name;
-    let asset_url = FORKOP_MIRROR_BASE_URL + "/forkop/sing-box-extended/releases/" + previous_version + "/" + asset_name;
-    if (!download_with_retry(asset_url, package_file, asset_name))
+    // Upstream tags include a leading v, while the installed package version
+    // does not. Older mirrors may have stored the unprefixed path.
+    let release_base = FORKOP_MIRROR_BASE_URL + "/forkop/sing-box-extended/releases/";
+    if (!download_with_retry(release_base + "v" + previous_version + "/" + asset_name, package_file, asset_name) &&
+        !download_with_retry(release_base + previous_version + "/" + asset_name, package_file, asset_name))
         return false;
     prepare_sing_box_package_service_install();
     pkg_remove_sing_box_conflict("sing-box-tiny");
@@ -2367,7 +2393,12 @@ function install_forkop_package_set(latest_version, backend_file, app_file, i18n
     }
     if (!run_logged("Checking new Forkop package set", pkg_forkop_set_command(new_files, true)) ||
         !run_logged("Checking previous Forkop package set", pkg_forkop_set_command(old_files, true, true))) {
+        let pinned_sing_box_missing = is_apk() &&
+            index(last_logged_output, "sing-box-extended (no such package)") >= 0 &&
+            index(last_logged_output, "world[sing-box-extended><") >= 0;
         command_success_from_args([ "rm", "-rf", FORKOP_OPKG_RECOVERY_DIR ]);
+        if (pinned_sing_box_missing)
+            return "Installed sing-box-extended is pinned to a local APK unavailable in configured repositories; upgrade refused without stopping Forkop";
         return "Forkop package-set preflight failed; automatic upgrade refused";
     }
 
@@ -2376,14 +2407,30 @@ function install_forkop_package_set(latest_version, backend_file, app_file, i18n
         command_success_from_args([ "rm", "-rf", FORKOP_OPKG_RECOVERY_DIR ]);
         return space_error;
     }
+
+    // A failed apk solver check (including an unrelated hash-pinned world
+    // package) must leave the existing dataplane running. Only retire the
+    // managed sing-box after both package sets and storage have passed their
+    // preflight checks.
+    capture_managed_upgrade_sing_box_marker();
+    forkop_stopped_for_release_upgrade = true;
+    if (!stop_old_sing_box_before_forkop_upgrade()) {
+        command_success_from_args([ "rm", "-rf", FORKOP_OPKG_RECOVERY_DIR ]);
+        return "Old sing-box processes have ambiguous ownership or did not stop";
+    }
+
     let marker_tmp = FORKOP_OPKG_RECOVERY_DIR + "/pending.new";
     if (!write_file(marker_tmp, FORKOP_VERSION + "\t" + latest_version + "\t" + (with_i18n ? "1" : "0") + "\t" + (forkop_was_running ? "1" : "0") + "\n") ||
         !fs.rename(marker_tmp, FORKOP_OPKG_RECOVERY_DIR + "/pending")) {
         command_success_from_args([ "rm", "-rf", FORKOP_OPKG_RECOVERY_DIR ]);
         return "Failed to record Forkop package-set recovery state";
     }
-    if (!command_success_from_args([ "sync" ]))
+    if (!command_success_from_args([ "sync" ])) {
+        // No package transaction has started yet. Drop the marker so the
+        // failure path can bring the original service back up.
+        command_success_from_args([ "rm", "-rf", FORKOP_OPKG_RECOVERY_DIR ]);
         return "Failed to persist Forkop package-set recovery state";
+    }
 
     // apk resolves one transaction for all three files and refreshes its index
     // once, so keep that. Order still matters inside it: the backend goes last
@@ -2614,13 +2661,6 @@ function install_forkop(requested_version) {
     // Resolve new release dependencies before stopping the working service.
     if (!run_logged("Updating package lists before Forkop package change", pkg_list_update_command()))
         action_fail("forkop", "install", "Failed to update package lists", FORKOP_VERSION, latest_version);
-
-    // Capture the exact managed sing-box process before apk/opkg runs the
-    // currently installed package's prerm.
-    capture_managed_upgrade_sing_box_marker();
-
-    if (!stop_old_sing_box_before_forkop_upgrade())
-        action_fail("forkop", "install", "Old sing-box processes have ambiguous ownership or did not stop", FORKOP_VERSION, latest_version);
 
     let error = install_forkop_package_set(latest_version, backend_file, app_file, i18n_file, previous);
     if (error != "")

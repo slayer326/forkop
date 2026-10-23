@@ -213,7 +213,11 @@ function prerm_cleanup(action) {
         if (as_string(action) == "remove")
             command_success_from_args([ "ucode", "-L", LIB_DIR, LIB_DIR + "/service/initd.uc", "clear-explicit-start" ]);
         restore_dnsmasq_if_needed();
-        remove_managed_sing_box();
+        // A managed binary variant is not owned by the Forkop APK. Keep its
+        // init script and executable across a backend upgrade so postinst can
+        // restart the same working core. Only uninstall removes them.
+        if (as_string(action) == "remove")
+            remove_managed_sing_box();
     }
     return remove_rt_tables_entry();
 }
