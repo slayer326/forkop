@@ -29,6 +29,7 @@ const FORKOP_OPKG_RECOVERY_DIR = "/recovery";
 const SERVICE_INIT = "/init";
 let tmp_dir = "/tmp";
 let forkop_was_running = true;
+let forkop_stopped_for_release_upgrade = false;
 let service_running = true;
 let service_restart_fail = false;
 let versions = {};
@@ -86,6 +87,11 @@ function available_kib(path) { return 1048576; }
 function file_bytes(path) { return 0; }
 function path_basename(path) { let parts = split(path, "/"); return parts[length(parts) - 1]; }
 function updates_log(message, level) { push(events, message); }
+function capture_managed_upgrade_sing_box_marker() { push(events, "Managed sing-box provenance captured"); }
+function stop_old_sing_box_before_forkop_upgrade() {
+    service_running = false;
+    return true;
+}
 function run_logged(description, command) {
     push(events, description);
     let old = index(command, FORKOP_OPKG_RECOVERY_DIR + "/") >= 0;
@@ -121,6 +127,7 @@ function reset() {
     checksummed_previous = false;
     uncommitted = "";
     forkop_was_running = true;
+    forkop_stopped_for_release_upgrade = false;
     service_running = true;
     service_restart_fail = false;
 }

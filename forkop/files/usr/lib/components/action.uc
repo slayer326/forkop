@@ -352,6 +352,68 @@ function restart_forkop_after_failed_sing_box_change() {
         updates_log("Forkop did not start again after the failed sing-box component change", "error");
 }
 
+function is_apk() {
+    return command_exists("apk");
+}
+
+function pkg_is_installed(package_name) {
+    package_name = as_string(package_name);
+    if (is_apk())
+        return command_success_from_args([ "apk", "info", "-e", package_name ]);
+    return module_success([ LIB_DIR + "/core/packages.uc", "opkg-installed", package_name ]);
+}
+
+function installed_package_version(package_name) {
+    package_name = as_string(package_name);
+    if (is_apk()) {
+        if (!pkg_is_installed(package_name))
+            return "";
+        return trim(module_output([ LIB_DIR + "/core/packages.uc", "apk-version", package_name ]));
+    }
+    return trim(module_output([ LIB_DIR + "/core/packages.uc", "opkg-version", package_name ]));
+}
+
+function forkop_release_matches(package_name, version) {
+    let installed = installed_package_version(package_name);
+    let revision_prefix = version + "-r";
+    return installed == version || (substr(installed, 0, length(revision_prefix)) == revision_prefix &&
+        match(substr(installed, length(revision_prefix)), /^[0-9]+$/) != null);
+}
+
+function opkg_forkop_set_versions_match(version, with_i18n) {
+    return forkop_release_matches("forkop", version) &&
+        forkop_release_matches("luci-app-forkop", version) &&
+        (!with_i18n || forkop_release_matches("luci-i18n-forkop-ru", version));
+}
+
+function upgrade_sing_box_ticks(pid) {
+    let ticks = process_identity.start_ticks(pid);
+    return ticks != "" ? ticks : null;
+}
+
+function upgrade_sing_box_processes() {
+    let processes = {};
+    for (let exe in fs.glob("/proc/[0-9]*/exe")) {
+        let path = trim(command_output_from_args([ "readlink", exe ]));
+        let name = replace(path, /^.*\//, "");
+        if (name != "sing-box" && name != "sing-box (deleted)")
+            continue;
+        let pid = split(exe, "/")[2];
+        let ticks = upgrade_sing_box_ticks(pid);
+        if (ticks == null)
+            return null;
+        processes[pid] = ticks;
+    }
+    return processes;
+}
+
+function upgrade_sing_box_count(processes) {
+    let count = 0;
+    for (let _ in processes)
+        count++;
+    return count;
+}
+
 function restart_forkop_after_failed_release_upgrade() {
     if (!forkop_stopped_for_release_upgrade || !forkop_was_running || !file_exists(SERVICE_INIT) ||
         file_exists(FORKOP_OPKG_RECOVERY_DIR + "/pending") ||
@@ -413,27 +475,6 @@ function run_logged(description, command) {
     if (status != 0)
         updates_log(description + " failed with exit code " + status, "warn");
     return status == 0;
-}
-
-function is_apk() {
-    return command_exists("apk");
-}
-
-function pkg_is_installed(package_name) {
-    package_name = as_string(package_name);
-    if (is_apk())
-        return command_success_from_args([ "apk", "info", "-e", package_name ]);
-    return module_success([ LIB_DIR + "/core/packages.uc", "opkg-installed", package_name ]);
-}
-
-function installed_package_version(package_name) {
-    package_name = as_string(package_name);
-    if (is_apk()) {
-        if (!pkg_is_installed(package_name))
-            return "";
-        return trim(module_output([ LIB_DIR + "/core/packages.uc", "apk-version", package_name ]));
-    }
-    return trim(module_output([ LIB_DIR + "/core/packages.uc", "opkg-version", package_name ]));
 }
 
 function opkg_package_version_from_list(package_name, output) {
@@ -2135,13 +2176,6 @@ function resolve_forkop_release(latest_version, selected) {
     return resolve_forkop_release_json(latest_version, release_json);
 }
 
-function forkop_release_matches(package_name, version) {
-    let installed = installed_package_version(package_name);
-    let revision_prefix = version + "-r";
-    return installed == version || (substr(installed, 0, length(revision_prefix)) == revision_prefix &&
-        match(substr(installed, length(revision_prefix)), /^[0-9]+$/) != null);
-}
-
 // Older builds may be present on the release host without a GitHub Release.
 // Never infer a rollback set from filenames alone: require the published
 // SHA256SUMS entry for every package in the set.
@@ -2208,12 +2242,6 @@ function previous_forkop_release(version) {
         return resolved;
     }
     return null;
-}
-
-function opkg_forkop_set_versions_match(version, with_i18n) {
-    return forkop_release_matches("forkop", version) &&
-        forkop_release_matches("luci-app-forkop", version) &&
-        (!with_i18n || forkop_release_matches("luci-i18n-forkop-ru", version));
 }
 
 // The staged rollback set is installed the same way on both package managers:
@@ -2339,6 +2367,82 @@ function forkop_package_set_space_error(new_files, staged_files) {
         return "Not enough free space in /tmp to upgrade Forkop: " + as_string(tmp_kib) +
             " KiB available where " + as_string(required_tmp_kib) + " KiB is needed";
     return "";
+}
+
+function upgrade_procd_owns_all(processes) {
+    let data = command_output_from_args([ "ubus", "call", "service", "list" ]);
+    let service;
+    try { service = json(data)["sing-box"]; } catch (e) { return false; }
+    let instances = service && type(service.instances) == "object" ? service.instances : {};
+    for (let pid, ticks in processes) {
+        let owned = false;
+        for (let _, instance in instances) {
+            if (type(instance) != "object")
+                continue;
+            let command = instance.command;
+            if (instance.running === true && as_string(instance.pid) == pid &&
+                type(command) == "array" && length(command) >= 4 &&
+                command[0] == "/usr/bin/sing-box" && command[1] == "run" &&
+                command[2] == "-c" && command[3] == "/etc/sing-box/config.json" &&
+                upgrade_sing_box_ticks(pid) == ticks)
+                owned = true;
+        }
+        if (!owned)
+            return false;
+    }
+    return true;
+}
+
+// An init script that never returns would hang the whole upgrade. Run the stop
+// in the background and kill it once the deadline passes.
+function upgrade_bounded_stop(script) {
+    let seconds = int(getenv("FORKOP_UPGRADE_STOP_TIMEOUT_SECONDS") || "60");
+    if (seconds < 1)
+        seconds = 60;
+    let command = command_from_args([ script, "stop" ]) + " >/dev/null 2>&1 & pid=$!; " +
+        "( sleep " + seconds + "; kill $pid 2>/dev/null || true ) & watcher=$!; " +
+        "wait $pid 2>/dev/null; rc=$?; kill $watcher 2>/dev/null || true; " +
+        "wait $watcher 2>/dev/null || true; exit $rc";
+    return command_status("sh -c " + shell_quote(command)) == 0;
+}
+
+// The package manager replaces the binary underneath a running sing-box, and
+// the new Forkop then waits for a runtime that can no longer be identified.
+// Retire the old processes first, but only ones procd demonstrably owns: an
+// unrelated sing-box must never be signalled from here.
+function stop_old_sing_box_before_forkop_upgrade() {
+    if (file_exists(SERVICE_INIT))
+        upgrade_bounded_stop(SERVICE_INIT);
+
+    let processes = upgrade_sing_box_processes();
+    if (processes == null)
+        return false;
+    if (upgrade_sing_box_count(processes) == 0)
+        return true;
+    if (!upgrade_procd_owns_all(processes))
+        return false;
+
+    let confirmed = upgrade_sing_box_processes();
+    if (confirmed == null || upgrade_sing_box_count(confirmed) != upgrade_sing_box_count(processes))
+        return false;
+    for (let pid, ticks in processes)
+        if (confirmed[pid] != ticks)
+            return false;
+    if (!upgrade_procd_owns_all(confirmed) || !file_exists("/etc/init.d/sing-box"))
+        return false;
+
+    upgrade_bounded_stop("/etc/init.d/sing-box");
+    let quiet = 0;
+    for (let attempt = 0; attempt < 17; attempt++) {
+        let remaining = upgrade_sing_box_processes();
+        if (remaining == null)
+            return false;
+        quiet = upgrade_sing_box_count(remaining) == 0 ? quiet + 1 : 0;
+        if (quiet >= 2)
+            return true;
+        command_success_from_args([ "sleep", "1" ]);
+    }
+    return false;
 }
 
 function install_forkop_package_set(latest_version, backend_file, app_file, i18n_file, prechecked_previous) {
@@ -2471,110 +2575,6 @@ function install_forkop_package_set(latest_version, backend_file, app_file, i18n
     if (recovery_error != "")
         return recovery_error;
     return "Forkop package-set upgrade failed; previous release restored";
-}
-
-function upgrade_sing_box_ticks(pid) {
-    let ticks = process_identity.start_ticks(pid);
-    return ticks != "" ? ticks : null;
-}
-
-function upgrade_sing_box_processes() {
-    let processes = {};
-    for (let exe in fs.glob("/proc/[0-9]*/exe")) {
-        let path = trim(command_output_from_args([ "readlink", exe ]));
-        let name = replace(path, /^.*\//, "");
-        if (name != "sing-box" && name != "sing-box (deleted)")
-            continue;
-        let pid = split(exe, "/")[2];
-        let ticks = upgrade_sing_box_ticks(pid);
-        if (ticks == null)
-            return null;
-        processes[pid] = ticks;
-    }
-    return processes;
-}
-
-function upgrade_sing_box_count(processes) {
-    let count = 0;
-    for (let _ in processes)
-        count++;
-    return count;
-}
-
-function upgrade_procd_owns_all(processes) {
-    let data = command_output_from_args([ "ubus", "call", "service", "list" ]);
-    let service;
-    try { service = json(data)["sing-box"]; } catch (e) { return false; }
-    let instances = service && type(service.instances) == "object" ? service.instances : {};
-    for (let pid, ticks in processes) {
-        let owned = false;
-        for (let _, instance in instances) {
-            if (type(instance) != "object")
-                continue;
-            let command = instance.command;
-            if (instance.running === true && as_string(instance.pid) == pid &&
-                type(command) == "array" && length(command) >= 4 &&
-                command[0] == "/usr/bin/sing-box" && command[1] == "run" &&
-                command[2] == "-c" && command[3] == "/etc/sing-box/config.json" &&
-                upgrade_sing_box_ticks(pid) == ticks)
-                owned = true;
-        }
-        if (!owned)
-            return false;
-    }
-    return true;
-}
-
-// An init script that never returns would hang the whole upgrade. Run the stop
-// in the background and kill it once the deadline passes.
-function upgrade_bounded_stop(script) {
-    let seconds = int(getenv("FORKOP_UPGRADE_STOP_TIMEOUT_SECONDS") || "60");
-    if (seconds < 1)
-        seconds = 60;
-    let command = command_from_args([ script, "stop" ]) + " >/dev/null 2>&1 & pid=$!; " +
-        "( sleep " + seconds + "; kill $pid 2>/dev/null || true ) & watcher=$!; " +
-        "wait $pid 2>/dev/null; rc=$?; kill $watcher 2>/dev/null || true; " +
-        "wait $watcher 2>/dev/null || true; exit $rc";
-    return command_status("sh -c " + shell_quote(command)) == 0;
-}
-
-// The package manager replaces the binary underneath a running sing-box, and
-// the new Forkop then waits for a runtime that can no longer be identified.
-// Retire the old processes first, but only ones procd demonstrably owns: an
-// unrelated sing-box must never be signalled from here.
-function stop_old_sing_box_before_forkop_upgrade() {
-    if (file_exists(SERVICE_INIT))
-        upgrade_bounded_stop(SERVICE_INIT);
-
-    let processes = upgrade_sing_box_processes();
-    if (processes == null)
-        return false;
-    if (upgrade_sing_box_count(processes) == 0)
-        return true;
-    if (!upgrade_procd_owns_all(processes))
-        return false;
-
-    let confirmed = upgrade_sing_box_processes();
-    if (confirmed == null || upgrade_sing_box_count(confirmed) != upgrade_sing_box_count(processes))
-        return false;
-    for (let pid, ticks in processes)
-        if (confirmed[pid] != ticks)
-            return false;
-    if (!upgrade_procd_owns_all(confirmed) || !file_exists("/etc/init.d/sing-box"))
-        return false;
-
-    upgrade_bounded_stop("/etc/init.d/sing-box");
-    let quiet = 0;
-    for (let attempt = 0; attempt < 17; attempt++) {
-        let remaining = upgrade_sing_box_processes();
-        if (remaining == null)
-            return false;
-        quiet = upgrade_sing_box_count(remaining) == 0 ? quiet + 1 : 0;
-        if (quiet >= 2)
-            return true;
-        command_success_from_args([ "sleep", "1" ]);
-    }
-    return false;
 }
 
 // Keep one archive of the working configuration. Installing a different
