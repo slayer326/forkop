@@ -2197,6 +2197,7 @@ function install_package_sing_box(action, tiny) {
             move_file_to_backup("/usr/bin/sing-box", backup_binary);
         if (!backed_up) {
             remove_compressed_sing_box_backup(tmpfs_backup);
+            restore_sing_box_service_from_marker(previous_marker);
             action_fail("sing_box", action, "Failed to backup current sing-box binary", current_version, latest_version);
         }
     }
@@ -2206,6 +2207,7 @@ function install_package_sing_box(action, tiny) {
             "/usr/lib/libcronet.so.forkop-backup." + owner_pid();
         if (!move_file_to_backup("/usr/lib/libcronet.so", backup_cronet)) {
             restore_sing_box_backup(backup_binary);
+            restore_sing_box_service_from_marker(previous_marker);
             action_fail("sing_box", action, "Failed to backup current libcronet.so", current_version, latest_version);
         }
     }

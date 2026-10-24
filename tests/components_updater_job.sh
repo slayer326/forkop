@@ -229,6 +229,13 @@ inside && /^function check_forkop\(\)/ { inside = 0 }
 END { exit backup_line && stop_line && backup_line < stop_line ? 0 : 1 }
 ' "$ACTION_UC" ||
   fail "tiny switch must verify its backup before stopping Forkop"
+awk '
+/^function install_package_sing_box\(action, tiny\)/ { inside = 1 }
+inside && /restore_sing_box_service_from_marker\(previous_marker\)/ { restores++ }
+inside && /^function check_forkop\(\)/ { inside = 0 }
+END { exit restores >= 2 ? 0 : 1 }
+' "$ACTION_UC" ||
+  fail "tiny switch must restore its service marker on early backup errors"
 
 package_runtime_lib="$WORK_DIR/package-runtime-lib"
 package_runtime_bin="$WORK_DIR/package-runtime-bin"
