@@ -505,12 +505,16 @@ function pkg_install_name_downgrade(package_name, package_version) {
             return false;
         let package_spec = package_name + "=" + package_version;
         if (pkg_is_installed(package_name))
-            return command_success(command_from_args([ "apk", "add", "--force-reinstall", "--upgrade", package_spec ]) + " </dev/null");
-        return command_success(command_from_args([ "apk", "add", package_spec ]) + " </dev/null");
+            return run_logged("Installing " + package_spec,
+                command_from_args([ "apk", "add", "--force-reinstall", "--upgrade", package_spec ]) + " </dev/null");
+        return run_logged("Installing " + package_spec,
+            command_from_args([ "apk", "add", package_spec ]) + " </dev/null");
     }
 
-    return command_success(command_from_args([ "opkg", "install", "--force-overwrite", "--force-reinstall", "--force-downgrade", package_name ]) + " </dev/null") ||
-        command_success(command_from_args([ "opkg", "install", "--force-downgrade", package_name ]) + " </dev/null");
+    return run_logged("Installing " + package_name,
+        command_from_args([ "opkg", "install", "--force-overwrite", "--force-reinstall", "--force-downgrade", package_name ]) + " </dev/null") ||
+        run_logged("Retrying installation of " + package_name,
+            command_from_args([ "opkg", "install", "--force-downgrade", package_name ]) + " </dev/null");
 }
 
 function pkg_install_files_command(files) {
@@ -1518,8 +1522,71 @@ function move_file_to_backup(target_path, backup_path) {
     return move_file_portable(target_path, backup_path);
 }
 
+function file_sha256(path) {
+    let fields = split(trim(command_output_from_args([ "sha256sum", path ])), /[ \t]+/);
+    return length(fields) > 0 && match(as_string(fields[0]), /^[0-9a-f]{64}$/) != null ? fields[0] : "";
+}
+
+function compressed_sing_box_backup(source_path) {
+    // An orphaned apk binary can occupy most of a small overlay. Keep its
+    // rollback copy in tmpfs, verified before the running service is stopped.
+    // This copy is volatile across a reboot, so keep the transaction bounded.
+    // The copy is deliberately outside tmp_dir: leave it for manual recovery
+    // if automatic rollback cannot write to overlay.
+    let expected = file_sha256(source_path);
+    if (expected == "" || available_kib("/usr/bin") < 8192 || available_kib("/tmp") < 8192)
+        return "";
+    let backup = trim(command_output_from_args([ "mktemp", "/tmp/forkop-sing-box-backup.XXXXXX" ]));
+    if (backup == "")
+        return "";
+    if (!command_success(command_from_args([ "gzip", "-1", "-c", source_path ]) + " >" + shell_quote(backup)) ||
+        !file_nonempty(backup) ||
+        !command_success_from_args([ "gzip", "-t", backup ]) ||
+        available_kib("/tmp") < 8192) {
+        remove_file(backup);
+        return "";
+    }
+    let digest_fields = split(trim(command_output(command_from_args([ "gzip", "-cd", backup ]) + " | sha256sum")), /[ \t]+/);
+    let actual = length(digest_fields) > 0 ? digest_fields[0] : "";
+    if (actual != expected || file_sha256(source_path) != expected) {
+        remove_file(backup);
+        return "";
+    }
+    return backup;
+}
+
+function remove_compressed_sing_box_backup(backup) {
+    if (index(as_string(backup), "/tmp/forkop-sing-box-backup.") != 0)
+        return;
+    remove_file(backup);
+}
+
 function restore_sing_box_backup(backup_binary) {
-    if (as_string(backup_binary) != "" && file_nonempty(backup_binary)) {
+    if (as_string(backup_binary) != "") {
+        if (!file_nonempty(backup_binary))
+            return false;
+        if (index(as_string(backup_binary), "/tmp/forkop-sing-box-backup.") == 0) {
+            let staged = "/usr/bin/sing-box.forkop-restore." + owner_pid();
+            remove_file(staged);
+            if (!command_success_from_args([ "gzip", "-t", backup_binary ])) {
+                updates_log("Could not verify temporary sing-box backup at " + backup_binary, "error");
+                return false;
+            }
+            // A failed apk extraction can leave an unregistered partial binary
+            // on overlay; release that space before writing the old binary.
+            remove_file("/usr/bin/sing-box");
+            if (file_exists("/usr/bin/sing-box") ||
+                !command_success(command_from_args([ "gzip", "-cd", backup_binary ]) + " >" + shell_quote(staged)) ||
+                !file_nonempty(staged) ||
+                !command_success_from_args([ "chmod", "0755", staged ]) ||
+                !fs.rename(staged, "/usr/bin/sing-box")) {
+                remove_file(staged);
+                updates_log("Could not restore sing-box; verified temporary backup remains at " + backup_binary, "error");
+                return false;
+            }
+            remove_compressed_sing_box_backup(backup_binary);
+            return true;
+        }
         if (!move_file_portable(backup_binary, "/usr/bin/sing-box"))
             return false;
         return command_success_from_args([ "chmod", "0755", "/usr/bin/sing-box" ]);
@@ -1529,8 +1596,11 @@ function restore_sing_box_backup(backup_binary) {
 }
 
 function restore_file_backup(target_path, backup_path) {
-    if (as_string(backup_path) != "" && file_nonempty(backup_path))
+    if (as_string(backup_path) != "") {
+        if (!file_nonempty(backup_path))
+            return false;
         return move_file_portable(backup_path, target_path);
+    }
     remove_file(target_path);
     return true;
 }
@@ -1702,6 +1772,10 @@ function restore_sing_box_package_variant(previous_variant, previous_version) {
 }
 
 function restore_sing_box_install_backup(previous_variant, backup_binary, previous_version_state) {
+    // A verified tmpfs copy is used only for an unowned extended binary. Do
+    // not redownload the former package first: it may not fit on the overlay.
+    if (index(as_string(backup_binary), "/tmp/forkop-sing-box-backup.") == 0)
+        return restore_sing_box_backup(backup_binary);
     if (sing_box_variant_is_package_managed(previous_variant)) {
         let previous_version = as_string(previous_version_state);
         if (previous_variant == "extended" && previous_version == "" &&
@@ -1822,6 +1896,17 @@ function install_sing_box_extended_package(action) {
     if (!install_opkg_sing_box_dependencies(package_file, "sing-box-extended"))
         action_fail("sing_box", action, "Failed to install required sing-box dependencies; the current sing-box variant was kept", current_version, latest_version);
 
+    let orphaned_extended_binary = is_apk() && current_variant == "extended" &&
+        !pkg_is_installed("sing-box-extended") && file_nonempty("/usr/bin/sing-box") &&
+        !command_success_from_args([ "apk", "info", "-W", "/usr/bin/sing-box" ]);
+    if (orphaned_extended_binary && getenv("FORKOP_ALLOW_VOLATILE_SING_BOX_BACKUP") != "1")
+        action_fail("sing_box", action, "An unowned sing-box binary needs a temporary RAM-only backup for this low-space upgrade; use the explicit recovery command with local access", current_version, latest_version);
+    if (orphaned_extended_binary)
+        updates_log("Using a volatile RAM backup for the unowned sing-box binary; power loss during the upgrade requires manual recovery", "warn");
+    let tmpfs_backup = orphaned_extended_binary ? compressed_sing_box_backup("/usr/bin/sing-box") : "";
+    if (orphaned_extended_binary && tmpfs_backup == "")
+        action_fail("sing_box", action, "Not enough verified temporary space to preserve the unowned sing-box binary; the running variant was kept", current_version, latest_version);
+
     stop_forkop_before_sing_box_change();
     prepare_sing_box_package_service_install();
 
@@ -1830,9 +1915,15 @@ function install_sing_box_extended_package(action) {
     let cronet_touched = false;
     if (current_variant == "extended" || current_variant == "extended-compressed") {
         if (file_exists("/usr/bin/sing-box")) {
-            backup_binary = "/usr/bin/sing-box.forkop-backup." + owner_pid();
-            if (!move_file_to_backup("/usr/bin/sing-box", backup_binary))
+            backup_binary = tmpfs_backup != "" ? tmpfs_backup : "/usr/bin/sing-box.forkop-backup." + owner_pid();
+            let backed_up = tmpfs_backup != "" ?
+                command_success_from_args([ "rm", "-f", "/usr/bin/sing-box" ]) :
+                move_file_to_backup("/usr/bin/sing-box", backup_binary);
+            if (!backed_up) {
+                remove_compressed_sing_box_backup(tmpfs_backup);
+                restore_sing_box_service_from_marker(previous_marker);
                 action_fail("sing_box", action, "Failed to backup current sing-box binary", current_version, latest_version);
+            }
         }
         if (file_exists("/usr/lib/libcronet.so")) {
             cronet_touched = true;
@@ -1895,7 +1986,10 @@ function install_sing_box_extended_package(action) {
         action_fail("sing_box", action, "sing-box-extended package was installed but Forkop did not start cleanly and previous sing-box variant could not be restored", current_version, latest_version);
     }
 
-    remove_file(backup_binary);
+    if (tmpfs_backup != "")
+        remove_compressed_sing_box_backup(tmpfs_backup);
+    else
+        remove_file(backup_binary);
     remove_file(backup_cronet);
     clear_version_caches();
     updates_log("Installed sing-box-extended " + (new_version != "" ? new_version : "unknown") + " from package");
@@ -2074,17 +2168,37 @@ function install_package_sing_box(action, tiny) {
     let previous_variant = sing_box_runtime_output("variant", []);
     let previous_marker = sing_box_runtime_output("read-variant-marker", []);
     let previous_version_state = sing_box_runtime_output("read-version-state", []);
+    let unowned_extended_binary = is_apk() && previous_variant == "extended" &&
+        file_nonempty("/usr/bin/sing-box") &&
+        !command_success_from_args([ "apk", "info", "-W", "/usr/bin/sing-box" ]);
+    if (unowned_extended_binary && getenv("FORKOP_ALLOW_VOLATILE_SING_BOX_BACKUP") != "1")
+        action_fail("sing_box", action, "An unowned sing-box binary needs a temporary RAM-only backup for this variant switch; use the explicit recovery command with local access", current_version, latest_version);
+    if (unowned_extended_binary)
+        updates_log("Using a volatile RAM backup for the unowned sing-box binary; power loss during the variant switch requires manual recovery", "warn");
+    let tmpfs_backup = unowned_extended_binary ? compressed_sing_box_backup("/usr/bin/sing-box") : "";
+    if (unowned_extended_binary && tmpfs_backup == "")
+        action_fail("sing_box", action, "Not enough verified temporary space to preserve the unowned sing-box binary; the running variant was kept", current_version, latest_version);
+    if (tmpfs_backup != "" && file_nonempty("/usr/lib/libcronet.so") &&
+        available_kib("/tmp") < int((file_bytes("/usr/lib/libcronet.so") + 1023) / 1024) + 8192) {
+        remove_compressed_sing_box_backup(tmpfs_backup);
+        action_fail("sing_box", action, "Not enough RAM to preserve libcronet.so; the running variant was kept", current_version, latest_version);
+    }
     stop_forkop_before_sing_box_change();
 
     let backup_binary = "";
     let backup_cronet = "";
     let cronet_touched = false;
-    let backup_on_tmpfs = previous_variant == "extended-compressed";
+    let backup_on_tmpfs = previous_variant == "extended-compressed" || tmpfs_backup != "";
     if (file_exists("/usr/bin/sing-box")) {
-        backup_binary = backup_on_tmpfs ? tmp_dir + "/sing-box.forkop-backup" :
+        backup_binary = tmpfs_backup != "" ? tmpfs_backup : backup_on_tmpfs ? tmp_dir + "/sing-box.forkop-backup" :
             "/usr/bin/sing-box.forkop-backup." + owner_pid();
-        if (!move_file_to_backup("/usr/bin/sing-box", backup_binary))
+        let backed_up = tmpfs_backup != "" ?
+            command_success_from_args([ "rm", "-f", "/usr/bin/sing-box" ]) :
+            move_file_to_backup("/usr/bin/sing-box", backup_binary);
+        if (!backed_up) {
+            remove_compressed_sing_box_backup(tmpfs_backup);
             action_fail("sing_box", action, "Failed to backup current sing-box binary", current_version, latest_version);
+        }
     }
     if (file_exists("/usr/lib/libcronet.so")) {
         cronet_touched = true;
@@ -2096,8 +2210,7 @@ function install_package_sing_box(action, tiny) {
         }
     }
 
-    if (!run_logged("Installing " + label + " package", "sh -c " + shell_quote("exit 0")) ||
-        !replace_sing_box_package_variant(package_name, conflict, latest_version))
+    if (!replace_sing_box_package_variant(package_name, conflict, latest_version))
         fail_package_sing_box_install(action, tiny, "package installation failed", current_version, latest_version,
             package_name, previous_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, cronet_touched);
 
@@ -2112,7 +2225,10 @@ function install_package_sing_box(action, tiny) {
     if (!restart_forkop_after_successful_change() || !wait_forkop_running_after_sing_box_change())
         fail_package_sing_box_install(action, tiny, "was installed, but Forkop did not start cleanly", new_version, latest_version,
             package_name, previous_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, cronet_touched);
-    remove_file(backup_binary);
+    if (tmpfs_backup != "")
+        remove_compressed_sing_box_backup(tmpfs_backup);
+    else
+        remove_file(backup_binary);
     remove_file(backup_cronet);
     clear_version_caches();
     action_success("sing_box", action, label + " has been installed", new_version, latest_version, new_version == current_version ? 0 : 1, "latest");

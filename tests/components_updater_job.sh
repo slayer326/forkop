@@ -176,14 +176,59 @@ END { exit safe_validation ? 0 : 1 }
 if grep -Fq 'tmp_binary = tmp_dir + "/sing-box.compressed.' "$ACTION_UC"; then
   fail "compressed sing-box must not duplicate the full binary in tmpfs"
 fi
-grep -Fq 'let backup_on_tmpfs = previous_variant == "extended-compressed";' "$ACTION_UC" ||
+grep -Fq 'let backup_on_tmpfs = previous_variant == "extended-compressed" || tmpfs_backup != "";' "$ACTION_UC" ||
   fail "package sing-box installs must move compressed backups off overlay before opkg space checks"
-grep -Fq 'backup_binary = backup_on_tmpfs ? tmp_dir + "/sing-box.forkop-backup"' "$ACTION_UC" ||
+grep -Fq 'backup_binary = tmpfs_backup != "" ? tmpfs_backup : backup_on_tmpfs ? tmp_dir + "/sing-box.forkop-backup"' "$ACTION_UC" ||
   fail "compressed sing-box backup must use tmpfs while installing a package variant"
 grep -Fq 'return move_file_portable(backup_binary, "/usr/bin/sing-box");' "$ACTION_UC" &&
   fail "portable sing-box restore must preserve executable permissions explicitly"
 grep -Fq 'if (!move_file_portable(backup_binary, "/usr/bin/sing-box"))' "$ACTION_UC" ||
   fail "compressed sing-box rollback must restore backups across filesystems"
+grep -Fq 'let orphaned_extended_binary = is_apk() && current_variant == "extended" &&' "$ACTION_UC" ||
+  fail "unowned extended APK binaries need a low-space upgrade path"
+grep -Fq '!pkg_is_installed("sing-box-extended") && file_nonempty("/usr/bin/sing-box")' "$ACTION_UC" ||
+  fail "low-space upgrade must be limited to unowned extended binaries"
+grep -Fq 'getenv("FORKOP_ALLOW_VOLATILE_SING_BOX_BACKUP") != "1"' "$ACTION_UC" ||
+  fail "volatile sing-box rollback must require explicit operator opt-in"
+grep -Fq 'let unowned_extended_binary = is_apk() && previous_variant == "extended" &&' "$ACTION_UC" ||
+  fail "tiny and stable installs must detect an unowned extended binary"
+grep -Fq 'let tmpfs_backup = unowned_extended_binary ? compressed_sing_box_backup("/usr/bin/sing-box") : "";' "$ACTION_UC" ||
+  fail "tiny and stable installs must preflight a compressed backup before stopping Forkop"
+grep -Fq 'run_logged("Installing " + package_spec,' "$ACTION_UC" ||
+  fail "APK variant installation must capture package-manager errors in the log"
+grep -Fq 'command_success_from_args([ "gzip", "-t", backup ])' "$ACTION_UC" ||
+  fail "tmpfs sing-box backup must be verified before removing the flash binary"
+grep -Fq 'actual != expected || file_sha256(source_path) != expected' "$ACTION_UC" ||
+  fail "tmpfs sing-box backup must match the old binary before service stop"
+grep -Fq 'command_success_from_args([ "gzip", "-t", backup_binary ])' "$ACTION_UC" ||
+  fail "tmpfs sing-box rollback must verify the backup archive"
+awk '
+/^function restore_sing_box_backup\(backup_binary\)/ { inside = 1 }
+inside && /remove_file\("\/usr\/bin\/sing-box"\)/ { cleanup = 1 }
+inside && /^function restore_file_backup\(/ { inside = 0 }
+END { exit cleanup ? 0 : 1 }
+' "$ACTION_UC" ||
+  fail "tmpfs rollback must remove partial apk extraction before restoring the old binary"
+grep -Fq 'if (!file_nonempty(backup_binary))' "$ACTION_UC" ||
+  fail "missing sing-box backup must fail closed instead of deleting the active binary"
+grep -Fq 'remove_compressed_sing_box_backup(tmpfs_backup)' "$ACTION_UC" ||
+  fail "successful extended upgrade must remove the temporary backup"
+awk '
+/^function install_sing_box_extended_package\(action\)/ { inside = 1 }
+inside && /compressed_sing_box_backup\("\/usr\/bin\/sing-box"\)/ { backup_line = NR }
+inside && /stop_forkop_before_sing_box_change\(\)/ { stop_line = NR }
+inside && /^function install_sing_box_extended\(action, compressed\)/ { inside = 0 }
+END { exit backup_line && stop_line && backup_line < stop_line ? 0 : 1 }
+' "$ACTION_UC" ||
+  fail "tmpfs backup and free-space checks must finish before Forkop is stopped"
+awk '
+/^function install_package_sing_box\(action, tiny\)/ { inside = 1 }
+inside && /compressed_sing_box_backup\("\/usr\/bin\/sing-box"\)/ { backup_line = NR }
+inside && /stop_forkop_before_sing_box_change\(\)/ { stop_line = NR }
+inside && /^function check_forkop\(\)/ { inside = 0 }
+END { exit backup_line && stop_line && backup_line < stop_line ? 0 : 1 }
+' "$ACTION_UC" ||
+  fail "tiny switch must verify its backup before stopping Forkop"
 
 package_runtime_lib="$WORK_DIR/package-runtime-lib"
 package_runtime_bin="$WORK_DIR/package-runtime-bin"
