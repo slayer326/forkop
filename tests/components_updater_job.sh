@@ -190,6 +190,12 @@ grep -Fq '!pkg_is_installed("sing-box-extended") && file_nonempty("/usr/bin/sing
   fail "low-space upgrade must be limited to unowned extended binaries"
 grep -Fq 'getenv("FORKOP_ALLOW_VOLATILE_SING_BOX_BACKUP") != "1"' "$ACTION_UC" ||
   fail "volatile sing-box rollback must require explicit operator opt-in"
+grep -Fq 'function orphaned_extended_apk_world_pin()' "$ACTION_UC" ||
+  fail "component installs must detect orphaned sing-box-extended APK world pins"
+grep -Fq '!pkg_is_installed("sing-box-extended")' "$ACTION_UC" ||
+  fail "world pin detection must not apply to an installed extended package"
+grep -Fq 'A stale sing-box-extended APK world pin blocks this variant switch' "$ACTION_UC" ||
+  fail "tiny and stable installs must explain the orphaned world pin before stopping Forkop"
 grep -Fq 'let unowned_extended_binary = is_apk() && previous_variant == "extended" &&' "$ACTION_UC" ||
   fail "tiny and stable installs must detect an unowned extended binary"
 grep -Fq 'let tmpfs_backup = unowned_extended_binary ? compressed_sing_box_backup("/usr/bin/sing-box") : "";' "$ACTION_UC" ||
@@ -224,11 +230,12 @@ END { exit backup_line && stop_line && backup_line < stop_line ? 0 : 1 }
 awk '
 /^function install_package_sing_box\(action, tiny\)/ { inside = 1 }
 inside && /compressed_sing_box_backup\("\/usr\/bin\/sing-box"\)/ { backup_line = NR }
+inside && /orphaned_extended_apk_world_pin\(\)/ { pin_line = NR }
 inside && /stop_forkop_before_sing_box_change\(\)/ { stop_line = NR }
 inside && /^function check_forkop\(\)/ { inside = 0 }
-END { exit backup_line && stop_line && backup_line < stop_line ? 0 : 1 }
+END { exit pin_line && backup_line && stop_line && pin_line < backup_line && backup_line < stop_line ? 0 : 1 }
 ' "$ACTION_UC" ||
-  fail "tiny switch must verify its backup before stopping Forkop"
+  fail "tiny switch must reject stale world pins and verify its backup before stopping Forkop"
 awk '
 /^function install_package_sing_box\(action, tiny\)/ { inside = 1 }
 inside && /restore_sing_box_service_from_marker\(previous_marker\)/ { restores++ }

@@ -363,6 +363,11 @@ function pkg_is_installed(package_name) {
     return module_success([ LIB_DIR + "/core/packages.uc", "opkg-installed", package_name ]);
 }
 
+function orphaned_extended_apk_world_pin() {
+    return is_apk() && !pkg_is_installed("sing-box-extended") &&
+        command_success_from_args([ "grep", "-Eq", "^sing-box-extended><[^[:space:]]+$", "/etc/apk/world" ]);
+}
+
 function installed_package_version(package_name) {
     package_name = as_string(package_name);
     if (is_apk()) {
@@ -1884,6 +1889,9 @@ function install_sing_box_extended_package(action) {
         check_success("sing_box", normalize_sing_box_version(current_version), normalize_sing_box_version(latest_version), release.release_url);
     }
 
+    if (orphaned_extended_apk_world_pin())
+        action_fail("sing_box", action, "A stale sing-box-extended APK world pin blocks installation; inspect apk del --simulate sing-box-extended before removing the pin", current_version, latest_version);
+
     let package_file = tmp_dir + "/" + release.asset_name;
     if (!download_with_retry(release.asset_url, package_file, release.asset_name))
         action_fail("sing_box", action, "Failed to download sing-box-extended package", current_version, latest_version);
@@ -2164,6 +2172,9 @@ function install_package_sing_box(action, tiny) {
         latest_version = installed_package_version(package_name);
     if (latest_version == "")
         action_fail("sing_box", action, "Failed to resolve " + (tiny ? "tiny" : "stable") + " sing-box package version", current_version);
+
+    if (orphaned_extended_apk_world_pin())
+        action_fail("sing_box", action, "A stale sing-box-extended APK world pin blocks this variant switch; inspect apk del --simulate sing-box-extended before removing the pin", current_version, latest_version);
 
     let previous_variant = sing_box_runtime_output("variant", []);
     let previous_marker = sing_box_runtime_output("read-variant-marker", []);
