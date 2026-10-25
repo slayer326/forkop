@@ -154,6 +154,12 @@ function now_seconds() {
     return int(clock()[0]);
 }
 
+// For waits: unlike the wall clock, it does not jump when NTP first sets
+// the time on a router without an RTC.
+function monotonic_seconds() {
+    return int(clock(true)[0]);
+}
+
 function owner_pid() {
     let pid = trim(command_output_from_args([ "sh", "-c", "echo $PPID" ]));
     return match(pid, /^[0-9]+$/) != null ? pid : "0";
@@ -1110,18 +1116,25 @@ function wait_forkop_running_after_sing_box_change() {
     if (!file_exists(BIN_PATH))
         return false;
 
-    let waited = 0;
     // A cold start after a package upgrade can take minutes on slow routers:
     // lists, rule-sets and the runtime config are all rebuilt. Giving up too
     // early reported a failure for a start that was still making progress.
-    while (waited < 180) {
+    // The bound is elapsed time: counting only the sleeps left out each status
+    // probe (up to 6 s) and the 8 s confirmation, so a core that died after
+    // its start held the rollback back for up to about 7.5 minutes.
+    let deadline = monotonic_seconds() + 180;
+    while (monotonic_seconds() < deadline) {
+        // A runtime found running is still confirmed near the deadline:
+        // rolling back a working core for want of 8 s would be worse.
         if (forkop_status_running_with_timeout()) {
             command_success_from_args([ "sleep", "8" ]);
             if (forkop_status_running_with_timeout())
                 return true;
         }
-        command_success_from_args([ "sleep", "4" ]);
-        waited += 4;
+        let remaining = deadline - monotonic_seconds();
+        if (remaining <= 0)
+            break;
+        command_success_from_args([ "sleep", "" + (remaining < 4 ? remaining : 4) ]);
     }
     return false;
 }
