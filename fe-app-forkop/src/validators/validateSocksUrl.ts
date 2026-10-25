@@ -1,5 +1,6 @@
 import { ValidationResult } from './types';
 import { isValidPort, parseHostPort } from './hostPort';
+import { hasWhitespaceOutsideName } from './linkWhitespace';
 
 export function validateSocksUrl(url: string): ValidationResult {
   try {
@@ -12,7 +13,7 @@ export function validateSocksUrl(url: string): ValidationResult {
       };
     }
 
-    if (!url || /\s/.test(url)) {
+    if (hasWhitespaceOutsideName(url)) {
       return {
         valid: false,
         message: _('Invalid SOCKS URL: must not contain spaces'),

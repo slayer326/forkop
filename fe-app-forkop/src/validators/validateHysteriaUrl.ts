@@ -1,6 +1,7 @@
 import { ValidationResult } from './types';
 import { parseQueryString } from '../helpers/parseQueryString';
 import { isValidPort, parseHostPort } from './hostPort';
+import { hasWhitespaceOutsideName } from './linkWhitespace';
 
 export function validateHysteria2Url(url: string): ValidationResult {
   try {
@@ -14,7 +15,7 @@ export function validateHysteria2Url(url: string): ValidationResult {
       };
     }
 
-    if (/\s/.test(url)) {
+    if (hasWhitespaceOutsideName(url)) {
       return {
         valid: false,
         message: _('Invalid HY2 URL: must not contain spaces'),

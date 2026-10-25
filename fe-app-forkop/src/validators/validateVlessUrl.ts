@@ -1,6 +1,7 @@
 import { ValidationResult } from './types';
 import { parseQueryString } from '../helpers/parseQueryString';
 import { isValidPort, parseHostPort } from './hostPort';
+import { hasWhitespaceOutsideName } from './linkWhitespace';
 
 export function validateVlessUrl(url: string): ValidationResult {
   try {
@@ -10,7 +11,7 @@ export function validateVlessUrl(url: string): ValidationResult {
         message: 'Invalid VLESS URL: must start with vless://',
       };
 
-    if (/\s/.test(url))
+    if (hasWhitespaceOutsideName(url))
       return {
         valid: false,
         message: 'Invalid VLESS URL: must not contain spaces',

@@ -1,5 +1,6 @@
 import { ValidationResult } from './types';
 import { isValidPort, parseHostPort } from './hostPort';
+import { hasWhitespaceOutsideName } from './linkWhitespace';
 
 // TODO refactor current validation and add tests
 export function validateShadowsocksUrl(url: string): ValidationResult {
@@ -11,7 +12,7 @@ export function validateShadowsocksUrl(url: string): ValidationResult {
   }
 
   try {
-    if (!url || /\s/.test(url)) {
+    if (hasWhitespaceOutsideName(url)) {
       return {
         valid: false,
         message: _('Invalid Shadowsocks URL: must not contain spaces'),
