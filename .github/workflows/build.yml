@@ -168,11 +168,18 @@ jobs:
           name: timeweb-files-${{ needs.preparation.outputs.version }}
           path: ./filtered-bin/hosting
 
+      - name: Write package checksums
+        working-directory: ./filtered-bin/release
+        run: |
+          sha256sum *.ipk *.apk > SHA256SUMS
+          cat SHA256SUMS
+
       - name: Release
         uses: softprops/action-gh-release@v2.4.0
         with:
           files: |
             ./filtered-bin/release/*.*
+            ./filtered-bin/release/SHA256SUMS
             ./filtered-bin/hosting/*.tar.gz
           draft: false
           prerelease: false
