@@ -2975,7 +2975,36 @@ function list_curl_args(url, filepath, proxy_address, resolve) {
     return args;
 }
 
+// The reason of the last failed curl run, for the attempt log line.
+let last_download_error = "";
+
+function download_error_summary(output, status, proxy_address) {
+    let line = "";
+    for (let candidate in split(as_string(output), "
+")) {
+        candidate = trim(candidate);
+        if (candidate != "")
+            line = candidate;
+    }
+    if (line == "")
+        line = status == 127 ? "curl is not installed" : "curl exit code " + status;
+    if (length(line) > 200)
+        line = substr(line, 0, 200);
+    if (as_string(proxy_address) != "")
+        line += " (through the Forkop service proxy " + as_string(proxy_address) + ")";
+    return line;
+}
+
+function download_attempt_failed_message(attempt, url) {
+    let message = "Attempt " + attempt + "/3 to download " + safe_remote_source_identity(url) + " failed";
+    if (last_download_error != "")
+        message += ": " + last_download_error;
+    last_download_error = "";
+    return message;
+}
+
 function download_to_file_once(url, filepath, proxy_address, resolve) {
+    last_download_error = "";
     let target_dir = parent_dir(filepath);
     if (target_dir == "")
         target_dir = ".";
@@ -2993,9 +3022,13 @@ function download_to_file_once(url, filepath, proxy_address, resolve) {
     let download_command = command_from_args(list_curl_args(url, filepath, proxy_address, resolve));
     let command = "ulimit -f " + max_blocks + "; " + download_command;
 
-    let status = command_status(command);
-    if (status != 0)
+    // curl writes nothing to stdout (-o); its stderr names the failure.
+    let result = command_capture(command + " 2>&1");
+    let status = result.status;
+    if (status != 0) {
         fs.unlink(filepath);
+        last_download_error = download_error_summary(result.output, status, proxy_address);
+    }
     return status;
 }
 
@@ -3020,7 +3053,7 @@ function download_fallback(url, filepath, proxy_address) {
         if (download_to_file_with_bootstrap(url, filepath, proxy_address))
             return true;
 
-        log_message("Attempt " + attempt + "/3 to download " + safe_remote_source_identity(url) + " failed", "warn");
+        log_message(download_attempt_failed_message(attempt, url), "warn");
         if (attempt < 3)
             command_success_from_args([ "sleep", "2" ]);
         attempt++;
@@ -3047,7 +3080,7 @@ function download_to_file_network(url, filepath, proxy_address) {
             return true;
         }
 
-        log_message("Attempt " + attempt + "/3 to download " + safe_remote_source_identity(url) + " failed", "warn");
+        log_message(download_attempt_failed_message(attempt, url), "warn");
         let mirror_fallback_activated = record_mirror_download_failure(mirror_state);
         if (mirror_fallback_activated)
             break;
