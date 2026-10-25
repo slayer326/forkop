@@ -366,6 +366,22 @@ function patchSystemInfoAfterMutation(result: Forkop.ComponentActionResult) {
       nextSystemInfo.sing_box_compressed = 0;
       nextSystemInfo.sing_box_tailscale = 0;
     }
+
+    if (
+      result.action === 'install_podkop_engine' ||
+      result.action === 'install_podkop_engine_full'
+    ) {
+      nextSystemInfo.sing_box_extended = 0;
+      nextSystemInfo.sing_box_tiny = 0;
+      nextSystemInfo.sing_box_compressed = 0;
+      nextSystemInfo.sing_box_tailscale = 0;
+      nextSystemInfo.sing_box_podkop_engine = 1;
+      nextSystemInfo.sing_box_podkop_engine_full =
+        result.action === 'install_podkop_engine_full' ? 1 : 0;
+    } else if (result.action.startsWith('install_')) {
+      nextSystemInfo.sing_box_podkop_engine = 0;
+      nextSystemInfo.sing_box_podkop_engine_full = 0;
+    }
   }
 
   if (result.component === 'zapret') {
@@ -892,6 +908,9 @@ function getComponentCards(): ComponentCard[] {
   const singBoxExtended =
     Boolean(systemInfo.sing_box_extended) && !systemInfo.sing_box_compressed;
   const singBoxTiny = Boolean(systemInfo.sing_box_tiny);
+  const singBoxPodkopEngine = Boolean(systemInfo.sing_box_podkop_engine);
+  const singBoxPodkopEngineFull =
+    singBoxPodkopEngine && Boolean(systemInfo.sing_box_podkop_engine_full);
 
   const forkopActions = getInstalledUpdateActions(
     'forkop',
@@ -902,10 +921,11 @@ function getComponentCards(): ComponentCard[] {
     'sing_box',
     'singBoxCheck',
     'singBoxInstall',
-    singBoxTiny || singBoxExtended,
+    singBoxTiny || singBoxExtended || singBoxPodkopEngine,
   );
 
-  // Forkop X exposes only the two mirror-backed sing-box variants.
+  // The two mirror-backed sing-box variants, and podkop-engine from its
+  // GitHub releases.
   if (!singBoxTiny) {
     singBoxActions.push({
       key: 'singBoxInstallTiny',
@@ -922,6 +942,24 @@ function getComponentCards(): ComponentCard[] {
       icon: renderDownloadIcon24,
       component: 'sing_box',
       action: 'install_extended',
+    });
+  }
+  if (!singBoxPodkopEngine || singBoxPodkopEngineFull) {
+    singBoxActions.push({
+      key: 'singBoxInstallPodkopEngine',
+      text: _('Install podkop-engine'),
+      icon: renderDownloadIcon24,
+      component: 'sing_box',
+      action: 'install_podkop_engine',
+    });
+  }
+  if (!singBoxPodkopEngineFull) {
+    singBoxActions.push({
+      key: 'singBoxInstallPodkopEngineFull',
+      text: _('Install podkop-engine-full'),
+      icon: renderDownloadIcon24,
+      component: 'sing_box',
+      action: 'install_podkop_engine_full',
     });
   }
 

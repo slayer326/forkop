@@ -21,6 +21,8 @@ function getEmptyUpdatesActions(): StoreType['updatesActions'] {
     singBoxInstallExtendedCompressed: { loading: false },
     singBoxInstallTiny: { loading: false },
     singBoxInstallStable: { loading: false },
+    singBoxInstallPodkopEngine: { loading: false },
+    singBoxInstallPodkopEngineFull: { loading: false },
     zapretCheck: { loading: false },
     zapretInstall: { loading: false },
     zapretRemove: { loading: false },
@@ -87,6 +89,10 @@ function applyServiceState(uiState: Forkop.UiState) {
   nextSystemInfo.sing_box_tiny = uiState.capabilities.sing_box_tiny;
   nextSystemInfo.sing_box_compressed = uiState.capabilities.sing_box_compressed;
   nextSystemInfo.sing_box_tailscale = uiState.capabilities.sing_box_tailscale;
+  nextSystemInfo.sing_box_podkop_engine =
+    uiState.capabilities.sing_box_podkop_engine ?? 0;
+  nextSystemInfo.sing_box_podkop_engine_full =
+    uiState.capabilities.sing_box_podkop_engine_full ?? 0;
 
   store.set({
     servicesInfoWidget: {

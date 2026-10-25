@@ -11,7 +11,7 @@ MIRROR="${MIRROR:-https://mirror.infotechtg.ru}"
 BIN="$ROOT/usr/bin/forkop"
 LOCK="$ROOT/tmp/forkop-full-uninstall.lock"
 COMPONENT_LOCK="$ROOT/var/run/forkop/component-action.lock"
-PACKAGES="luci-i18n-forkop-ru luci-app-forkop forkop sing-box sing-box-tiny sing-box-extended"
+PACKAGES="luci-i18n-forkop-ru luci-app-forkop forkop sing-box sing-box-tiny sing-box-extended podkop-engine podkop-engine-full"
 PHASE=preflight
 
 has_mirror() {

@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-23 08:36+0300\n"
-"PO-Revision-Date: 2026-10-23 08:36+0300\n"
+"POT-Creation-Date: 2026-10-25 19:32+0300\n"
+"PO-Revision-Date: 2026-10-25 19:32+0300\n"
 "Last-Translator: slayer\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -1858,6 +1858,12 @@ msgstr "Установить другую сборку:"
 
 msgid "Install Extended build"
 msgstr "Установить сборку Extended"
+
+msgid "Install podkop-engine"
+msgstr "Установить podkop-engine"
+
+msgid "Install podkop-engine-full"
+msgstr "Установить podkop-engine-full"
 
 msgid "Install selected version"
 msgstr "Установить выбранную версию"

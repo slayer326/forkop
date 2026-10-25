@@ -319,6 +319,40 @@ function sing_box_is_extended(value) {
     return sing_box_version_is_extended(value != "" ? value : sing_box_version());
 }
 
+// podkop-engine (github.com/podkop-net/podkop-engine) reports its version as
+// <sing-box version>-pdk-r<revision>, e.g. 1.14.3-pdk-r16.
+function sing_box_version_is_podkop_engine(value) {
+    return index(as_string(value), "-pdk-") >= 0;
+}
+
+function sing_box_is_podkop_engine(value) {
+    value = as_string(value);
+    return sing_box_version_is_podkop_engine(value != "" ? value : sing_box_version());
+}
+
+// The last line of podkop-engine's `sing-box version` (r11 and later):
+// "Features: urltest.fallbacks,transport.xhttp,..."; other builds have none.
+function sing_box_output_has_feature(output, feature) {
+    feature = as_string(feature);
+    for (let line in split(as_string(output), "\n")) {
+        line = trim(line);
+        if (substr(line, 0, 9) != "Features:")
+            continue;
+        for (let item in split(trim(substr(line, 9)), ","))
+            if (trim(item) == feature)
+                return true;
+    }
+    return false;
+}
+
+function sing_box_supports_xhttp(version, version_output) {
+    if (sing_box_is_extended(version))
+        return true;
+    if (!sing_box_is_podkop_engine(version))
+        return false;
+    return sing_box_output_has_feature(as_string(version_output) != "" ? version_output : sing_box_version_output(), "transport.xhttp");
+}
+
 function output_has_build_tag(output, tag) {
     tag = as_string(tag);
     if (tag == "")
@@ -384,6 +418,10 @@ function sing_box_variant() {
     version = sing_box_version();
     if (sing_box_is_extended(version))
         return sing_box_marker_is("extended-compressed") ? "extended-compressed" : "extended";
+    // Before the tiny check: a marker left by a previous tiny install must
+    // not name the podkop-engine binary that replaced it.
+    if (sing_box_is_podkop_engine(version))
+        return sing_box_package_installed("podkop-engine-full") ? "podkop-engine-full" : "podkop-engine";
     if (sing_box_is_tiny(version, ""))
         return "tiny";
     return "stable";
@@ -1088,7 +1126,7 @@ function init_config(populate_nft, caches_prepared, no_refresh, prepared_deferre
             temp_config,
             service_listen_address_value(settings),
             mwan3_active ? "1" : "0",
-            sing_box_is_extended(core_version) ? "1" : "0",
+            sing_box_supports_xhttp(core_version, "") ? "1" : "0",
             deferred_sections,
             core_version
         ]) + " >" + shell_quote(runtime_log) + " 2>&1"
@@ -1264,6 +1302,10 @@ else if (mode == "is-tiny")
     exit(sing_box_is_tiny(ARGV[1], ARGV[2]) ? 0 : 1);
 else if (mode == "supports-tailscale")
     exit(sing_box_supports_tailscale(ARGV[1], ARGV[2]) ? 0 : 1);
+else if (mode == "is-podkop-engine")
+    exit(sing_box_is_podkop_engine(ARGV[1]) ? 0 : 1);
+else if (mode == "supports-xhttp")
+    exit(sing_box_supports_xhttp(ARGV[1], ARGV[2]) ? 0 : 1);
 else if (mode == "variant")
     print(sing_box_variant(), "\n");
 else {

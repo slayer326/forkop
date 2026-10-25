@@ -4,10 +4,17 @@ type SingBoxVariantFields = {
   sing_box_tiny?: number;
   sing_box_compressed?: number;
   sing_box_tailscale?: number;
+  sing_box_podkop_engine?: number;
+  sing_box_podkop_engine_full?: number;
 };
 
 export function isExtendedSingBoxVersion(version?: string) {
   return String(version || '').includes('extended');
+}
+
+// podkop-engine reports <sing-box version>-pdk-r<revision>.
+export function isPodkopEngineSingBoxVersion(version?: string) {
+  return String(version || '').includes('-pdk-');
 }
 
 function isVersionPlaceholder(version?: string) {
@@ -49,6 +56,10 @@ export function formatSingBoxVersion(value: SingBoxVariantFields) {
     normalizedValue.sing_box_compressed
   ) {
     variant = _('compressed');
+  } else if (normalizedValue.sing_box_podkop_engine_full) {
+    variant = 'podkop-engine-full';
+  } else if (normalizedValue.sing_box_podkop_engine) {
+    variant = 'podkop-engine';
   } else if (normalizedValue.sing_box_tiny) {
     variant = _('tiny');
   }
@@ -61,11 +72,19 @@ export function normalizeSingBoxVariantFields<T extends SingBoxVariantFields>(
 ): T {
   const versionExtended = isExtendedSingBoxVersion(value.sing_box_version);
   const singBoxExtended = Boolean(value.sing_box_extended) || versionExtended;
+  const podkopEngine =
+    !singBoxExtended &&
+    (Boolean(value.sing_box_podkop_engine) ||
+      isPodkopEngineSingBoxVersion(value.sing_box_version));
 
   return {
     ...value,
     sing_box_extended: singBoxExtended ? 1 : 0,
-    sing_box_tiny: singBoxExtended ? 0 : value.sing_box_tiny ? 1 : 0,
+    sing_box_tiny:
+      singBoxExtended || podkopEngine ? 0 : value.sing_box_tiny ? 1 : 0,
+    sing_box_podkop_engine: podkopEngine ? 1 : 0,
+    sing_box_podkop_engine_full:
+      podkopEngine && value.sing_box_podkop_engine_full ? 1 : 0,
     sing_box_compressed: singBoxExtended && value.sing_box_compressed ? 1 : 0,
     sing_box_tailscale: singBoxExtended || value.sing_box_tailscale ? 1 : 0,
   } as T;

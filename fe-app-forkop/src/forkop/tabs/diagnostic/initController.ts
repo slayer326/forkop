@@ -363,6 +363,10 @@ async function fetchDiagnosticsProviderInfo({
         sing_box_tiny: uiState.capabilities.sing_box_tiny,
         sing_box_compressed: uiState.capabilities.sing_box_compressed,
         sing_box_tailscale: uiState.capabilities.sing_box_tailscale,
+        sing_box_podkop_engine:
+          uiState.capabilities.sing_box_podkop_engine ?? 0,
+        sing_box_podkop_engine_full:
+          uiState.capabilities.sing_box_podkop_engine_full ?? 0,
         zapret_installed: uiState.capabilities.zapret_installed,
         zapret2_installed: uiState.capabilities.zapret2_installed,
         byedpi_installed: uiState.capabilities.byedpi_installed,

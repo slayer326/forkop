@@ -1695,7 +1695,7 @@
     "call": "Check update",
     "key": "Check update",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:805"
+      "src/forkop/tabs/updates/initController.ts:821"
     ]
   },
   {
@@ -1762,7 +1762,7 @@
     "call": "Checking, please wait",
     "key": "Checking, please wait",
     "places": [
-      "src/forkop/tabs/diagnostic/initController.ts:992",
+      "src/forkop/tabs/diagnostic/initController.ts:996",
       "src/forkop/tabs/diagnostic/checks/runByedpiCheck.ts:14",
       "src/forkop/tabs/diagnostic/checks/runDnsCheck.ts:15",
       "src/forkop/tabs/diagnostic/checks/runFakeIPCheck.ts:15",
@@ -1873,7 +1873,7 @@
     "call": "Choose version",
     "key": "Choose version",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1281"
+      "src/forkop/tabs/updates/initController.ts:1319"
     ]
   },
   {
@@ -1918,9 +1918,9 @@
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:3665",
       "src/partials/modal/renderModal.ts:263",
       "src/forkop/tabs/autotune/initController.ts:795",
-      "src/forkop/tabs/history/initController.ts:255",
       "src/forkop/tabs/dashboard/initController.ts:1310",
       "src/forkop/tabs/dashboard/initController.ts:1695",
+      "src/forkop/tabs/history/initController.ts:255",
       "src/forkop/tabs/updates/releaseSelector.ts:121"
     ]
   },
@@ -2010,7 +2010,7 @@
     "call": "compressed",
     "key": "compressed",
     "places": [
-      "src/forkop/helpers/singBoxVariant.ts:51"
+      "src/forkop/helpers/singBoxVariant.ts:58"
     ]
   },
   {
@@ -2244,7 +2244,7 @@
     "call": "Copy address",
     "key": "Copy address",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1328"
+      "src/forkop/tabs/updates/initController.ts:1366"
     ]
   },
   {
@@ -2261,8 +2261,8 @@
     "places": [
       "src/forkop/tabs/dashboard/initController.ts:183",
       "src/forkop/tabs/dashboard/initController.ts:186",
-      "src/forkop/tabs/diagnostic/initController.ts:623",
-      "src/forkop/tabs/diagnostic/initController.ts:626"
+      "src/forkop/tabs/diagnostic/initController.ts:627",
+      "src/forkop/tabs/diagnostic/initController.ts:630"
     ]
   },
   {
@@ -2331,12 +2331,12 @@
     "places": [
       "src/forkop/ui/states.ts:115",
       "src/forkop/tabs/history/initController.ts:269",
-      "src/forkop/tabs/diagnostic/initController.ts:656",
       "src/forkop/tabs/diagnostic/initController.ts:660",
-      "src/forkop/tabs/diagnostic/initController.ts:695",
+      "src/forkop/tabs/diagnostic/initController.ts:664",
       "src/forkop/tabs/diagnostic/initController.ts:699",
-      "src/forkop/tabs/diagnostic/initController.ts:735",
-      "src/forkop/tabs/diagnostic/initController.ts:739"
+      "src/forkop/tabs/diagnostic/initController.ts:703",
+      "src/forkop/tabs/diagnostic/initController.ts:739",
+      "src/forkop/tabs/diagnostic/initController.ts:743"
     ]
   },
   {
@@ -2450,7 +2450,7 @@
     "call": "Dedicated cgroup unavailable",
     "key": "Dedicated cgroup unavailable",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1098"
+      "src/forkop/tabs/updates/initController.ts:1136"
     ]
   },
   {
@@ -2604,7 +2604,7 @@
     "call": "Device",
     "key": "Device",
     "places": [
-      "src/forkop/tabs/diagnostic/initController.ts:920",
+      "src/forkop/tabs/diagnostic/initController.ts:924",
       "src/forkop/tabs/diagnostic/renderDiagnostic.ts:82",
       "src/forkop/tabs/monitoring/initController.ts:1077",
       "src/forkop/tabs/monitoring/initController.ts:1135",
@@ -2703,15 +2703,15 @@
     "call": "Direct Proxy",
     "key": "Direct Proxy",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1068"
+      "src/forkop/tabs/updates/initController.ts:1106"
     ]
   },
   {
     "call": "Disable",
     "key": "Disable",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1077",
-      "src/forkop/tabs/updates/initController.ts:1108"
+      "src/forkop/tabs/updates/initController.ts:1115",
+      "src/forkop/tabs/updates/initController.ts:1146"
     ]
   },
   {
@@ -2743,8 +2743,8 @@
       "src/forkop/ui/status.ts:172",
       "src/forkop/tabs/autotune/model.ts:630",
       "src/forkop/tabs/autotune/model.ts:663",
-      "src/forkop/tabs/updates/initController.ts:1071",
-      "src/forkop/tabs/updates/initController.ts:1103"
+      "src/forkop/tabs/updates/initController.ts:1109",
+      "src/forkop/tabs/updates/initController.ts:1141"
     ]
   },
   {
@@ -3325,8 +3325,8 @@
     "key": "Enable",
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:8424",
-      "src/forkop/tabs/updates/initController.ts:1084",
-      "src/forkop/tabs/updates/initController.ts:1115"
+      "src/forkop/tabs/updates/initController.ts:1122",
+      "src/forkop/tabs/updates/initController.ts:1153"
     ]
   },
   {
@@ -3376,7 +3376,7 @@
     "call": "Enable mode 2",
     "key": "Enable mode 2",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1058"
+      "src/forkop/tabs/updates/initController.ts:1096"
     ]
   },
   {
@@ -3405,8 +3405,8 @@
     "key": "Enabled",
     "places": [
       "src/forkop/tabs/autotune/initController.ts:733",
-      "src/forkop/tabs/updates/initController.ts:1070",
-      "src/forkop/tabs/updates/initController.ts:1100"
+      "src/forkop/tabs/updates/initController.ts:1108",
+      "src/forkop/tabs/updates/initController.ts:1138"
     ]
   },
   {
@@ -3689,10 +3689,10 @@
     "places": [
       "src/forkop/methods/shell/index.ts:187",
       "src/forkop/methods/shell/index.ts:194",
-      "src/forkop/tabs/updates/initController.ts:541",
-      "src/forkop/tabs/updates/initController.ts:542",
-      "src/forkop/tabs/updates/initController.ts:602",
-      "src/forkop/tabs/updates/initController.ts:784"
+      "src/forkop/tabs/updates/initController.ts:557",
+      "src/forkop/tabs/updates/initController.ts:558",
+      "src/forkop/tabs/updates/initController.ts:618",
+      "src/forkop/tabs/updates/initController.ts:800"
     ]
   },
   {
@@ -4201,7 +4201,7 @@
     "call": "Global check",
     "key": "Global check",
     "places": [
-      "src/forkop/tabs/diagnostic/initController.ts:647"
+      "src/forkop/tabs/diagnostic/initController.ts:651"
     ]
   },
   {
@@ -4494,9 +4494,9 @@
     "call": "Install",
     "key": "Install",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:819",
-      "src/forkop/tabs/updates/initController.ts:962",
-      "src/forkop/tabs/updates/initController.ts:1288",
+      "src/forkop/tabs/updates/initController.ts:835",
+      "src/forkop/tabs/updates/initController.ts:1000",
+      "src/forkop/tabs/updates/initController.ts:1326",
       "src/forkop/tabs/updates/releaseSelector.ts:52"
     ]
   },
@@ -4504,14 +4504,28 @@
     "call": "Install another build:",
     "key": "Install another build:",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1358"
+      "src/forkop/tabs/updates/initController.ts:1396"
     ]
   },
   {
     "call": "Install Extended build",
     "key": "Install Extended build",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:921"
+      "src/forkop/tabs/updates/initController.ts:941"
+    ]
+  },
+  {
+    "call": "Install podkop-engine",
+    "key": "Install podkop-engine",
+    "places": [
+      "src/forkop/tabs/updates/initController.ts:950"
+    ]
+  },
+  {
+    "call": "Install podkop-engine-full",
+    "key": "Install podkop-engine-full",
+    "places": [
+      "src/forkop/tabs/updates/initController.ts:959"
     ]
   },
   {
@@ -4525,7 +4539,7 @@
     "call": "Install Tiny build",
     "key": "Install Tiny build",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:912"
+      "src/forkop/tabs/updates/initController.ts:932"
     ]
   },
   {
@@ -4539,7 +4553,7 @@
     "call": "Installed (Mirror edition)",
     "key": "Installed (Mirror edition)",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1036"
+      "src/forkop/tabs/updates/initController.ts:1074"
     ]
   },
   {
@@ -4547,7 +4561,7 @@
     "key": "Installed version is newer than release",
     "places": [
       "src/forkop/tabs/updates/initController.ts:295",
-      "src/forkop/tabs/updates/initController.ts:1179"
+      "src/forkop/tabs/updates/initController.ts:1217"
     ]
   },
   {
@@ -4660,99 +4674,99 @@
     "call": "Invalid HY2 URL: insecure must be 0 or 1",
     "key": "Invalid HY2 URL: insecure must be 0 or 1",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:104"
+      "src/validators/validateHysteriaUrl.ts:105"
     ]
   },
   {
     "call": "Invalid HY2 URL: invalid host & port",
     "key": "Invalid HY2 URL: invalid host & port",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:51"
+      "src/validators/validateHysteriaUrl.ts:52"
     ]
   },
   {
     "call": "Invalid HY2 URL: invalid port number",
     "key": "Invalid HY2 URL: invalid port number",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:90",
-      "src/validators/validateHysteriaUrl.ts:146"
+      "src/validators/validateHysteriaUrl.ts:91",
+      "src/validators/validateHysteriaUrl.ts:147"
     ]
   },
   {
     "call": "Invalid HY2 URL: missing credentials/server",
     "key": "Invalid HY2 URL: missing credentials/server",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:33"
+      "src/validators/validateHysteriaUrl.ts:34"
     ]
   },
   {
     "call": "Invalid HY2 URL: missing host",
     "key": "Invalid HY2 URL: missing host",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:57"
+      "src/validators/validateHysteriaUrl.ts:58"
     ]
   },
   {
     "call": "Invalid HY2 URL: missing host & port",
     "key": "Invalid HY2 URL: missing host & port",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:44"
+      "src/validators/validateHysteriaUrl.ts:45"
     ]
   },
   {
     "call": "Invalid HY2 URL: missing password",
     "key": "Invalid HY2 URL: missing password",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:39"
+      "src/validators/validateHysteriaUrl.ts:40"
     ]
   },
   {
     "call": "Invalid HY2 URL: missing port",
     "key": "Invalid HY2 URL: missing port",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:61"
+      "src/validators/validateHysteriaUrl.ts:62"
     ]
   },
   {
     "call": "Invalid HY2 URL: must not contain spaces",
     "key": "Invalid HY2 URL: must not contain spaces",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:20"
+      "src/validators/validateHysteriaUrl.ts:21"
     ]
   },
   {
     "call": "Invalid HY2 URL: must start with hysteria2:// or hy2://",
     "key": "Invalid HY2 URL: must start with hysteria2:// or hy2://",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:13"
+      "src/validators/validateHysteriaUrl.ts:14"
     ]
   },
   {
     "call": "Invalid HY2 URL: obfs-password required when obfs is set",
     "key": "Invalid HY2 URL: obfs-password required when obfs is set",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:127"
+      "src/validators/validateHysteriaUrl.ts:128"
     ]
   },
   {
     "call": "Invalid HY2 URL: parsing failed",
     "key": "Invalid HY2 URL: parsing failed",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:153"
+      "src/validators/validateHysteriaUrl.ts:154"
     ]
   },
   {
     "call": "Invalid HY2 URL: sni cannot be empty",
     "key": "Invalid HY2 URL: sni cannot be empty",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:136"
+      "src/validators/validateHysteriaUrl.ts:137"
     ]
   },
   {
     "call": "Invalid HY2 URL: unsupported obfs type",
     "key": "Invalid HY2 URL: unsupported obfs type",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:116"
+      "src/validators/validateHysteriaUrl.ts:117"
     ]
   },
   {
@@ -4788,7 +4802,7 @@
     "key": "Invalid port number. Must be between 1 and 65535",
     "places": [
       "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:9220",
-      "src/validators/validateShadowsocksUrl.ts:91"
+      "src/validators/validateShadowsocksUrl.ts:92"
     ]
   },
   {
@@ -4809,154 +4823,154 @@
     "call": "Invalid Shadowsocks URL: decoded credentials must contain method:password",
     "key": "Invalid Shadowsocks URL: decoded credentials must contain method:password",
     "places": [
-      "src/validators/validateShadowsocksUrl.ts:38"
+      "src/validators/validateShadowsocksUrl.ts:39"
     ]
   },
   {
     "call": "Invalid Shadowsocks URL: invalid server and port",
     "key": "Invalid Shadowsocks URL: invalid server and port",
     "places": [
-      "src/validators/validateShadowsocksUrl.ts:67"
+      "src/validators/validateShadowsocksUrl.ts:68"
     ]
   },
   {
     "call": "Invalid Shadowsocks URL: missing credentials",
     "key": "Invalid Shadowsocks URL: missing credentials",
     "places": [
-      "src/validators/validateShadowsocksUrl.ts:28"
+      "src/validators/validateShadowsocksUrl.ts:29"
     ]
   },
   {
     "call": "Invalid Shadowsocks URL: missing method and password separator \":\"",
     "key": "Invalid Shadowsocks URL: missing method and password separator \":\"",
     "places": [
-      "src/validators/validateShadowsocksUrl.ts:47"
+      "src/validators/validateShadowsocksUrl.ts:48"
     ]
   },
   {
     "call": "Invalid Shadowsocks URL: missing port",
     "key": "Invalid Shadowsocks URL: missing port",
     "places": [
-      "src/validators/validateShadowsocksUrl.ts:84"
+      "src/validators/validateShadowsocksUrl.ts:85"
     ]
   },
   {
     "call": "Invalid Shadowsocks URL: missing server",
     "key": "Invalid Shadowsocks URL: missing server",
     "places": [
-      "src/validators/validateShadowsocksUrl.ts:75"
+      "src/validators/validateShadowsocksUrl.ts:76"
     ]
   },
   {
     "call": "Invalid Shadowsocks URL: missing server address",
     "key": "Invalid Shadowsocks URL: missing server address",
     "places": [
-      "src/validators/validateShadowsocksUrl.ts:59"
+      "src/validators/validateShadowsocksUrl.ts:60"
     ]
   },
   {
     "call": "Invalid Shadowsocks URL: must not contain spaces",
     "key": "Invalid Shadowsocks URL: must not contain spaces",
     "places": [
-      "src/validators/validateShadowsocksUrl.ts:17"
+      "src/validators/validateShadowsocksUrl.ts:18"
     ]
   },
   {
     "call": "Invalid Shadowsocks URL: must start with ss://",
     "key": "Invalid Shadowsocks URL: must start with ss://",
     "places": [
-      "src/validators/validateShadowsocksUrl.ts:9"
+      "src/validators/validateShadowsocksUrl.ts:10"
     ]
   },
   {
     "call": "Invalid Shadowsocks URL: parsing failed",
     "key": "Invalid Shadowsocks URL: parsing failed",
     "places": [
-      "src/validators/validateShadowsocksUrl.ts:97"
+      "src/validators/validateShadowsocksUrl.ts:98"
     ]
   },
   {
     "call": "Invalid SOCKS URL: invalid host and port",
     "key": "Invalid SOCKS URL: invalid host and port",
     "places": [
-      "src/validators/validateSocksUrl.ts:49"
+      "src/validators/validateSocksUrl.ts:50"
     ]
   },
   {
     "call": "Invalid SOCKS URL: invalid port number",
     "key": "Invalid SOCKS URL: invalid port number",
     "places": [
-      "src/validators/validateSocksUrl.ts:68"
+      "src/validators/validateSocksUrl.ts:69"
     ]
   },
   {
     "call": "Invalid SOCKS URL: missing host and port",
     "key": "Invalid SOCKS URL: missing host and port",
     "places": [
-      "src/validators/validateSocksUrl.ts:41"
+      "src/validators/validateSocksUrl.ts:42"
     ]
   },
   {
     "call": "Invalid SOCKS URL: missing hostname or IP",
     "key": "Invalid SOCKS URL: missing hostname or IP",
     "places": [
-      "src/validators/validateSocksUrl.ts:57"
+      "src/validators/validateSocksUrl.ts:58"
     ]
   },
   {
     "call": "Invalid SOCKS URL: missing port",
     "key": "Invalid SOCKS URL: missing port",
     "places": [
-      "src/validators/validateSocksUrl.ts:62"
+      "src/validators/validateSocksUrl.ts:63"
     ]
   },
   {
     "call": "Invalid SOCKS URL: missing username",
     "key": "Invalid SOCKS URL: missing username",
     "places": [
-      "src/validators/validateSocksUrl.ts:33"
+      "src/validators/validateSocksUrl.ts:34"
     ]
   },
   {
     "call": "Invalid SOCKS URL: must not contain spaces",
     "key": "Invalid SOCKS URL: must not contain spaces",
     "places": [
-      "src/validators/validateSocksUrl.ts:18"
+      "src/validators/validateSocksUrl.ts:19"
     ]
   },
   {
     "call": "Invalid SOCKS URL: must start with socks4://, socks4a://, or socks5://",
     "key": "Invalid SOCKS URL: must start with socks4://, socks4a://, or socks5://",
     "places": [
-      "src/validators/validateSocksUrl.ts:9"
+      "src/validators/validateSocksUrl.ts:10"
     ]
   },
   {
     "call": "Invalid SOCKS URL: parsing failed",
     "key": "Invalid SOCKS URL: parsing failed",
     "places": [
-      "src/validators/validateSocksUrl.ts:72"
+      "src/validators/validateSocksUrl.ts:73"
     ]
   },
   {
     "call": "Invalid Trojan URL: must not contain spaces",
     "key": "Invalid Trojan URL: must not contain spaces",
     "places": [
-      "src/validators/validateTrojanUrl.ts:16"
+      "src/validators/validateTrojanUrl.ts:17"
     ]
   },
   {
     "call": "Invalid Trojan URL: must start with trojan://",
     "key": "Invalid Trojan URL: must start with trojan://",
     "places": [
-      "src/validators/validateTrojanUrl.ts:9"
+      "src/validators/validateTrojanUrl.ts:10"
     ]
   },
   {
     "call": "Invalid Trojan URL: parsing failed",
     "key": "Invalid Trojan URL: parsing failed",
     "places": [
-      "src/validators/validateTrojanUrl.ts:61"
+      "src/validators/validateTrojanUrl.ts:62"
     ]
   },
   {
@@ -4972,7 +4986,7 @@
     "call": "Invalid VLESS URL: parsing failed",
     "key": "Invalid VLESS URL: parsing failed",
     "places": [
-      "src/validators/validateVlessUrl.ts:117"
+      "src/validators/validateVlessUrl.ts:118"
     ]
   },
   {
@@ -5272,14 +5286,14 @@
     "key": "Latest version is installed",
     "places": [
       "src/forkop/tabs/updates/initController.ts:298",
-      "src/forkop/tabs/updates/initController.ts:1177"
+      "src/forkop/tabs/updates/initController.ts:1215"
     ]
   },
   {
     "call": "Latest version:",
     "key": "Latest version:",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1179"
+      "src/forkop/tabs/updates/initController.ts:1217"
     ]
   },
   {
@@ -5372,11 +5386,11 @@
     "call": "Loading...",
     "key": "Loading...",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:975",
-      "src/forkop/tabs/updates/initController.ts:986",
-      "src/forkop/tabs/updates/initController.ts:997",
-      "src/forkop/tabs/updates/initController.ts:1010",
-      "src/forkop/tabs/updates/initController.ts:1023"
+      "src/forkop/tabs/updates/initController.ts:1013",
+      "src/forkop/tabs/updates/initController.ts:1024",
+      "src/forkop/tabs/updates/initController.ts:1035",
+      "src/forkop/tabs/updates/initController.ts:1048",
+      "src/forkop/tabs/updates/initController.ts:1061"
     ]
   },
   {
@@ -5390,11 +5404,11 @@
       "src/forkop/tabs/autotune/render.ts:25",
       "src/forkop/tabs/autotune/render.ts:29",
       "src/forkop/tabs/autotune/render.ts:33",
+      "src/forkop/tabs/dashboard/render.ts:14",
       "src/forkop/tabs/history/render.ts:13",
       "src/forkop/tabs/history/render.ts:17",
       "src/forkop/tabs/history/render.ts:29",
-      "src/forkop/tabs/dashboard/render.ts:14",
-      "src/forkop/tabs/diagnostic/initController.ts:864"
+      "src/forkop/tabs/diagnostic/initController.ts:868"
     ]
   },
   {
@@ -5415,7 +5429,7 @@
     "call": "LuCI app",
     "key": "LuCI app",
     "places": [
-      "src/forkop/tabs/diagnostic/initController.ts:884"
+      "src/forkop/tabs/diagnostic/initController.ts:888"
     ]
   },
   {
@@ -5556,7 +5570,7 @@
     "call": "Mode 2 enabled",
     "key": "Mode 2 enabled",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1046"
+      "src/forkop/tabs/updates/initController.ts:1084"
     ]
   },
   {
@@ -5869,8 +5883,8 @@
     "call": "No events recorded yet",
     "key": "No events recorded yet",
     "places": [
-      "src/forkop/tabs/history/initController.ts:198",
-      "src/forkop/tabs/dashboard/overviewCards.ts:311"
+      "src/forkop/tabs/dashboard/overviewCards.ts:311",
+      "src/forkop/tabs/history/initController.ts:198"
     ]
   },
   {
@@ -5913,8 +5927,8 @@
     "call": "No reload recorded yet",
     "key": "No reload recorded yet",
     "places": [
-      "src/forkop/tabs/history/model.ts:154",
-      "src/forkop/tabs/dashboard/overview.ts:348"
+      "src/forkop/tabs/dashboard/overview.ts:348",
+      "src/forkop/tabs/history/model.ts:154"
     ]
   },
   {
@@ -6042,7 +6056,7 @@
     "call": "Normal mode",
     "key": "Normal mode",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1046"
+      "src/forkop/tabs/updates/initController.ts:1084"
     ]
   },
   {
@@ -6109,13 +6123,13 @@
     "call": "Not installed",
     "key": "Not installed",
     "places": [
-      "src/forkop/helpers/singBoxVariant.ts:29",
-      "src/forkop/helpers/singBoxVariant.ts:37",
-      "src/forkop/tabs/diagnostic/initController.ts:866",
-      "src/forkop/tabs/updates/initController.ts:1000",
-      "src/forkop/tabs/updates/initController.ts:1013",
-      "src/forkop/tabs/updates/initController.ts:1026",
-      "src/forkop/tabs/updates/initController.ts:1037"
+      "src/forkop/helpers/singBoxVariant.ts:36",
+      "src/forkop/helpers/singBoxVariant.ts:44",
+      "src/forkop/tabs/diagnostic/initController.ts:870",
+      "src/forkop/tabs/updates/initController.ts:1038",
+      "src/forkop/tabs/updates/initController.ts:1051",
+      "src/forkop/tabs/updates/initController.ts:1064",
+      "src/forkop/tabs/updates/initController.ts:1075"
     ]
   },
   {
@@ -6155,11 +6169,11 @@
     "key": "Not running",
     "places": [
       "src/forkop/tabs/dashboard/overview.ts:205",
-      "src/forkop/tabs/diagnostic/diagnostic.store.ts:131",
+      "src/forkop/tabs/diagnostic/diagnostic.store.ts:133",
       "src/forkop/tabs/diagnostic/initController.ts:115",
       "src/forkop/tabs/diagnostic/initController.ts:339",
-      "src/forkop/tabs/diagnostic/initController.ts:394",
-      "src/forkop/tabs/diagnostic/initController.ts:467"
+      "src/forkop/tabs/diagnostic/initController.ts:398",
+      "src/forkop/tabs/diagnostic/initController.ts:471"
     ]
   },
   {
@@ -6338,8 +6352,8 @@
     "call": "Open",
     "key": "Open",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1170",
-      "src/forkop/tabs/updates/initController.ts:1192"
+      "src/forkop/tabs/updates/initController.ts:1208",
+      "src/forkop/tabs/updates/initController.ts:1230"
     ]
   },
   {
@@ -6426,7 +6440,7 @@
     "call": "OS",
     "key": "OS",
     "places": [
-      "src/forkop/tabs/diagnostic/initController.ts:916"
+      "src/forkop/tabs/diagnostic/initController.ts:920"
     ]
   },
   {
@@ -6995,9 +7009,9 @@
       "src/forkop/tabs/autotune/initController.ts:743",
       "src/forkop/tabs/diagnostic/connectivityMatrix.ts:279",
       "src/forkop/tabs/diagnostic/connectivityMatrix.ts:280",
-      "src/forkop/tabs/updates/initController.ts:720",
-      "src/forkop/tabs/updates/initController.ts:864",
-      "src/forkop/tabs/updates/initController.ts:953"
+      "src/forkop/tabs/updates/initController.ts:736",
+      "src/forkop/tabs/updates/initController.ts:880",
+      "src/forkop/tabs/updates/initController.ts:991"
     ]
   },
   {
@@ -7018,7 +7032,7 @@
     "call": "Remove %s?",
     "key": "Remove %s?",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:715"
+      "src/forkop/tabs/updates/initController.ts:731"
     ]
   },
   {
@@ -7254,7 +7268,7 @@
     "call": "Restore normal mode",
     "key": "Restore normal mode",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1051"
+      "src/forkop/tabs/updates/initController.ts:1089"
     ]
   },
   {
@@ -7619,7 +7633,7 @@
     "call": "Rules that use this provider stop bypassing DPI",
     "key": "Rules that use this provider stop bypassing DPI",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:718"
+      "src/forkop/tabs/updates/initController.ts:734"
     ]
   },
   {
@@ -8024,7 +8038,7 @@
     "call": "Show sing-box config",
     "key": "Show sing-box config",
     "places": [
-      "src/forkop/tabs/diagnostic/initController.ts:722",
+      "src/forkop/tabs/diagnostic/initController.ts:726",
       "src/forkop/tabs/diagnostic/partials/renderAvailableActions.ts:55"
     ]
   },
@@ -9092,7 +9106,7 @@
     "call": "The package is removed from the router.",
     "key": "The package is removed from the router.",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:716"
+      "src/forkop/tabs/updates/initController.ts:732"
     ]
   },
   {
@@ -9769,7 +9783,7 @@
     "call": "tiny",
     "key": "tiny",
     "places": [
-      "src/forkop/helpers/singBoxVariant.ts:53"
+      "src/forkop/helpers/singBoxVariant.ts:64"
     ]
   },
   {
@@ -9806,14 +9820,14 @@
     "call": "TorrServer Direct",
     "key": "TorrServer Direct",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1094"
+      "src/forkop/tabs/updates/initController.ts:1132"
     ]
   },
   {
     "call": "TorrServer not found",
     "key": "TorrServer not found",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1096"
+      "src/forkop/tabs/updates/initController.ts:1134"
     ]
   },
   {
@@ -10028,17 +10042,17 @@
     "call": "unknown",
     "key": "unknown",
     "places": [
-      "src/forkop/helpers/singBoxVariant.ts:28",
+      "src/forkop/helpers/singBoxVariant.ts:35",
       "src/forkop/services/systemInfo.service.ts:10",
       "src/forkop/services/systemInfo.service.ts:11",
       "src/forkop/services/systemInfo.service.ts:12",
       "src/forkop/services/systemInfo.service.ts:13",
-      "src/forkop/services/systemInfo.service.ts:18",
       "src/forkop/services/systemInfo.service.ts:20",
       "src/forkop/services/systemInfo.service.ts:22",
-      "src/forkop/services/systemInfo.service.ts:33",
-      "src/forkop/services/systemInfo.service.ts:34",
-      "src/forkop/tabs/diagnostic/initController.ts:862",
+      "src/forkop/services/systemInfo.service.ts:24",
+      "src/forkop/services/systemInfo.service.ts:35",
+      "src/forkop/services/systemInfo.service.ts:36",
+      "src/forkop/tabs/diagnostic/initController.ts:866",
       "src/forkop/tabs/updates/initController.ts:333"
     ]
   },
@@ -10134,7 +10148,7 @@
     "call": "Update",
     "key": "Update",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:819"
+      "src/forkop/tabs/updates/initController.ts:835"
     ]
   },
   {
@@ -10157,7 +10171,7 @@
     "call": "Update is available:",
     "key": "Update is available:",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1156"
+      "src/forkop/tabs/updates/initController.ts:1194"
     ]
   },
   {
@@ -10339,16 +10353,16 @@
       "src/validators/validateDns.ts:77",
       "src/validators/validateDomain.ts:57",
       "src/validators/validateDomain.ts:76",
-      "src/validators/validateHysteriaUrl.ts:151",
+      "src/validators/validateHysteriaUrl.ts:152",
       "src/validators/validateIp.ts:25",
       "src/validators/validateOutboundJson.ts:118",
       "src/validators/validatePath.ts:16",
-      "src/validators/validateShadowsocksUrl.ts:101",
-      "src/validators/validateSocksUrl.ts:75",
+      "src/validators/validateShadowsocksUrl.ts:102",
+      "src/validators/validateSocksUrl.ts:76",
       "src/validators/validateSubnet.ts:42",
-      "src/validators/validateTrojanUrl.ts:64",
+      "src/validators/validateTrojanUrl.ts:65",
       "src/validators/validateUrl.ts:32",
-      "src/validators/validateVlessUrl.ts:115",
+      "src/validators/validateVlessUrl.ts:116",
       "src/validators/validateVmessUrl.ts:66"
     ]
   },
@@ -10378,7 +10392,7 @@
     "key": "View logs",
     "places": [
       "src/forkop/tabs/dashboard/initController.ts:402",
-      "src/forkop/tabs/diagnostic/initController.ts:684",
+      "src/forkop/tabs/diagnostic/initController.ts:688",
       "src/forkop/tabs/diagnostic/partials/renderAvailableActions.ts:46"
     ]
   },
@@ -10414,14 +10428,14 @@
     "call": "Waiting for the service action to finish.",
     "key": "Waiting for the service action to finish.",
     "places": [
-      "src/forkop/tabs/diagnostic/initController.ts:545"
+      "src/forkop/tabs/diagnostic/initController.ts:549"
     ]
   },
   {
     "call": "Waiting for TorrServer",
     "key": "Waiting for TorrServer",
     "places": [
-      "src/forkop/tabs/updates/initController.ts:1102"
+      "src/forkop/tabs/updates/initController.ts:1140"
     ]
   },
   {

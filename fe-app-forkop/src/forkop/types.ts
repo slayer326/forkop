@@ -881,6 +881,8 @@ export namespace Forkop {
     sing_box_tiny: 0 | 1;
     sing_box_compressed: 0 | 1;
     sing_box_tailscale: 0 | 1;
+    sing_box_podkop_engine?: 0 | 1;
+    sing_box_podkop_engine_full?: 0 | 1;
     zapret_version: string;
     zapret_installed: 0 | 1;
     zapret2_version: string;
@@ -906,6 +908,8 @@ export namespace Forkop {
     sing_box_tiny: 0 | 1;
     sing_box_compressed: 0 | 1;
     sing_box_tailscale: 0 | 1;
+    sing_box_podkop_engine?: 0 | 1;
+    sing_box_podkop_engine_full?: 0 | 1;
     zapret_installed: 0 | 1;
     zapret2_installed: 0 | 1;
     byedpi_installed: 0 | 1;
@@ -981,6 +985,8 @@ export namespace Forkop {
     | 'install_extended_compressed'
     | 'install_tiny'
     | 'install_stable'
+    | 'install_podkop_engine'
+    | 'install_podkop_engine_full'
     | 'enable'
     | 'disable'
     | 'restore';

@@ -214,6 +214,8 @@ export interface StoreType {
     sing_box_tiny: number;
     sing_box_compressed: number;
     sing_box_tailscale: number;
+    sing_box_podkop_engine: number;
+    sing_box_podkop_engine_full: number;
     zapret_version: string;
     zapret_installed: number;
     zapret2_version: string;
@@ -241,6 +243,8 @@ export interface StoreType {
     singBoxInstallExtendedCompressed: { loading: boolean };
     singBoxInstallTiny: { loading: boolean };
     singBoxInstallStable: { loading: boolean };
+    singBoxInstallPodkopEngine: { loading: boolean };
+    singBoxInstallPodkopEngineFull: { loading: boolean };
     zapretCheck: { loading: boolean };
     zapretInstall: { loading: boolean };
     zapretRemove: { loading: boolean };

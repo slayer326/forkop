@@ -82,6 +82,23 @@ check(unknown.extended == 0 && unknown.tiny == 0 && unknown.tailscale == 0,
     "absence of Tailscale was incorrectly interpreted as Tiny");
 let measured = sing_box_capability_flags("1.13.14", "Tags: with_quic,with_tailscale\n", "sing-box");
 check(measured.tailscale == 1, "measured Tailscale tag was lost");
+
+// podkop-engine provides sing-box under its own package names.
+apk_manifest = "podkop-engine-full 1.14.3-r16\nsing-box-tools 1.0-r1\n";
+check(sing_box_installed_package_name() == "podkop-engine-full", "podkop-engine-full identity failed");
+apk_manifest = "podkop-engine 1.14.3-r16\n";
+check(sing_box_installed_package_name() == "podkop-engine", "podkop-engine identity failed");
+marker = "tiny";
+let pdk = sing_box_capability_flags("1.14.3-pdk-r16", "Tags: with_quic\nFeatures: transport.xhttp\n", "podkop-engine");
+check(pdk.podkop_engine == 1 && pdk.podkop_engine_full == 0 && pdk.extended == 0 && pdk.tiny == 0 && pdk.tailscale == 0,
+    "podkop-engine flags were wrong or a stale tiny marker overrode them");
+let pdk_full = sing_box_capability_flags("1.14.3-pdk-r16", "", "podkop-engine-full");
+check(pdk_full.podkop_engine == 1 && pdk_full.podkop_engine_full == 1, "podkop-engine-full flags were wrong");
+marker = "";
+let pdk_unowned = sing_box_capability_flags("1.14.3-pdk-r16", "", "");
+check(pdk_unowned.podkop_engine == 1 && pdk_unowned.podkop_engine_full == 0, "podkop-engine version alone was not recognized");
+let regular_pdk = sing_box_capability_flags("1.14.3", "", "sing-box");
+check(regular_pdk.podkop_engine == 0, "regular sing-box was taken for podkop-engine");
 print("sing-box package identity checks passed\n");
 '''
 pathlib.Path(sys.argv[2]).write_text(prelude + '\n\n'.join(functions) + cases)

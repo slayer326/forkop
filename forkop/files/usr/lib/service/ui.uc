@@ -889,7 +889,7 @@ function marker_is(expected) {
 }
 
 function sing_box_package_from_manifest(installed) {
-    for (let package_name in [ "sing-box-extended", "sing-box-tiny", "sing-box" ])
+    for (let package_name in [ "sing-box-extended", "sing-box-tiny", "podkop-engine-full", "podkop-engine", "sing-box" ])
         for (let line in split(as_string(installed), "\n"))
             if (split(trim(as_string(line)), /[ \t]+/)[0] == package_name)
                 return package_name;
@@ -1031,6 +1031,8 @@ function capability_flags() {
         sing_box_tiny: 0,
         sing_box_compressed: 0,
         sing_box_tailscale: 0,
+        sing_box_podkop_engine: 0,
+        sing_box_podkop_engine_full: 0,
         sing_box_package: "",
         zapret_installed: file_executable(ZAPRET_PROVIDER_NFQWS_BIN) ? 1 : 0,
         zapret2_installed: file_executable(ZAPRET2_PROVIDER_NFQWS2_BIN) ? 1 : 0,
@@ -1047,6 +1049,11 @@ function capability_flags() {
         }
         else if (result.sing_box_package == "sing-box-tiny") {
             result.sing_box_tiny = 1;
+        }
+        else if (result.sing_box_package == "podkop-engine" || result.sing_box_package == "podkop-engine-full") {
+            // No Tailscale in either build.
+            result.sing_box_podkop_engine = 1;
+            result.sing_box_podkop_engine_full = result.sing_box_package == "podkop-engine-full" ? 1 : 0;
         }
         else if (result.sing_box_package == "sing-box") {
             // A regular build without Tailscale is still not a Tiny package.
@@ -1067,6 +1074,10 @@ function capability_flags() {
         }
         else if (marker_is("tiny")) {
             result.sing_box_tiny = 1;
+        }
+        else if (marker_is("podkop-engine") || marker_is("podkop-engine-full")) {
+            result.sing_box_podkop_engine = 1;
+            result.sing_box_podkop_engine_full = marker_is("podkop-engine-full") ? 1 : 0;
         }
         else if (component_action_running_for("sing_box")) {
             result.sing_box_tailscale = 1;

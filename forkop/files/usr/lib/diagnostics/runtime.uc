@@ -935,7 +935,7 @@ function sing_box_binary_signature() {
 }
 
 function sing_box_package_from_manifest(installed) {
-    for (let package_name in [ "sing-box-extended", "sing-box-tiny", "sing-box" ])
+    for (let package_name in [ "sing-box-extended", "sing-box-tiny", "podkop-engine-full", "podkop-engine", "sing-box" ])
         for (let line in split(as_string(installed), "\n"))
             if (split(trim(as_string(line)), /[ \t]+/)[0] == package_name)
                 return package_name;
@@ -1048,6 +1048,12 @@ function sing_box_capability_flags(sing_box_version, sing_box_version_output, pa
     if (package_name == "sing-box-tiny" || (package_name == "" && extended == 0 && sing_box_marker_is("tiny")))
         tiny = 1;
 
+    // podkop-engine reports <version>-pdk-r<revision>; neither of its
+    // packages has Tailscale.
+    let podkop_engine = package_name == "podkop-engine" || package_name == "podkop-engine-full" ||
+        (package_name == "" && extended == 0 && index(as_string(sing_box_version), "-pdk-") >= 0) ? 1 : 0;
+    let podkop_engine_full = package_name == "podkop-engine-full" ? 1 : 0;
+
     if (extended == 1)
         tailscale = 1;
     else if (tiny == 0 && as_string(sing_box_version_output) != "") {
@@ -1059,7 +1065,7 @@ function sing_box_capability_flags(sing_box_version, sing_box_version_output, pa
     else if (package_name == "" && tiny == 0 && sing_box_component_action_running())
         tailscale = 1;
 
-    return { extended, tiny, tailscale, package_name };
+    return { extended, tiny, tailscale, podkop_engine, podkop_engine_full, package_name };
 }
 
 function provider_version(runtime_uc) {
@@ -1140,6 +1146,8 @@ function build_system_info() {
         sing_box_tiny: flags.tiny,
         sing_box_compressed,
         sing_box_tailscale: flags.tailscale,
+        sing_box_podkop_engine: flags.podkop_engine,
+        sing_box_podkop_engine_full: flags.podkop_engine_full,
         sing_box_package: flags.package_name,
         zapret_version,
         zapret_installed,

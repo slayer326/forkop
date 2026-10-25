@@ -786,6 +786,13 @@ function fetch_github_releases_json(owner, repo, per_page) {
     return response;
 }
 
+function fetch_github_release_by_tag_json(owner, repo, tag) {
+    let response = http_get("https://api.github.com/repos/" + as_string(owner) + "/" + as_string(repo) + "/releases/tags/" + as_string(tag));
+    if (response == "" || !helper_success_input(response, "github-response-ok", []))
+        return "";
+    return response;
+}
+
 function pkg_set_extension() {
     return is_apk() ? "apk" : "ipk";
 }
@@ -1623,8 +1630,17 @@ function restore_file_backup(target_path, backup_path) {
     return true;
 }
 
+// podkop-engine packages provide sing-box and conflict with sing-box and
+// sing-box-tiny, but not with sing-box-extended or each other's lines.
+const PODKOP_ENGINE_PACKAGES = [ "podkop-engine", "podkop-engine-full" ];
+
+function sing_box_variant_is_podkop_engine(variant) {
+    return variant == "podkop-engine" || variant == "podkop-engine-full";
+}
+
 function sing_box_variant_is_package_managed(variant) {
-    return variant == "stable" || variant == "tiny" || variant == "extended";
+    return variant == "stable" || variant == "tiny" || variant == "extended" ||
+        sing_box_variant_is_podkop_engine(variant);
 }
 
 function restore_sing_box_service_from_marker(marker) {
@@ -1746,6 +1762,8 @@ function restore_sing_box_extended_package_variant(previous_version) {
     prepare_sing_box_package_service_install();
     pkg_remove_sing_box_conflict("sing-box-tiny");
     pkg_remove_sing_box_conflict("sing-box");
+    for (let name in PODKOP_ENGINE_PACKAGES)
+        pkg_remove_sing_box_conflict(name);
     if (!pkg_install_files([ package_file ])) {
         remove_file(package_file);
         return false;
@@ -1760,15 +1778,183 @@ function restore_sing_box_extended_package_variant(previous_version) {
 
 function replace_sing_box_package_variant(target_package, conflict_package, target_version) {
     prepare_sing_box_package_service_install();
-    if ((as_string(conflict_package) == "" || !pkg_is_installed(conflict_package)) &&
-        (target_package == "sing-box-extended" || !pkg_is_installed("sing-box-extended")))
+    let others = [ "sing-box-extended", PODKOP_ENGINE_PACKAGES[0], PODKOP_ENGINE_PACKAGES[1] ];
+    let blocked = as_string(conflict_package) != "" && pkg_is_installed(conflict_package);
+    for (let name in others)
+        if (name != target_package && pkg_is_installed(name))
+            blocked = true;
+    if (!blocked)
         return pkg_install_name_downgrade(target_package, target_version);
 
-    if (target_package != "sing-box-extended" && !pkg_remove_sing_box_conflict("sing-box-extended"))
-        return false;
+    for (let name in others)
+        if (name != target_package && !pkg_remove_sing_box_conflict(name))
+            return false;
     if (as_string(conflict_package) != "" && !pkg_remove_sing_box_conflict(conflict_package))
         return false;
     return pkg_install_name_downgrade(target_package, target_version);
+}
+
+const PODKOP_ENGINE_REPO_OWNER = "podkop-net";
+const PODKOP_ENGINE_REPO_NAME = "podkop-engine";
+// The sing-box line the generator writes configuration for.
+const PODKOP_ENGINE_LINE = "1.14";
+
+function podkop_engine_package_name(variant) {
+    return variant == "podkop-engine-full" ? "podkop-engine-full" : "podkop-engine";
+}
+
+// The binary reports 1.14.3-pdk-r16; its package and release tag carry
+// 1.14.3-r16 (tag v1.14.3-r16).
+function podkop_engine_package_version(version) {
+    version = as_string(version);
+    let parts = match(version, /^([0-9]+\.[0-9]+\.[0-9]+)-pdk-r([0-9]+)$/);
+    if (parts != null)
+        return parts[1] + "-r" + parts[2];
+    parts = match(version, /^v?([0-9]+\.[0-9]+\.[0-9]+-r[0-9]+)$/);
+    return parts != null ? parts[1] : "";
+}
+
+// The release of a podkop-engine package in a GitHub releases list (newest
+// first): the newest published release of PODKOP_ENGINE_LINE, or exactly
+// `version` for a rollback. When the newest release lacks this router's
+// package, none is returned rather than an older one.
+function podkop_engine_release_from_json(releases_json, package_name, arch, ext, version) {
+    let releases = null;
+    try {
+        releases = json(as_string(releases_json));
+    }
+    catch (e) {
+        return null;
+    }
+    if (type(releases) != "array")
+        return null;
+
+    version = as_string(version);
+    let repo_url = "https://github.com/" + PODKOP_ENGINE_REPO_OWNER + "/" + PODKOP_ENGINE_REPO_NAME + "/releases/";
+    for (let release in releases) {
+        if (type(release) != "object" || release.draft || release.prerelease)
+            continue;
+        let tag = as_string(release.tag_name);
+        let parsed = match(tag, /^v([0-9]+\.[0-9]+)\.[0-9]+-r[0-9]+$/);
+        if (parsed == null || parsed[1] != PODKOP_ENGINE_LINE)
+            continue;
+        let release_version = substr(tag, 1);
+        if (version != "" && release_version != version)
+            continue;
+
+        let asset_name = package_name + "_" + release_version + "_openwrt_" + as_string(arch) + "." + as_string(ext);
+        let asset_url = "";
+        let sums_url = "";
+        for (let asset in (type(release.assets) == "array" ? release.assets : [])) {
+            if (type(asset) != "object")
+                continue;
+            let name = as_string(asset.name);
+            // Only files of this very release: a rewritten list must not be
+            // able to point the install at some other download.
+            if (as_string(asset.browser_download_url) != repo_url + "download/" + tag + "/" + name)
+                continue;
+            if (name == asset_name)
+                asset_url = asset.browser_download_url;
+            else if (name == "SHA256SUMS")
+                sums_url = asset.browser_download_url;
+        }
+        if (asset_url == "" || sums_url == "")
+            return null;
+        let html_url = as_string(release.html_url);
+        return {
+            tag,
+            version: release_version,
+            release_url: substr(html_url, 0, length(repo_url)) == repo_url ? html_url : "",
+            asset_name,
+            asset_url,
+            sums_url
+        };
+    }
+    return null;
+}
+
+function resolve_podkop_engine_release(package_name, version) {
+    let arch = read_openwrt_release_value("DISTRIB_ARCH");
+    if (match(arch, /^[A-Za-z0-9_-]+$/) == null)
+        return null;
+    // Each release lists some 125 files: thirty of them come to megabytes,
+    // too much for a router to hold and parse.
+    let releases_json = "";
+    if (as_string(version) != "") {
+        // A rollback: that one release, by its tag.
+        if (match(as_string(version), /^[0-9]+\.[0-9]+\.[0-9]+-r[0-9]+$/) == null)
+            return null;
+        let release_json = fetch_github_release_by_tag_json(PODKOP_ENGINE_REPO_OWNER, PODKOP_ENGINE_REPO_NAME, "v" + version);
+        releases_json = release_json != "" ? "[" + release_json + "]" : "";
+    }
+    else
+        // The 1.13 and 1.14 lines are released together, newest first: four
+        // releases hold the newest of each even right after a re-release.
+        releases_json = fetch_github_releases_json(PODKOP_ENGINE_REPO_OWNER, PODKOP_ENGINE_REPO_NAME, "4");
+    return podkop_engine_release_from_json(releases_json, package_name, arch, is_apk() ? "apk" : "ipk", version);
+}
+
+function podkop_engine_checksum(sums, asset_name) {
+    for (let line in split(as_string(sums), "\n")) {
+        let fields = match(trim(line), /^([0-9a-f]{64})[ \t]+\*?(.+)$/);
+        if (fields != null && fields[2] == asset_name)
+            return fields[1];
+    }
+    return "";
+}
+
+// The package file in tmp_dir, verified against the release's SHA256SUMS,
+// or "" after logging why not.
+function download_podkop_engine_release(release) {
+    if (!init_tmp_dir())
+        return "";
+    let sums_file = tmp_dir + "/podkop-engine.SHA256SUMS";
+    if (!download_with_retry(release.sums_url, sums_file, "podkop-engine SHA256SUMS"))
+        return "";
+    let expected = podkop_engine_checksum(read_file(sums_file), release.asset_name);
+    remove_file(sums_file);
+    if (expected == "") {
+        updates_log("podkop-engine SHA256SUMS lists no checksum for " + release.asset_name, "error");
+        return "";
+    }
+    let package_file = tmp_dir + "/" + release.asset_name;
+    if (!download_with_retry(release.asset_url, package_file, release.asset_name))
+        return "";
+    if (file_sha256(package_file) != expected) {
+        remove_file(package_file);
+        updates_log("Checksum mismatch for downloaded " + release.asset_name, "error");
+        return "";
+    }
+    return package_file;
+}
+
+// Rollback to the podkop-engine release installed before a failed change:
+// exactly that release, never the newest one.
+function restore_podkop_engine_package_variant(variant, previous_version) {
+    let package_name = podkop_engine_package_name(variant);
+    let version = podkop_engine_package_version(previous_version);
+    if (version == "")
+        return false;
+    let release = resolve_podkop_engine_release(package_name, version);
+    if (release == null)
+        return false;
+    let package_file = download_podkop_engine_release(release);
+    if (package_file == "")
+        return false;
+    prepare_sing_box_package_service_install();
+    for (let name in [ "sing-box-extended", "sing-box-tiny", "sing-box", PODKOP_ENGINE_PACKAGES[0], PODKOP_ENGINE_PACKAGES[1] ])
+        if (name != package_name)
+            pkg_remove_sing_box_conflict(name);
+    if (!pkg_install_files([ package_file ])) {
+        remove_file(package_file);
+        return false;
+    }
+    remove_file(package_file);
+    let new_version = read_sing_box_binary_version("/usr/bin/sing-box", "");
+    if (podkop_engine_package_version(new_version) != version)
+        return false;
+    write_sing_box_variant_state(variant, new_version);
+    return true;
 }
 
 function restore_sing_box_package_variant(previous_variant, previous_version) {
@@ -1778,7 +1964,11 @@ function restore_sing_box_package_variant(previous_variant, previous_version) {
         return replace_sing_box_package_variant("sing-box", "sing-box-tiny", available_package_version("sing-box"));
     if (previous_variant == "extended")
         return restore_sing_box_extended_package_variant(previous_version);
+    if (sing_box_variant_is_podkop_engine(previous_variant))
+        return restore_podkop_engine_package_variant(previous_variant, previous_version);
     if (previous_variant == "not-installed") {
+        for (let name in PODKOP_ENGINE_PACKAGES)
+            pkg_remove_sing_box_conflict(name);
         pkg_remove_sing_box_conflict("sing-box-extended");
         pkg_remove_sing_box_conflict("sing-box-tiny");
         pkg_remove_sing_box_conflict("sing-box");
@@ -1796,8 +1986,8 @@ function restore_sing_box_install_backup(previous_variant, backup_binary, previo
         return restore_sing_box_backup(backup_binary);
     if (sing_box_variant_is_package_managed(previous_variant)) {
         let previous_version = as_string(previous_version_state);
-        if (previous_variant == "extended" && previous_version == "" &&
-            as_string(backup_binary) != "" && file_nonempty(backup_binary))
+        if ((previous_variant == "extended" || sing_box_variant_is_podkop_engine(previous_variant)) &&
+            previous_version == "" && as_string(backup_binary) != "" && file_nonempty(backup_binary))
             previous_version = read_sing_box_binary_version(backup_binary, "/usr/lib");
         if (restore_sing_box_package_variant(previous_variant, previous_version))
             return true;
@@ -1879,7 +2069,8 @@ function fail_package_sing_box_install(action, tiny, reason, current_version, la
         cronet_touched
     );
 
-    let prefix = tiny ? "sing-box-tiny" : "Stable sing-box";
+    // A label for other package variants, true or false for tiny or stable.
+    let prefix = type(tiny) == "string" ? tiny : tiny ? "sing-box-tiny" : "Stable sing-box";
     if (restored)
         action_fail("sing_box", action, prefix + " " + reason + "; previous sing-box variant was restored", current_version, latest_version);
     action_fail("sing_box", action, prefix + " " + reason + " and previous sing-box variant could not be restored", current_version, latest_version);
@@ -1934,7 +2125,9 @@ function install_sing_box_extended_package(action) {
     let backup_binary = "";
     let backup_cronet = "";
     let cronet_touched = false;
-    if (current_variant == "extended" || current_variant == "extended-compressed") {
+    // Removing a podkop-engine package deletes its binary: keep a copy first.
+    if (current_variant == "extended" || current_variant == "extended-compressed" ||
+        sing_box_variant_is_podkop_engine(current_variant)) {
         if (file_exists("/usr/bin/sing-box")) {
             backup_binary = tmpfs_backup != "" ? tmpfs_backup : "/usr/bin/sing-box.forkop-backup." + owner_pid();
             let backed_up = tmpfs_backup != "" ?
@@ -1963,6 +2156,12 @@ function install_sing_box_extended_package(action) {
     if (!run_logged_pkg_remove_sing_box_conflict("sing-box", "Removing sing-box before sing-box-extended package installation")) {
         restore_sing_box_after_failed_extended_package_install(current_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, package_file, cronet_touched);
         action_fail("sing_box", action, "Failed to remove sing-box before sing-box-extended package installation", current_version, latest_version);
+    }
+    for (let name in PODKOP_ENGINE_PACKAGES) {
+        if (!run_logged_pkg_remove_sing_box_conflict(name, "Removing " + name + " before sing-box-extended package installation")) {
+            restore_sing_box_after_failed_extended_package_install(current_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, package_file, cronet_touched);
+            action_fail("sing_box", action, "Failed to remove " + name + " before sing-box-extended package installation", current_version, latest_version);
+        }
     }
 
     if (backup_binary == "" && file_exists("/usr/bin/sing-box")) {
@@ -2087,7 +2286,9 @@ function install_sing_box_extended(action, compressed) {
     for (let item in [
         [ "sing-box-extended", "Removing sing-box-extended package before " + label + " installation" ],
         [ "sing-box-tiny", "Removing sing-box-tiny package before " + label + " installation" ],
-        [ "sing-box", "Removing sing-box package before " + label + " installation" ]
+        [ "sing-box", "Removing sing-box package before " + label + " installation" ],
+        [ PODKOP_ENGINE_PACKAGES[0], "Removing " + PODKOP_ENGINE_PACKAGES[0] + " package before " + label + " installation" ],
+        [ PODKOP_ENGINE_PACKAGES[1], "Removing " + PODKOP_ENGINE_PACKAGES[1] + " package before " + label + " installation" ]
     ]) {
         if (!run_logged_pkg_remove_sing_box_conflict(item[0], item[1])) {
             restore_sing_box_after_failed_extended_install(current_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, archive_file, cronet_touched);
@@ -2258,6 +2459,134 @@ function install_package_sing_box(action, tiny) {
     remove_file(backup_cronet);
     clear_version_caches();
     action_success("sing_box", action, label + " has been installed", new_version, latest_version, new_version == current_version ? 0 : 1, "latest");
+}
+
+// podkop-engine (github.com/podkop-net/podkop-engine): a patched sing-box
+// packaged for OpenWrt, published as GitHub releases with SHA256SUMS. Its
+// packages provide sing-box and own /usr/bin/sing-box and the sing-box
+// service, which Forkop configures as for the other package variants.
+function install_podkop_engine(action, variant) {
+    let package_name = podkop_engine_package_name(variant);
+    let label = package_name;
+    let current_version = sing_box_runtime_output("version", []);
+    let release = resolve_podkop_engine_release(package_name, "");
+    if (release == null)
+        action_fail("sing_box", action, "Failed to resolve a " + label + " " + PODKOP_ENGINE_LINE + " release for this router", current_version);
+    // Shown beside the binary's version, so in its form: 1.14.3-pdk-r16.
+    let latest_version = replace(release.version, /-r([0-9]+)$/, "-pdk-r$1");
+
+    if (action == "check_update") {
+        let installed_version = installed_package_version(package_name);
+        if (installed_version == "")
+            action_fail("sing_box", action, label + " is not installed", current_version, latest_version);
+        check_success_compared("sing_box", current_version, latest_version, installed_version, release.version, release.release_url);
+    }
+
+    if (orphaned_extended_apk_world_pin())
+        action_fail("sing_box", action, "A stale sing-box-extended APK world pin blocks this variant switch; inspect apk del --simulate sing-box-extended before removing the pin", current_version, latest_version);
+
+    let package_file = download_podkop_engine_release(release);
+    if (package_file == "")
+        action_fail("sing_box", action, "Failed to download and verify the " + label + " package", current_version, latest_version);
+
+    // ca-bundle comes from the feed. Resolve it while the current variant
+    // still works.
+    if (!run_logged("Updating package lists before " + label + " installation", pkg_list_update_command())) {
+        remove_file(package_file);
+        action_fail("sing_box", action, "Failed to update package lists", current_version, latest_version);
+    }
+    if (!install_opkg_sing_box_dependencies(package_file, package_name)) {
+        remove_file(package_file);
+        action_fail("sing_box", action, "Failed to install required sing-box dependencies; the current sing-box variant was kept", current_version, latest_version);
+    }
+
+    let previous_variant = sing_box_runtime_output("variant", []);
+    let previous_marker = sing_box_runtime_output("read-variant-marker", []);
+    let previous_version_state = sing_box_runtime_output("read-version-state", []);
+    let unowned_extended_binary = is_apk() && previous_variant == "extended" &&
+        file_nonempty("/usr/bin/sing-box") &&
+        !command_success_from_args([ "apk", "info", "-W", "/usr/bin/sing-box" ]);
+    if (unowned_extended_binary && getenv("FORKOP_ALLOW_VOLATILE_SING_BOX_BACKUP") != "1") {
+        remove_file(package_file);
+        action_fail("sing_box", action, "An unowned sing-box binary needs a temporary RAM-only backup for this variant switch; use the explicit recovery command with local access", current_version, latest_version);
+    }
+    if (unowned_extended_binary)
+        updates_log("Using a volatile RAM backup for the unowned sing-box binary; power loss during the variant switch requires manual recovery", "warn");
+    let tmpfs_backup = unowned_extended_binary ? compressed_sing_box_backup("/usr/bin/sing-box") : "";
+    if (unowned_extended_binary && tmpfs_backup == "") {
+        remove_file(package_file);
+        action_fail("sing_box", action, "Not enough verified temporary space to preserve the unowned sing-box binary; the running variant was kept", current_version, latest_version);
+    }
+    if (tmpfs_backup != "" && file_nonempty("/usr/lib/libcronet.so") &&
+        available_kib("/tmp") < int((file_bytes("/usr/lib/libcronet.so") + 1023) / 1024) + 8192) {
+        remove_compressed_sing_box_backup(tmpfs_backup);
+        remove_file(package_file);
+        action_fail("sing_box", action, "Not enough RAM to preserve libcronet.so; the running variant was kept", current_version, latest_version);
+    }
+    stop_forkop_before_sing_box_change();
+
+    let backup_binary = "";
+    let backup_cronet = "";
+    let cronet_touched = false;
+    let backup_on_tmpfs = previous_variant == "extended-compressed" || tmpfs_backup != "";
+    if (file_exists("/usr/bin/sing-box")) {
+        backup_binary = tmpfs_backup != "" ? tmpfs_backup : backup_on_tmpfs ? tmp_dir + "/sing-box.forkop-backup" :
+            "/usr/bin/sing-box.forkop-backup." + owner_pid();
+        let backed_up = tmpfs_backup != "" ?
+            command_success_from_args([ "rm", "-f", "/usr/bin/sing-box" ]) :
+            move_file_to_backup("/usr/bin/sing-box", backup_binary);
+        if (!backed_up) {
+            remove_compressed_sing_box_backup(tmpfs_backup);
+            remove_file(package_file);
+            restore_sing_box_service_from_marker(previous_marker);
+            action_fail("sing_box", action, "Failed to backup current sing-box binary", current_version, latest_version);
+        }
+    }
+    if (file_exists("/usr/lib/libcronet.so")) {
+        cronet_touched = true;
+        backup_cronet = backup_on_tmpfs ? tmp_dir + "/libcronet.so.forkop-backup" :
+            "/usr/lib/libcronet.so.forkop-backup." + owner_pid();
+        if (!move_file_to_backup("/usr/lib/libcronet.so", backup_cronet)) {
+            restore_sing_box_backup(backup_binary);
+            remove_file(package_file);
+            restore_sing_box_service_from_marker(previous_marker);
+            action_fail("sing_box", action, "Failed to backup current libcronet.so", current_version, latest_version);
+        }
+    }
+
+    prepare_sing_box_package_service_install();
+    for (let name in [ "sing-box-extended", "sing-box-tiny", "sing-box", PODKOP_ENGINE_PACKAGES[0], PODKOP_ENGINE_PACKAGES[1] ]) {
+        // An update of the same package replaces it in place.
+        if (name == package_name)
+            continue;
+        if (!run_logged_pkg_remove_sing_box_conflict(name, "Removing " + name + " before " + label + " installation")) {
+            remove_file(package_file);
+            fail_package_sing_box_install(action, label, "could not replace " + name, current_version, latest_version,
+                package_name, previous_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, cronet_touched);
+        }
+    }
+    let installed = run_logged("Installing " + label + " package " + release.asset_name, pkg_install_files_command([ package_file ]));
+    remove_file(package_file);
+    if (!installed)
+        fail_package_sing_box_install(action, label, "package installation failed", current_version, latest_version,
+            package_name, previous_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, cronet_touched);
+
+    let new_version = read_sing_box_binary_version("/usr/bin/sing-box", "");
+    if (!sing_box_runtime_success("is-podkop-engine", [ new_version ]))
+        fail_package_sing_box_install(action, label, "package was installed, but the active binary is not podkop-engine", new_version, latest_version,
+            package_name, previous_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, cronet_touched);
+    write_sing_box_variant_state(variant, new_version);
+    if (!restart_forkop_after_successful_change() || !wait_forkop_running_after_sing_box_change())
+        fail_package_sing_box_install(action, label, "was installed, but Forkop did not start cleanly", new_version, latest_version,
+            package_name, previous_variant, backup_binary, backup_cronet, previous_marker, previous_version_state, cronet_touched);
+    if (tmpfs_backup != "")
+        remove_compressed_sing_box_backup(tmpfs_backup);
+    else
+        remove_file(backup_binary);
+    remove_file(backup_cronet);
+    clear_version_caches();
+    updates_log("Installed " + label + " " + new_version + " from " + release.asset_name);
+    action_success("sing_box", action, label + " has been installed", new_version, latest_version, new_version == current_version ? 0 : 1, "latest", release.release_url);
 }
 
 function check_forkop() {
@@ -2851,9 +3180,19 @@ function dispatch_sing_box(action) {
         install_package_sing_box(action, false);
         return;
     }
+    if (action == "install_podkop_engine") {
+        install_podkop_engine(action, "podkop-engine");
+        return;
+    }
+    if (action == "install_podkop_engine_full") {
+        install_podkop_engine(action, "podkop-engine-full");
+        return;
+    }
 
     let variant = sing_box_runtime_output("variant", []);
-    if (variant == "extended-compressed")
+    if (sing_box_variant_is_podkop_engine(variant))
+        install_podkop_engine(action, variant);
+    else if (variant == "extended-compressed")
         install_sing_box_extended(action, true);
     else if (variant == "extended")
         install_sing_box_extended(action, false);
@@ -3018,7 +3357,8 @@ function component_action(component, action, version) {
         install_forkop(version);
     else if (component == "sing_box" && (action == "check_update" || action == "install" ||
         action == "install_extended" || action == "install_extended_compressed" ||
-        action == "install_tiny" || action == "install_stable"))
+        action == "install_tiny" || action == "install_stable" ||
+        action == "install_podkop_engine" || action == "install_podkop_engine_full"))
         dispatch_sing_box(action);
     else if (component == "zapret" && (action == "check_update" || action == "install"))
         install_zapret(action);
