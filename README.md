@@ -88,7 +88,7 @@ Forkop никогда не трогает sing-box, который ему не �
 |---|---|
 | OpenWrt | 24.10 (ipk), 25.12+ (apk) |
 | Платформы | Filogic `aarch64_cortex-a53`, Rockchip `aarch64_generic` |
-| Ядро | sing-box (по умолчанию tiny), extended как опция |
+| Ядро | sing-box (по умолчанию tiny); extended и podkop-engine как опции |
 | Память | работает на роутерах с 256 МБ |
 
 ## Благодарности
@@ -98,7 +98,7 @@ Forkop X построен на работе других авторов. Спа�
 - [itdoginfo/podkop](https://github.com/itdoginfo/podkop) — Podkop, с которого всё началось, и списки доменов [itdoginfo/allow-domains](https://github.com/itdoginfo/allow-domains).
 - [ushan0v/forkop](https://github.com/ushan0v/forkop) — Forkop (бывший Podkop Plus), основа этой сборки, и набор правил [ushan0v/sing-box-supercell-ruleset](https://github.com/ushan0v/sing-box-supercell-ruleset).
 - [Screamshow/forkop-x](https://github.com/Screamshow/forkop-x) — Forkop X: отсюда перенесены многие исправления, а [Screamshow/Zapret-Manager](https://github.com/Screamshow/Zapret-Manager) используется для установки обхода DPI. Оригинал менеджера — [StressOzz/Zapret-Manager](https://github.com/StressOzz/Zapret-Manager).
-- [SagerNet/sing-box](https://github.com/SagerNet/sing-box) и [shtorm-7/sing-box-extended](https://github.com/shtorm-7/sing-box-extended) — ядро маршрутизации.
+- [SagerNet/sing-box](https://github.com/SagerNet/sing-box), [shtorm-7/sing-box-extended](https://github.com/shtorm-7/sing-box-extended) и [podkop-net/podkop-engine](https://github.com/podkop-net/podkop-engine) — ядро маршрутизации.
 - [bol-van/zapret](https://github.com/bol-van/zapret), [bol-van/zapret2](https://github.com/bol-van/zapret2), [remittor/zapret-openwrt](https://github.com/remittor/zapret-openwrt) и [hufrea/byedpi](https://github.com/hufrea/byedpi) — обход DPI.
 - [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat), [zxc-rv/ad-filter](https://github.com/zxc-rv/ad-filter) и [Greeg0ry/b4geoip-forkop](https://github.com/Greeg0ry/b4geoip-forkop) — списки маршрутизации.
 - [OpenWrt](https://github.com/openwrt/openwrt), [LuCI](https://github.com/openwrt/luci) и [ucode](https://github.com/ucode-lang/ucode).
