@@ -1343,7 +1343,11 @@ function start_main() {
         log_message("A required startup connection could not be recovered without bypassing its configured proxy", "fatal");
         return 1;
     }
-    if (has_list_sources && !module_success(UPDATES_UC, [ "restore-list-cache" ])) {
+    // A generation that lacks a source of the current sections is prepared
+    // anew as well: applying it below would download that source before
+    // sing-box runs, and through the list service proxy that cannot work.
+    if (has_list_sources && (!module_success(UPDATES_UC, [ "restore-list-cache" ]) ||
+        !module_success(UPDATES_UC, [ "list-cache-complete" ]))) {
         log_message("Preparing the initial list generation before starting routing", "info");
         if (prepare_lists_for_cold_start() != 0 ||
             !module_success(UPDATES_UC, [ "restore-list-cache" ])) {

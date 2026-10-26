@@ -26,6 +26,7 @@ let fixture_uci_data = null;
 let runtime_settings_cache = null;
 let runtime_ruleset_folder = runtime_constants.TMP_RULESET_FOLDER;
 let runtime_supports_xhttp = true;
+let runtime_supports_utls_fallback = false;
 let runtime_supports_dns_response_matching = false;
 let provider_urltest_start_seed = "";
 let subscription_bootstrap_dns_section = "";
@@ -3568,11 +3569,23 @@ function add_subscription_bootstrap_service_proxies(config, configured, selected
         runtime_generate_unsupported("deferred subscriptions have no available service proxy");
 }
 
-function generate_config(output_path, service_address, mwan3_active, supports_xhttp, deferred_sections, sing_box_version) {
+// podkop-engine (r13 and later, Features: tls.utls-fallback) can retry a
+// uTLS handshake whose ClientHello goes unanswered with another fingerprint.
+// Its chrome sends the X25519MLKEM768 key like Xray; a ClientHello that large
+// is frozen on some ISP paths, while chrome without the key (stock sing-box)
+// and firefox pass. The core enables the retry only when the config asks.
+function utls_fallback_section(settings) {
+    if (!runtime_supports_utls_fallback || !bool_option(settings, "utls_fallback", true))
+        return null;
+    return { enabled: true };
+}
+
+function generate_config(output_path, service_address, mwan3_active, supports_xhttp, deferred_sections, sing_box_version, supports_utls_fallback) {
     subscription_outbound_tags = {};
     runtime_supports_xhttp = supports_xhttp == null || as_string(supports_xhttp) == ""
         ? true
         : cli_bool(supports_xhttp);
+    runtime_supports_utls_fallback = cli_bool(supports_utls_fallback);
     let cursor = uci_cursor();
     cursor.load(CONFIG_NAME);
     runtime_settings_cache = object_or_empty(cursor.get_all(CONFIG_NAME, "settings"));
@@ -3609,6 +3622,9 @@ function generate_config(output_path, service_address, mwan3_active, supports_xh
         (int(version_parts[1]) == 1 && int(version_parts[2]) >= 14)))
         delete config.dns.independent_cache;
     add_source_aware_dns_support(config, source_aware_dns);
+    let utls_fallback = utls_fallback_section(settings);
+    if (utls_fallback != null)
+        config.experimental.utls_fallback = utls_fallback;
     let taken = reserved_runtime_tag_set(config.outbounds);
     reserve_section_outbound_tags(sections, taken);
     for (let section in sections)
@@ -3621,6 +3637,9 @@ function generate_config(output_path, service_address, mwan3_active, supports_xh
         delete config.route.rule_set;
         config.dns.rules = [];
         delete config.experimental;
+        // The bootstrap dials the same servers with the same fingerprints.
+        if (utls_fallback != null)
+            config.experimental = { utls_fallback };
 
         if (bootstrap_lists) {
             let target = download_detour_tag(settings, "lists");
@@ -3659,11 +3678,11 @@ function generate_config(output_path, service_address, mwan3_active, supports_xh
     }
 }
 
-function generate_config_fixture(fixture_path, output_path, service_address, mwan3_active, supports_xhttp, deferred_sections, sing_box_version) {
+function generate_config_fixture(fixture_path, output_path, service_address, mwan3_active, supports_xhttp, deferred_sections, sing_box_version, supports_utls_fallback) {
     use_fixture_cursor(fixture_path);
     runtime_subscription.set_section_cache_dir(output_path + ".section-cache");
     runtime_ruleset_folder = output_path + ".rulesets";
-    generate_config(output_path, service_address, mwan3_active, supports_xhttp, deferred_sections, sing_box_version);
+    generate_config(output_path, service_address, mwan3_active, supports_xhttp, deferred_sections, sing_box_version, supports_utls_fallback);
 }
 
 function startup_required_deferred_fixture(fixture_path, deferred_sections) {
@@ -3782,9 +3801,9 @@ function object_nonempty_stdin() {
 let mode = ARGV[0] || "";
 
 if (mode == "generate-config")
-    generate_config(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5] || "", ARGV[6] || "");
+    generate_config(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5] || "", ARGV[6] || "", ARGV[7] || "");
 else if (mode == "generate-config-fixture")
-    generate_config_fixture(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6] || "", ARGV[7] || "");
+    generate_config_fixture(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6] || "", ARGV[7] || "", ARGV[8] || "");
 else if (mode == "startup-required-deferred" || mode == "list-bootstrap-required-deferred")
     print(startup_required_deferred(ARGV[1] || ""), "\n");
 else if (mode == "startup-required-deferred-fixture" || mode == "list-bootstrap-required-deferred-fixture")

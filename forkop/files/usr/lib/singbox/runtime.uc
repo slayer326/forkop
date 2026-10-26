@@ -353,6 +353,13 @@ function sing_box_supports_xhttp(version, version_output) {
     return sing_box_output_has_feature(as_string(version_output) != "" ? version_output : sing_box_version_output(), "transport.xhttp");
 }
 
+// podkop-engine r13 and later: experimental.utls_fallback in config.json.
+function sing_box_supports_utls_fallback(version, version_output) {
+    if (!sing_box_is_podkop_engine(version))
+        return false;
+    return sing_box_output_has_feature(as_string(version_output) != "" ? version_output : sing_box_version_output(), "tls.utls-fallback");
+}
+
 function output_has_build_tag(output, tag) {
     tag = as_string(tag);
     if (tag == "")
@@ -1128,7 +1135,8 @@ function init_config(populate_nft, caches_prepared, no_refresh, prepared_deferre
             mwan3_active ? "1" : "0",
             sing_box_supports_xhttp(core_version, "") ? "1" : "0",
             deferred_sections,
-            core_version
+            core_version,
+            sing_box_supports_utls_fallback(core_version, "") ? "1" : "0"
         ]) + " >" + shell_quote(runtime_log) + " 2>&1"
     );
     if (SINGBOX_CONFIG_FAIL_PHASE == "generate")
@@ -1306,6 +1314,8 @@ else if (mode == "is-podkop-engine")
     exit(sing_box_is_podkop_engine(ARGV[1]) ? 0 : 1);
 else if (mode == "supports-xhttp")
     exit(sing_box_supports_xhttp(ARGV[1], ARGV[2]) ? 0 : 1);
+else if (mode == "supports-utls-fallback")
+    exit(sing_box_supports_utls_fallback(ARGV[1], ARGV[2]) ? 0 : 1);
 else if (mode == "variant")
     print(sing_box_variant(), "\n");
 else {

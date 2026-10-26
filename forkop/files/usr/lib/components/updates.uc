@@ -3099,8 +3099,31 @@ function download_to_file_network(url, filepath, proxy_address) {
     return false;
 }
 
+// The same list file reached from the Forkop mirror, jsDelivr or GitHub raw.
+// A generation keeps the URL it was downloaded from, and the mirror base is
+// not part of the list signature: a generation made before the mirror, or
+// with another mirror_base_url, holds these lists under another URL.
+function list_source_identity(url) {
+    let m = match(as_string(url), /^https?:\/\/(cdn\.jsdelivr\.net\/gh\/(itdoginfo|Greeg0ry)\/|raw\.githubusercontent\.com\/(itdoginfo|Greeg0ry)\/|[^\/?#]+\/forkop\/lists\/)(allow-domains|b4geoip-forkop)(@main\/|\/main\/|\/)([^?#]+)$/);
+    return m == null ? "" : m[4] + ":" + m[6];
+}
+
+function cached_list_source(url) {
+    url = as_string(url);
+    let staged = as_string(list_download_cache[url]);
+    if (staged != "")
+        return staged;
+    let identity = list_source_identity(url);
+    if (identity == "")
+        return "";
+    for (let key in keys(list_download_cache))
+        if (list_source_identity(key) == identity && as_string(list_download_cache[key]) != "")
+            return as_string(list_download_cache[key]);
+    return "";
+}
+
 function download_to_file(url, filepath, proxy_address) {
-    let staged = as_string(list_download_cache[as_string(url)]);
+    let staged = cached_list_source(url);
     if (staged != "")
         return copy_file(staged, filepath);
     return download_to_file_network(url, filepath, proxy_address);
@@ -3221,6 +3244,23 @@ function load_persistent_list_sources() {
         push(list_download_metadata, source);
     }
     return true;
+}
+
+// Whether the generation just loaded holds every source the current
+// sections download. A start applies the generation before sing-box and its
+// service proxy run, so a missing source cannot be downloaded at that point.
+function list_cache_complete() {
+    if (!load_persistent_list_sources())
+        return false;
+    let complete = true;
+    for (let entry in list_preflight_entries(uci_sections("section")))
+        if (cached_list_source(entry.url) == "") {
+            log_message("List source " + safe_remote_source_identity(entry.url) + " is not in the saved list generation", "info");
+            complete = false;
+        }
+    list_download_cache = {};
+    list_download_metadata = [];
+    return complete;
 }
 
 function convert_crlf_to_lf(path) {
@@ -4887,6 +4927,8 @@ else if (mode == "prepare-list-cache") {
     list_update_prepare_only = true;
     list_update();
 }
+else if (mode == "list-cache-complete")
+    exit(list_cache_complete() ? 0 : 1);
 else if (mode == "list-cache-valid")
     exit(persistent_list_cache_valid() ? 0 : 1);
 else if (mode == "list-cache-capacity")
