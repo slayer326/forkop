@@ -120,10 +120,10 @@ fi
 
 for group in 'services/torrserver' 'services/media/torrserver'; do
   level="$(awk -F/ '{print NF}' <<<"$group")"
-  printf 'type route hook output priority -151; socket cgroupv2 level %s "%s" meta mark set 0x08000000 comment "Forkop TorrServer Direct"\n' "$level" "$group" |
+  printf 'type route hook output priority -151; ip daddr 198.18.0.0/15 return; ip6 daddr fc00::/18 return; socket cgroupv2 level %s "%s" meta mark set 0x08000000 comment "Forkop TorrServer Direct"\n' "$level" "$group" |
     ucode -L "$FORKOP_LIB" "$FORKOP_LIB/torrserver/direct.uc" rule-output-active "/$group"
 done
-if printf '%s\n' 'type route hook output priority -151; socket cgroupv2 level 2 "services/media" meta mark set 0x08000000 comment "Forkop TorrServer Direct"' |
+if printf '%s\n' 'type route hook output priority -151; ip daddr 198.18.0.0/15 return; ip6 daddr fc00::/18 return; socket cgroupv2 level 2 "services/media" meta mark set 0x08000000 comment "Forkop TorrServer Direct"' |
   ucode -L "$FORKOP_LIB" "$FORKOP_LIB/torrserver/direct.uc" rule-output-active '/services/media/torrserver'; then
   echo 'FAIL: TorrServer Direct must not accept a shared parent cgroup' >&2
   exit 1
