@@ -6,6 +6,11 @@ let uci = require("core.uci");
 const CONFIG_NAME = getenv("FORKOP_CONFIG_NAME") || "forkop";
 const TABLE = "ForkopTorrServerDirect";
 const OUTBOUND_MARK = getenv("NFT_OUTBOUND_MARK") || "0x08000000";
+// TorrServer gets FakeIP answers for listed domains (e.g. trackers) from the
+// router DNS. Those addresses only work through sing-box, so leave them
+// unmarked for Forkop; peers are dialled by real IP and stay direct.
+const FAKEIP_INET4_RANGE = getenv("SB_FAKEIP_INET4_RANGE") || "198.18.0.0/15";
+const FAKEIP_INET6_RANGE = getenv("SB_FAKEIP_INET6_RANGE") || "fc00::/18";
 
 function text(value) { return value == null ? "" : "" + value; }
 function quote(value) { return "'" + replace(text(value), /'/g, "'\\''") + "'"; }
@@ -73,6 +78,8 @@ function rule_output_active(output, info) {
     let level = length(parts);
     return (index(output, "type route hook output priority mangle - 1") >= 0 ||
             index(output, "type route hook output priority -151") >= 0) &&
+        index(output, "ip daddr " + FAKEIP_INET4_RANGE + " ") >= 0 &&
+        index(output, "ip6 daddr " + FAKEIP_INET6_RANGE + " ") >= 0 &&
         index(output, "socket cgroupv2 level " + level + " \"" + path + "\"") >= 0 &&
         (index(output, "meta mark set 0x08000000") >= 0 ||
          index(output, "meta mark set 0x8000000") >= 0) &&
@@ -90,6 +97,8 @@ function rule_batch(cgroup) {
     let level = length(parts);
     return "add table inet " + TABLE + "\n" +
         "add chain inet " + TABLE + " output { type route hook output priority -151; policy accept; }\n" +
+        "add rule inet " + TABLE + " output ip daddr " + FAKEIP_INET4_RANGE + " return\n" +
+        "add rule inet " + TABLE + " output ip6 daddr " + FAKEIP_INET6_RANGE + " return\n" +
         "add rule inet " + TABLE + " output socket cgroupv2 level " + level + " \"" + path +
         "\" meta mark set " + OUTBOUND_MARK + " counter comment \"Forkop TorrServer Direct\"\n";
 }

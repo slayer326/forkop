@@ -247,6 +247,12 @@ function postinst_restore() {
         return false;
     }
 
+    // The TorrServer Direct worker keeps the old module in memory; restart it
+    // so an upgrade applies the new rule. Its init script does nothing while
+    // the feature is disabled.
+    if (!PACKAGE_TEST_MODE && path_exists("/etc/init.d/forkop-torrserver-direct"))
+        command_success_from_args([ "/etc/init.d/forkop-torrserver-direct", "restart" ]);
+
     // Only an explicit start since boot lets a reload start a runtime that
     // is down (service/initd.uc EXPLICIT_START_FILE; D-15(a)), and a previous
     // version kept no record of its start. A runtime that runs across the
