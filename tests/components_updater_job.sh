@@ -514,24 +514,6 @@ if (value.running !== false || value.success !== true || value.component !== "si
 }
 NODE
 
-zapret_release_json="$(cat <<'JSON'
-{
-  "tag_name": "v70.1",
-  "html_url": "https://example.com/zapret-release",
-  "assets": [
-    {"name": "zapret_v70.1_aarch64_generic.zip", "browser_download_url": "https://example.com/aarch64.zip"},
-    {"name": "zapret_v70.1_mipsel_24kc.zip", "browser_download_url": "https://example.com/mipsel.zip"}
-  ]
-}
-JSON
-)"
-
-assert_eq "$(printf 'mipsel_24kc\tzapret_v70.1_mipsel_24kc.zip\thttps://example.com/mipsel.zip\thttps://example.com/zapret-release\tv70.1')" \
-  "$(printf '%s' "$zapret_release_json" | ucode "$UPDATER" release-select-arch-suffix-asset zip 'mipsel_24kc aarch64_generic')" \
-  "release arch suffix selector"
-[ -z "$(printf '%s' "$zapret_release_json" | ucode "$UPDATER" release-select-arch-suffix-asset zip 'arm_cortex-a7')" ] ||
-  fail "release arch suffix selector should be empty for missing arch"
-
 running="$(write_state running '{"running":true,"pid":"123","started_at":100}')"
 assert_eq "$(printf 'pid\t123\t0')" \
   "$(ucode "$UPDATER" updates-job-refresh-plan "$running" 105 15)" \

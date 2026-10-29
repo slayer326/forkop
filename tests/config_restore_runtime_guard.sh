@@ -1,9 +1,9 @@
 #!/bin/sh
 set -eu
 
-# A snapshot restore and an autotune apply while a failed lifecycle
-# transition keeps its fail-closed guard (UC-019): the DPI guard table
-# ForkopTableDpiGuard of a failed DPI rollback, or the forkop_transition_guard
+# A snapshot restore while a failed lifecycle transition keeps its
+# fail-closed guard (UC-019): the guard table ForkopTableDpiGuard of a
+# failed rollback, or the forkop_transition_guard
 # chain of a failed sing-box rollback. service/lifecycle.uc refuses every
 # reload over them (runtime_guard_active) and only a restart removes them, so
 # no reload proves a coherent runtime while one is left:
@@ -39,7 +39,6 @@ export FORKOP_SNAPSHOT_DIR="$WORK/snapshots"
 export FORKOP_UCI_SAVEDIR="$WORK/uci-save"
 export FORKOP_SNAPSHOT_HASH_DIR="$WORK/hash"
 export FORKOP_SNAPSHOT_LOCK_DIR="$WORK/run/config-snapshot.lock"
-export FORKOP_AUTOTUNE_APPLY_STATE="$WORK/autotune-apply.json"
 export FORKOP_LIB="$LIB"
 export FORKOP_RELOAD_COMMAND="$WORK/reload"
 export FORKOP_PENDING_RELOAD_FILE="$WORK/run/reload.pending"
@@ -230,23 +229,5 @@ has inflight-ended || fail "guard kept by an action in flight: the restore did n
 [ "$(field status)" = needs_attention ] || fail "guard kept by an action in flight: $(cat "$WORK/result.json")"
 [ "$(field reason)" = runtime_guard_active ] || fail "guard kept by an action in flight: $(cat "$WORK/result.json")"
 [ "$(cat "$STATE/guard")" = valid ] || fail "guard kept by an action in flight: the restore guard was released"
-
-# 5. The autotune apply transaction: a kept guard refuses it before anything
-#    changes; one a reload leaves behind ends needs_attention.
-candidate="$WORK/candidate"
-reset_case
-printf "config settings 'settings'\n option marker 'candidate'\n" > "$candidate"
-: > "$TABLES/ForkopTableDpiGuard"
-snap apply "$candidate" "$(sha256sum "$FORKOP_CONFIG_FILE" | cut -d' ' -f1)" > "$WORK/result.json" || true
-[ "$(field status)" = stale ] || fail "apply with a kept guard: $(cat "$WORK/result.json")"
-[ "$(field reason)" = runtime_guard_active ] || fail "apply with a kept guard: $(cat "$WORK/result.json")"
-! grep -q '^reload:' "$STATE/events" || fail "apply with a kept guard: a reload was requested"
-grep -q "marker 'current'" "$FORKOP_CONFIG_FILE" || fail "apply with a kept guard: the configuration changed"
-reset_case
-echo ForkopTableDpiGuard > "$STATE/leave"
-snap apply "$candidate" "$(sha256sum "$FORKOP_CONFIG_FILE" | cut -d' ' -f1)" > "$WORK/result.json" || true
-[ "$(field status)" = needs_attention ] || fail "apply leaving a kept guard: $(cat "$WORK/result.json")"
-[ "$(field reason)" = runtime_guard_active ] || fail "apply leaving a kept guard: $(cat "$WORK/result.json")"
-[ "$(cat "$STATE/guard")" = valid ] || fail "apply leaving a kept guard: the restore guard was released"
 
 printf 'config_restore_runtime_guard: PASS\n'

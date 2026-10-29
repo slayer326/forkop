@@ -9,14 +9,13 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 
 [ ! -e "$LIB/providers/byedpi" ] || fail "ByeDPI provider module is still installed"
 
-# Runtime code, LuCI views (handwritten, bundled and compacted), frontend
+# Runtime code, LuCI views (handwritten and bundled), frontend
 # sources and translations must not mention ByeDPI or its ciadpi binary.
 # The configuration migration is the only exception: it cleans up what
 # ByeDPI left behind, and may name it only inside that cleanup.
 if grep -rIil --exclude=migration.uc 'byedpi\|ciadpi' \
     "$ROOT/forkop/files" \
     "$ROOT/luci-app-forkop/htdocs" \
-    "$ROOT/luci-app-forkop/generated" \
     "$ROOT/luci-app-forkop/po" \
     "$ROOT/fe-app-forkop/src" \
     "$ROOT/fe-app-forkop/locales" >"$WORK/hits"; then

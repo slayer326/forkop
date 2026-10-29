@@ -9,8 +9,8 @@ set -euo pipefail
 # A lock left by the previous package version (mkdir, then <lock>/pid) keeps
 # its meaning across an upgrade: a live owner holds it, a dead one does not.
 #
-# service/state.uc, service/initd.uc, config/snapshots.uc, autotune/apply.uc
-# and service/ui.uc are the real code.
+# service/state.uc, service/initd.uc, config/snapshots.uc and service/ui.uc
+# are the real code.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LIB="$ROOT_DIR/forkop/files/usr/lib"
@@ -48,8 +48,7 @@ export FORKOP_SNAPSHOT_LOCK_DIR="$WORK_DIR/run/config-snapshot.lock"
 export FORKOP_HISTORY_FILE="$WORK_DIR/history.jsonl"
 export FORKOP_RELOAD_COMMAND="$WORK_DIR/bin/no-init"
 export FORKOP_SERVICE_INIT="$WORK_DIR/bin/no-init"
-export FORKOP_AUTOTUNE_APPLY_STATE="$WORK_DIR/autotune-apply.json"
-export FORKOP_AUTOTUNE_STATE_DIR="$WORK_DIR/run/autotune"
+export FORKOP_UCI_SAVEDIR="$WORK_DIR/uci-save"
 export FORKOP_LATENCY_TEST_LOCK_DIR="$LOCK"
 export FORKOP_LIB="$LIB"
 export PATH="$WORK_DIR/bin:$PATH"
@@ -285,30 +284,26 @@ reset_lock; mkdir "$LOCK"; printf '%s\n' "$DEAD" >"$LOCK/pid"
 [ "$(owner_of)" = "$B" ] || fail "breaking a stale lock removed the previous-version owner's new pid"
 reset_lock
 
-# 5. Readers see the owner through the same helper: a snapshot restore or
-#    apply and an autotune apply wait for a live lifecycle action, including
-#    one still setting up its lock, and a stale lock is none. The UI refuses
-#    a second latency test.
+# 5. Readers see the owner through the same helper: a snapshot restore waits
+#    for a live lifecycle action, including one still setting up its lock,
+#    and a stale lock is none. The UI refuses a second latency test.
 printf 'config settings\n' >"$FORKOP_CONFIG_FILE"
-printf 'config settings\n\toption changed 1\n' >"$WORK_DIR/candidate"
-config_hash="$(sha256sum "$FORKOP_CONFIG_FILE" | cut -d' ' -f1)"
-snapshot_apply() { ucode -L "$LIB" "$LIB/config/snapshots.uc" apply "$WORK_DIR/candidate" "$config_hash" || true; }
-autotune_action() {
-  ucode -L "$LIB" "$LIB/autotune/apply.uc" status | grep -o '"service_action": *[a-z_"]*' || true
+snapshot_restore() {
+  local id
+  id="$(ls "$FORKOP_SNAPSHOT_DIR" | sed -n 's/\.json$//p' | head -n 1)"
+  ucode -L "$LIB" "$LIB/config/snapshots.uc" restore "$id" || true
 }
-# busy: the readers found a service action; free: they found none, and the
-# snapshot apply stops at its next check (the snapshot store is full). A
-# queued reload without a live owner is no service action.
-busy_answer='{ "status": "stale", "reason": "service_action_in_progress" }'
-free_answer='{ "status": "failed", "reason": "snapshot_retention_full" }'
+# busy: the reader found a service action; free: it found none, and the
+# restore stops at its next step (the snapshot store is full of manual
+# snapshots, so no pre-restore snapshot fits). A queued reload without a live
+# owner is no service action.
+busy_answer='{ "status": "busy", "reason": "service_action_in_progress" }'
+free_answer='{ "status": "failed", "reason": "pre_restore_snapshot_failed" }'
 reader_case() {
   local label="$1" answer
-  answer="$(snapshot_apply)"
+  answer="$(snapshot_restore)"
   if [ "$2" = busy ]; then [ "$answer" = "$busy_answer" ]; else [ "$answer" = "$free_answer" ]; fi ||
-    fail "$label: snapshot apply answered $answer"
-  answer="$(autotune_action)"
-  if [ "$2" = busy ]; then [ "$answer" = '"service_action": "service_action_in_progress"' ]; else [ "$answer" = '"service_action": null' ]; fi ||
-    fail "$label: autotune apply saw '$answer'"
+    fail "$label: snapshot restore answered $answer"
 }
 for _ in $(seq 1 10); do ucode -L "$LIB" "$LIB/config/snapshots.uc" create manual >/dev/null; done
 : >"$FORKOP_PENDING_RELOAD_FILE"

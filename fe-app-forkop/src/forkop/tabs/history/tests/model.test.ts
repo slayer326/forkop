@@ -303,7 +303,7 @@ describe('snapshots', () => {
           before: ['1.1.1.1', '8.8.8.8'],
           after: [],
         },
-        { section: 'youtube', option: 'nfqws_opt', before: 'a', after: '' },
+        { section: 'youtube', option: 'label', before: 'a', after: '' },
       ]),
     ).toEqual([
       {
@@ -311,7 +311,7 @@ describe('snapshots', () => {
         snapshot: '1.1.1.1, 8.8.8.8',
         current: '—',
       },
-      { where: 'youtube · nfqws_opt', snapshot: 'a', current: '—' },
+      { where: 'youtube · label', snapshot: 'a', current: '—' },
     ]);
   });
 

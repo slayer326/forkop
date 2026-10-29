@@ -5,7 +5,7 @@
 # the production code renders its batches exactly as start/reload
 # (service/lifecycle.uc start_main: nft/apply.uc candidate batch plus list
 # data), the DPI transition and config restore guards, the cross-component
-# transition guard, TorrServer Direct and the autotune isolation table do.
+# transition guard and TorrServer Direct do.
 # nft checks (-c) and applies (-f) them in a private user+net(+mount)
 # namespace, and `nft -j list ruleset` shows what the kernel really holds.
 #
@@ -103,8 +103,6 @@ cat >"$WORK_DIR/bin/logger" <<'EOF'
 printf '%s\n' "$*" >>"$FORKOP_TEST_LOGGER_LOG"
 EOF
 # Provider binaries only need to be executable for their rules to be built.
-printf '#!/bin/sh\nexit 0\n' >"$WORK_DIR/bin/nfqws"
-printf '#!/bin/sh\nexit 0\n' >"$WORK_DIR/bin/nfqws2"
 chmod 0755 "$WORK_DIR/bin/"*
 export PATH="$WORK_DIR/bin:$PATH"
 export FORKOP_TEST_IP_LOG="$WORK_DIR/ip.log" FORKOP_TEST_LOGGER_LOG="$WORK_DIR/logger.log"
@@ -133,14 +131,6 @@ FAKEIP_RANGE="$(constant SB_FAKEIP_INET4_RANGE)"
 FAKEIP6_RANGE="$(constant SB_FAKEIP_INET6_RANGE)"
 TPROXY_PORT="$(constant SB_TPROXY_INBOUND_PORT)"
 TPROXY6_ADDRESS="$(constant SB_TPROXY_INBOUND6_ADDRESS)"
-ZAPRET_MARK_BASE="$(constant ZAPRET_ROUTE_MARK_BASE)"
-ZAPRET_QUEUE_BASE="$(constant ZAPRET_QUEUE_BASE)"
-ZAPRET_DESYNC="$(constant ZAPRET_DESYNC_MARK)"
-ZAPRET_DESYNC_POSTNAT="$(constant ZAPRET_DESYNC_MARK_POSTNAT)"
-ZAPRET2_MARK_BASE="$(constant ZAPRET2_ROUTE_MARK_BASE)"
-ZAPRET2_QUEUE_BASE="$(constant ZAPRET2_QUEUE_BASE)"
-ZAPRET2_DESYNC="$(constant ZAPRET2_DESYNC_MARK)"
-ZAPRET2_DESYNC_POSTNAT="$(constant ZAPRET2_DESYNC_MARK_POSTNAT)"
 
 # ---- kernel expressions -------------------------------------------------------
 
@@ -231,12 +221,10 @@ commit_batch() {
 # ---- start/reload candidate ---------------------------------------------------
 
 # Arguments of service/lifecycle.uc nft_rebuild_runtime() and
-# nft_populate_runtime_sets(), with executable provider binaries.
+# nft_populate_runtime_sets().
 rebuild_args=(
   "$RT_TABLE" "$TABLE" "$LOCALV4" "$COMMON" "$PORTS" "$IP_PORTS" "$INTERFACES"
   "$FAKEIP_MARK" "$OUTBOUND_MARK" "$FAKEIP_RANGE" "$TPROXY_PORT"
-  "$WORK_DIR/bin/nfqws" "$ZAPRET_MARK_BASE" "$ZAPRET_QUEUE_BASE" "$ZAPRET_DESYNC" "$ZAPRET_DESYNC_POSTNAT"
-  "$WORK_DIR/bin/nfqws2" "$ZAPRET2_MARK_BASE" "$ZAPRET2_QUEUE_BASE" "$ZAPRET2_DESYNC" "$ZAPRET2_DESYNC_POSTNAT"
   "$LOCALV6" "$COMMON6" "$IP6_PORTS" "$FAKEIP6_RANGE" "$TPROXY6_ADDRESS"
 )
 populate_args=(
@@ -363,7 +351,7 @@ if grep -Fq 'forkop_rule_disabled_' "$WORK_DIR/connections.nft"; then
 fi
 ok "connections with domains, IPs, ports, device filters and list data: reload candidate checked and applied"
 
-# -- bypass priority rules and ByeDPI --
+# -- bypass priority rules --
 cat >"$WORK_DIR/bypass.uci" <<'EOF'
 forkop.settings=settings
 forkop.lan=section
@@ -375,10 +363,6 @@ forkop.lanports=section
 forkop.lanports.action=bypass
 forkop.lanports.ip_cidr=93.184.225.0/24
 forkop.lanports.ports=22
-forkop.bye=section
-forkop.bye.action=byedpi
-forkop.bye.domain=rutracker.org
-forkop.bye.ip_cidr=93.184.220.0/24
 forkop.vpn=section
 forkop.vpn.action=connection
 forkop.vpn.ip_cidr=93.184.218.0/23
@@ -392,80 +376,59 @@ check set "$json" "$TABLE" forkop_rule_lan_subnets 93.184.218.0/24
 check set "$json" "$TABLE" forkop_rule_lan_subnets6 2606:2800:224::/48
 check set "$json" "$TABLE" forkop_rule_lan_fully_sources 192.168.1.30
 check set "$json" "$TABLE" forkop_rule_lanports_ip_ports '93.184.225.0/24 . 22'
-check set "$json" "$TABLE" forkop_rule_bye_subnets 93.184.220.0/24
 check set "$json" "$TABLE" forkop_rule_vpn_subnets 93.184.218.0/23
 # A bypass rule above a capture rule for the same addresses decides first.
 check order "$json" "$TABLE" priority_rules forkop_rule_lan_subnets forkop_rule_vpn_subnets
 check order "$json" "$TABLE" priority_output_rules forkop_rule_lan_subnets forkop_rule_vpn_subnets
 check verdicts "$json" "$TABLE" priority_rules forkop_rule_lan_subnets accept-unmarked
 check verdicts "$json" "$TABLE" priority_rules forkop_rule_vpn_subnets "accept-mark:$(hex_to_dec "$FAKEIP_MARK")"
-ok "bypass priority rules and ByeDPI: candidate checked and applied"
+ok "bypass priority rules: candidate checked and applied"
 
-# The DPI switch keeps an atomic rollback of the live table
-# (service/lifecycle.uc: delete + `nft list table` output, validated).
+# An atomic rollback of the live table (delete + `nft list table` output,
+# validated) restores it exactly after another candidate replaced it.
 {
   printf 'delete table inet %s\n' "$TABLE"
   nft list table inet "$TABLE"
 } >"$WORK_DIR/rollback.nft"
 nft_uc nft-validate-candidate-batch "$WORK_DIR/rollback.nft" 2>"$WORK_DIR/rollback.err" ||
-  fail "the DPI rollback batch built from the live table is rejected: $(cat "$WORK_DIR/rollback.err")"
-node "$CHECK_JS" normalize "$json" "$TABLE" >"$WORK_DIR/before-dpi.norm"
+  fail "the rollback batch built from the live table is rejected: $(cat "$WORK_DIR/rollback.err")"
+node "$CHECK_JS" normalize "$json" "$TABLE" >"$WORK_DIR/before-switch.norm"
 
-# -- zapret / zapret2 NFQUEUE rules --
-cat >"$WORK_DIR/zapret.uci" <<'EOF'
+# -- a second candidate replaces the table --
+cat >"$WORK_DIR/switch.uci" <<'EOF'
 forkop.settings=settings
 forkop.off=section
 forkop.off.enabled=0
-forkop.off.action=zapret
+forkop.off.action=connection
 forkop.off.domain=off.example
 forkop.yt=section
-forkop.yt.action=zapret
+forkop.yt.action=connection
 forkop.yt.domain=youtube.com
 forkop.yt.ip_cidr=93.184.219.0/24
-forkop.dc=section
-forkop.dc.action=zapret
-forkop.dc.domain=discord.com
-forkop.tw=section
-forkop.tw.action=zapret2
-forkop.tw.domain=x.com
 EOF
-candidate "$WORK_DIR/zapret.uci" "$WORK_DIR/zapret.nft"
-check_batch "$WORK_DIR/zapret.nft" "zapret"
-ZAPRET_CHECKED="$CHECKED"
-commit_batch "$WORK_DIR/zapret.json" "zapret"
-queue_support=no
-supported queue && queue_support=yes
-# Route mark base + index -> queue base + index - 1; the disabled section
-# takes no index.
-zapret_providers=(
-  "$((ZAPRET_MARK_BASE + 1)):$ZAPRET_QUEUE_BASE"
-  "$((ZAPRET_MARK_BASE + 2)):$((ZAPRET_QUEUE_BASE + 1))"
-  "$((ZAPRET2_MARK_BASE + 1)):$ZAPRET2_QUEUE_BASE"
-)
-check production "$WORK_DIR/zapret.json" "$TABLE" "$OUTBOUND_MARK" "$queue_support" "${zapret_providers[@]}"
-if ! supported queue; then
-  # The listing cannot show queue statements the kernel lacks: their numbers
-  # and bypass flags are checked in the batch nft parsed and evaluated.
-  check batch-queues "$WORK_DIR/zapret.nft" "$TABLE" "${zapret_providers[@]}"
-fi
-check set "$WORK_DIR/zapret.json" "$TABLE" forkop_rule_yt_subnets 93.184.219.0/24
-ok "zapret/zapret2 NFQUEUE rules: candidate checked and applied, outbound mark bypass first"
+candidate "$WORK_DIR/switch.uci" "$WORK_DIR/switch.nft"
+check_batch "$WORK_DIR/switch.nft" "switch"
+SWITCH_CHECKED="$CHECKED"
+commit_batch "$WORK_DIR/switch.json" "switch"
+check production "$WORK_DIR/switch.json" "$TABLE" "$OUTBOUND_MARK" no
+check set "$WORK_DIR/switch.json" "$TABLE" forkop_rule_yt_subnets 93.184.219.0/24
+ok "second candidate: checked and applied over the live table"
 
 # Rollback round trip: the saved table comes back exactly.
-nft -f "$WORK_DIR/rollback.nft" || fail "the DPI rollback batch does not apply"
+nft -f "$WORK_DIR/rollback.nft" || fail "the rollback batch does not apply"
 nft -j list ruleset >"$WORK_DIR/rolled-back.json"
 node "$CHECK_JS" normalize "$WORK_DIR/rolled-back.json" "$TABLE" >"$WORK_DIR/after-rollback.norm"
-cmp -s "$WORK_DIR/before-dpi.norm" "$WORK_DIR/after-rollback.norm" ||
-  fail "the DPI rollback did not restore the previous table"
-ok "DPI rollback batch round trip restores the previous table"
-CHECKED="$ZAPRET_CHECKED"
-commit_batch "$WORK_DIR/zapret.json" "zapret again"
+cmp -s "$WORK_DIR/before-switch.norm" "$WORK_DIR/after-rollback.norm" ||
+  fail "the rollback did not restore the previous table"
+ok "rollback batch round trip restores the previous table"
+CHECKED="$SWITCH_CHECKED"
+commit_batch "$WORK_DIR/switch.json" "switch again"
 
 # ---- negative controls ----------------------------------------------------------
 
 # A broken candidate is refused by the production validation and by nft -f
 # alone, and the live policy stays exactly as it was.
-node "$CHECK_JS" normalize "$WORK_DIR/zapret.json" "$TABLE" >"$WORK_DIR/live.norm"
+node "$CHECK_JS" normalize "$WORK_DIR/switch.json" "$TABLE" >"$WORK_DIR/live.norm"
 assert_refused() {
   local broken="$1" label="$2" location="$3" message="$4"
   if nft_uc nft-validate-candidate-batch "$broken" 2>"$broken.err"; then
@@ -482,14 +445,14 @@ assert_refused() {
   ok "negative control: $label is refused and changes nothing"
 }
 # A typo in the last rule: everything before it would be valid.
-last_rule="$(grep -n '^add rule ' "$ZAPRET_CHECKED" | tail -n 1 | cut -d: -f1)"
-sed "${last_rule}s/\$/ acept/" "$ZAPRET_CHECKED" >"$WORK_DIR/broken-syntax.nft"
+last_rule="$(grep -n '^add rule ' "$SWITCH_CHECKED" | tail -n 1 | cut -d: -f1)"
+sed "${last_rule}s/\$/ acept/" "$SWITCH_CHECKED" >"$WORK_DIR/broken-syntax.nft"
 assert_refused "$WORK_DIR/broken-syntax.nft" "syntax error in the last rule" "$last_rule:[0-9-]*" "syntax error"
-appended=$(($(wc -l <"$ZAPRET_CHECKED") + 1))
-{ cat "$ZAPRET_CHECKED"; printf 'add rule inet %s mangle_output ip daddr @forkop_missing counter\n' "$TABLE"; } \
+appended=$(($(wc -l <"$SWITCH_CHECKED") + 1))
+{ cat "$SWITCH_CHECKED"; printf 'add rule inet %s mangle_output ip daddr @forkop_missing counter\n' "$TABLE"; } \
   >"$WORK_DIR/broken-set.nft"
 assert_refused "$WORK_DIR/broken-set.nft" "reference to a missing set" "$appended:[0-9-]*" "No such file or directory"
-{ cat "$ZAPRET_CHECKED"; printf 'add rule inet %s mangle_output meta mark set 0x08000000 queue num 70000\n' "$TABLE"; } \
+{ cat "$SWITCH_CHECKED"; printf 'add rule inet %s mangle_output meta mark set 0x08000000 queue num 70000\n' "$TABLE"; } \
   >"$WORK_DIR/broken-range.nft"
 assert_refused "$WORK_DIR/broken-range.nft" "out-of-range queue number" "$appended:[0-9-]*" "exceeds valid range"
 
@@ -577,76 +540,6 @@ if [ "$CGROUP_MOUNTED" = 1 ]; then
   check tables "$WORK_DIR/torrserver-removed.json" "$TABLE"
   ok "TorrServer Direct: batch checked, applied, recognised and removed"
 fi
-
-# ---- autotune isolation ----------------------------------------------------------------
-
-CHECKED="$ZAPRET_CHECKED"
-commit_batch "$WORK_DIR/zapret.json" "zapret for autotune"
-TARGET=93.184.216.34
-export FORKOP_AUTOTUNE_STATE_DIR="$WORK_DIR/autotune" FORKOP_AUTOTUNE_PROC_QUEUE="$WORK_DIR/nfnetlink_queue"
-export FORKOP_AUTOTUNE_PROC_NET="$WORK_DIR/proc_net" ZAPRET_NFQWS_BIN="$WORK_DIR/missing-nfqws"
-: >"$FORKOP_AUTOTUNE_PROC_QUEUE"
-isolation() { ucode -L "$FORKOP_LIB" "$FORKOP_LIB/autotune/isolation.uc" "$@"; }
-PROBE_QUEUE="$(isolation model "$TARGET" | node -e 'process.stdout.write(String(JSON.parse(require("fs").readFileSync(0, "utf8")).queue))')"
-isolation_batch() {
-  isolation model "$TARGET" "$@" |
-    node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0, "utf8")).batch)' >"$WORK_DIR/probe.nft"
-}
-
-isolation_batch
-check_batch "$WORK_DIR/probe.nft" "autotune probe table"
-commit_batch "$WORK_DIR/probe.json" "autotune probe table"
-check tables "$WORK_DIR/probe.json" "$TABLE" ForkopAutotuneProbe
-grep -Fq " queue num $PROBE_QUEUE comment \"probe\"" "$WORK_DIR/probe.nft" || fail "the probe rule does not queue to $PROBE_QUEUE"
-probe_rule=probe:-
-supported queue && probe_rule="probe:queue:$PROBE_QUEUE"
-check isolation "$WORK_DIR/probe.json" ForkopAutotuneProbe "$(hex_to_dec "$OUTBOUND_MARK")" "$TABLE" "$probe_rule"
-
-# The bypass contract (autotune/contract.uc) on the ruleset the kernel holds.
-printf '{"ip_rules":%s,"options":{"target":"%s","probe_saddr":"203.0.113.10","reply_dev":"pppoe-wan","sets":{"%s":["br-lan"]},"sport_range":[61000,61031],"dport":443,"uids":[0,2147483647],"legacy_tables":[]}}\n' \
-  "$(cat "$ROOT_DIR/tests/fixtures/autotune/iprule.json")" "$TARGET" "$INTERFACES" >"$WORK_DIR/contract-context.json"
-ucode -L "$FORKOP_LIB" "$FORKOP_LIB/autotune/contract.uc" evaluate "$WORK_DIR/probe.json" "$WORK_DIR/contract-context.json" \
-  >"$WORK_DIR/contract.json" || fail "the bypass contract rejects the real ruleset: $(cat "$WORK_DIR/contract.json")"
-ok "autotune isolation table: checked, applied, probe chains before production, bypass contract holds"
-
-# Cleanup without active.json finds the target in the real listing, releases
-# the probe rule by an atomic replace and keeps the table while a socket of
-# the probe tuple lingers (TIME_WAIT from 61000 to TARGET:443).
-switch_handle="$(node "$CHECK_JS" handle "$WORK_DIR/probe.json" ForkopAutotuneProbe output probe)"
-printf '  sl  local_address rem_address   st\n   0: 0A00000A:EE48 22D8B85D:01BB 06 00000000:00000000 00:00000000 00000000     0        0 0\n' \
-  >"$FORKOP_AUTOTUNE_PROC_NET/tcp"
-if FORKOP_AUTOTUNE_HOLD_TIMEOUT=0 isolation cleanup >"$WORK_DIR/cleanup-held.json"; then
-  fail "cleanup removed the probe table while a probe socket lingered"
-fi
-node -e '
-const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
-for (const a of ["probe_rule:released", "hold:timeout", "table:kept"])
-  if (!r.actions.includes(a)) throw new Error("cleanup actions lack " + a + ": " + JSON.stringify(r));
-' "$WORK_DIR/cleanup-held.json" || fail "unexpected held cleanup result"
-nft -j list ruleset >"$WORK_DIR/released.json"
-check isolation "$WORK_DIR/released.json" ForkopAutotuneProbe "$(hex_to_dec "$OUTBOUND_MARK")" "$TABLE" released:accept
-[ "$(node "$CHECK_JS" handle "$WORK_DIR/released.json" ForkopAutotuneProbe output released)" = "$switch_handle" ] ||
-  fail "the probe rule was not replaced in place"
-: >"$FORKOP_AUTOTUNE_PROC_NET/tcp"
-isolation cleanup >"$WORK_DIR/cleanup.json" || fail "cleanup failed: $(cat "$WORK_DIR/cleanup.json")"
-node -e '
-const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
-if (r.status !== "clean" || !r.actions.includes("probe_rule:already_released") || !r.actions.includes("table:removed"))
-  throw new Error(JSON.stringify(r));
-' "$WORK_DIR/cleanup.json" || fail "unexpected cleanup result"
-nft -j list ruleset >"$WORK_DIR/cleaned.json"
-check tables "$WORK_DIR/cleaned.json" "$TABLE"
-ok "autotune isolation: release replaces the probe rule in place, cleanup removes the table"
-
-# Tuning starts from the direct probe rule.
-isolation_batch tune
-check_batch "$WORK_DIR/probe.nft" "autotune tuning table"
-commit_batch "$WORK_DIR/tune.json" "autotune tuning table"
-check isolation "$WORK_DIR/tune.json" ForkopAutotuneProbe "$(hex_to_dec "$OUTBOUND_MARK")" "$TABLE" direct:accept
-isolation cleanup >"$WORK_DIR/cleanup-tune.json" || fail "tuning cleanup failed: $(cat "$WORK_DIR/cleanup-tune.json")"
-nft -j list ruleset >"$WORK_DIR/final.json"
-check tables "$WORK_DIR/final.json" "$TABLE"
-ok "autotune tuning table: checked, applied, cleaned up"
 
 # Stop removes the table (service/lifecycle.uc stop).
 nft delete table inet "$TABLE"

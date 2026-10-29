@@ -6,12 +6,10 @@ set -euo pipefail
 # start or reload proved (UC-019, UC-020):
 #   - the configuration file is still the one it began with (an edit made
 #     meanwhile queued a reload of its own and was never run);
-#   - no DPI transition guard is installed: neither the one of a restore or
-#     an autotune apply (ForkopConfigRestoreDpiGuard) nor the one of a failed
-#     lifecycle transition (ForkopTableDpiGuard) protects a runtime that no
-#     reload has proved yet.
-# confirm-working itself then refuses while an unresolved autotune apply
-# names the configuration as its candidate (tests/autotune_apply.sh).
+#   - no transition guard is installed: neither the one of a restore
+#     (ForkopConfigRestoreDpiGuard) nor the one of a failed lifecycle
+#     transition (ForkopTableDpiGuard) protects a runtime that no reload has
+#     proved yet.
 #
 # The real service/lifecycle.uc runs against a library where every module
 # the start and the reload call is a double that records its call.
@@ -111,7 +109,6 @@ UC
 }
 for module in service/state.uc subscription/cache.uc config/validator.uc nft/apply.uc singbox/runtime.uc singbox/generator.uc \
   singbox/priority.uc singbox/dns_failover.uc singbox/ruleset_cache.uc components/updates.uc \
-  autotune/manager.uc providers/byedpi/runtime.uc providers/zapret/runtime.uc providers/zapret2/runtime.uc \
   dns/apply.uc diagnostics/runtime.uc diagnostics/health.uc config/snapshots.uc core/packages.uc \
   service/ui.uc service/reload.uc; do
   fake_module "$module"
@@ -143,7 +140,7 @@ reload_ok() {
 }
 
 # 1. Controls: a clean start and a clean reload confirm the working
-#    configuration, with no argument that would skip the autotune check.
+#    configuration.
 reset_case
 [ "$(lifecycle start)" = 0 ] || fail "a clean start failed"
 confirmed || fail "a clean start did not confirm the working configuration"
@@ -151,8 +148,8 @@ reset_case
 reload_ok "clean reload"
 confirmed || fail "a clean reload did not confirm the working configuration"
 
-# 2. A DPI transition guard is installed: the start or reload proves nothing
-#    for last-known-working. The guard of a restore or autotune apply
+# 2. A transition guard is installed: the start or reload proves nothing
+#    for last-known-working. The guard of a restore
 #    (ForkopConfigRestoreDpiGuard) is how every such transaction reloads, and
 #    the transaction moves last-known-working itself: that is routine and not
 #    logged. A leftover guard of a failed lifecycle transition

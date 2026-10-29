@@ -4,7 +4,7 @@ set -eu
 # Queued reload acknowledgement (UC-005, UC-047). When another lifecycle
 # action owns reload.lock, service/initd.uc only queues a reload and still
 # exits 0. Callers that must not mistake that for a completed reload (a list
-# worker, a snapshot restore, an autotune apply) pass their own reason and
+# worker, a snapshot restore) pass their own reason and
 # get the `queued` token on stdout, through the real init.d script. Other
 # reasons keep their output and status. Every queued request rewrites
 # reload.pending with a unique marker, so a second request in the same second
@@ -95,9 +95,9 @@ echo "$holder" > "$FORKOP_RELOAD_LOCK_DIR/pid"
 initd() { "$REAL_UCODE" -L "$LIB" "$INITD_UC" reload-service "$1" "$$"; }
 stamp() { printf '%s:%s' "$(stat -c '%Y:%s' "$FORKOP_PENDING_RELOAD_FILE")" "$(cat "$FORKOP_PENDING_RELOAD_FILE")"; }
 
-# 1. initd.uc: restore, autotune and list-content requests are acknowledged
+# 1. initd.uc: restore and list-content requests are acknowledged
 #    as queued; the status stays 0 and the request is kept in reload.pending.
-for reason in config-restore autotune list-content; do
+for reason in config-restore list-content; do
   rm -f "$FORKOP_PENDING_RELOAD_FILE"
   out="$(initd "$reason")" || fail "$reason: queued reload changed the exit status"
   [ "$out" = queued ] || fail "$reason: queued reload printed '$out' instead of 'queued'"
@@ -117,8 +117,6 @@ done
 rm -f "$FORKOP_PENDING_RELOAD_FILE"
 out="$("$WORK/init.d" reload config-restore)" || fail "init.d changed the status of a queued restore reload"
 [ "$out" = queued ] || fail "init.d did not forward the queued token (got '$out')"
-out="$("$WORK/init.d" reload autotune)" || fail "init.d changed the status of a queued autotune reload"
-[ "$out" = queued ] || fail "init.d did not forward the queued autotune token (got '$out')"
 out="$("$WORK/init.d" reload)" || fail "init.d changed the status of an ordinary queued reload"
 [ -z "$out" ] || fail "init.d printed '$out' for an ordinary reload"
 [ ! -e "$FORKOP_RUNTIME_STATE_DIR/runtime.log" ] || fail "a queued request reached the runtime"

@@ -1,9 +1,9 @@
-// Route/owner cases shared by the regression test. Each case: sing-box route
+// Route/owner cases of tests/routing_resolve.sh. Each case: sing-box route
 // rules, DNS answer (FakeIP or real) and target host.
 const yt = { action: 'route', inbound: 'tproxy-in', domain_suffix: ['youtube.com'], outbound: 'youtube-out' };
 const main = (extra) => ({ action: 'route', inbound: 'tproxy-in', outbound: 'main-out', ...extra });
 module.exports = [
-  ['zapret_owner', [yt]],
+  ['rule_owner', [yt]],
   ['first_match_connection', [main({ domain_suffix: ['youtube.com'] }), yt]],
   ['reject', [{ action: 'reject', inbound: 'tproxy-in', domain_suffix: ['youtube.com'] }, yt]],
   ['final', []],
@@ -24,8 +24,7 @@ module.exports = [
   ['tls_protocol', [main({ protocol: ['tls'] }), yt]],
   ['other_inbound', [{ inbound: ['dns-in'], action: 'hijack-dns' }, main({ inbound: ['mixed-in'], domain_suffix: ['youtube.com'] }), yt]],
   ['sniff_skipped', [{ action: 'sniff', inbound: 'tproxy-in' }, yt]],
-  ['mark_mismatch', [yt], { mark: '0x01000009' }],
-  ['second_zapret_rule', [{ ...yt, outbound: 'discord-out' }]],
+  ['second_rule', [{ ...yt, outbound: 'discord-out' }]],
   ['singbox_config_missing', null],
   ['suffix_subdomain_only_apex', [{ ...yt, domain_suffix: ['.youtube.com'] }], { host: 'youtube.com' }],
   ['suffix_subdomain_only_sub', [{ ...yt, domain_suffix: ['.youtube.com'] }]],

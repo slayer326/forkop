@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # UC-009: where no OpenWrt uci CLI is installed (GitHub backend CI), the
-# autotune tests write through the test shim tests/helpers/uci_cli/uci
+# tests write through the test shim tests/helpers/uci_cli/uci
 # (selected by tests/helpers/uci_cli/select.sh). Its behaviour on the subset
 # Forkop uses is pinned here to a transcript recorded with the real CLI
 # (tests/fixtures/uci_cli/transcript.txt, uci 74f6277a, 2026-03-12); with a
@@ -149,7 +149,7 @@ two"
   u commit nosuch
   u get nosuch.a
 
-  # autotune/apply.uc: a private package copy, set/commit/get.
+  # A private package copy (-c, -t): set/commit/get.
   mkdir -p cand cand/save
   cp c/pk cand/cand
   step -c cand -t cand/save set "cand.youtube.nfqws_opt=--filter-tcp=443 --dpi-desync=multisplit"

@@ -1,14 +1,9 @@
 {
- "zapret_owner": {
+ "rule_owner": {
   "decided": true,
-  "kind": "zapret",
+  "kind": "outbound",
   "rule": 0,
-  "outbound": "youtube-out",
-  "section": "youtube",
-  "index": 1,
-  "mark": "0x01000001",
-  "mark_value": 16777217,
-  "queue": 4000
+  "outbound": "youtube-out"
  },
  "first_match_connection": {
   "decided": true,
@@ -61,14 +56,9 @@
  },
  "fakeip_skips_ip_cidr": {
   "decided": true,
-  "kind": "zapret",
+  "kind": "outbound",
   "rule": 1,
-  "outbound": "youtube-out",
-  "section": "youtube",
-  "index": 1,
-  "mark": "0x01000001",
-  "mark_value": 16777217,
-  "queue": 4000
+  "outbound": "youtube-out"
  },
  "real_address_ip_cidr": {
   "decided": true,
@@ -83,36 +73,21 @@
  },
  "resolve_above_owner_real": {
   "decided": true,
-  "kind": "zapret",
+  "kind": "outbound",
   "rule": 1,
-  "outbound": "youtube-out",
-  "section": "youtube",
-  "index": 1,
-  "mark": "0x01000001",
-  "mark_value": 16777217,
-  "queue": 4000
+  "outbound": "youtube-out"
  },
  "udp_only_rule": {
   "decided": true,
-  "kind": "zapret",
+  "kind": "outbound",
   "rule": 1,
-  "outbound": "youtube-out",
-  "section": "youtube",
-  "index": 1,
-  "mark": "0x01000001",
-  "mark_value": 16777217,
-  "queue": 4000
+  "outbound": "youtube-out"
  },
  "port_80_rule": {
   "decided": true,
-  "kind": "zapret",
+  "kind": "outbound",
   "rule": 1,
-  "outbound": "youtube-out",
-  "section": "youtube",
-  "index": 1,
-  "mark": "0x01000001",
-  "mark_value": 16777217,
-  "queue": 4000
+  "outbound": "youtube-out"
  },
  "port_range_rule": {
   "decided": true,
@@ -122,14 +97,9 @@
  },
  "quic_reject": {
   "decided": true,
-  "kind": "zapret",
+  "kind": "outbound",
   "rule": 1,
-  "outbound": "youtube-out",
-  "section": "youtube",
-  "index": 1,
-  "mark": "0x01000001",
-  "mark_value": 16777217,
-  "queue": 4000
+  "outbound": "youtube-out"
  },
  "tls_protocol": {
   "decided": false,
@@ -138,42 +108,21 @@
  },
  "other_inbound": {
   "decided": true,
-  "kind": "zapret",
+  "kind": "outbound",
   "rule": 2,
-  "outbound": "youtube-out",
-  "section": "youtube",
-  "index": 1,
-  "mark": "0x01000001",
-  "mark_value": 16777217,
-  "queue": 4000
+  "outbound": "youtube-out"
  },
  "sniff_skipped": {
   "decided": true,
-  "kind": "zapret",
+  "kind": "outbound",
   "rule": 1,
-  "outbound": "youtube-out",
-  "section": "youtube",
-  "index": 1,
-  "mark": "0x01000001",
-  "mark_value": 16777217,
-  "queue": 4000
+  "outbound": "youtube-out"
  },
- "mark_mismatch": {
+ "second_rule": {
   "decided": true,
   "kind": "outbound",
   "rule": 0,
-  "outbound": "youtube-out"
- },
- "second_zapret_rule": {
-  "decided": true,
-  "kind": "zapret",
-  "rule": 0,
-  "outbound": "discord-out",
-  "section": "discord",
-  "index": 2,
-  "mark": "0x01000002",
-  "mark_value": 16777218,
-  "queue": 4001
+  "outbound": "discord-out"
  },
  "singbox_config_missing": {
   "decided": false,
@@ -188,25 +137,15 @@
  },
  "suffix_subdomain_only_sub": {
   "decided": true,
-  "kind": "zapret",
+  "kind": "outbound",
   "rule": 0,
-  "outbound": "youtube-out",
-  "section": "youtube",
-  "index": 1,
-  "mark": "0x01000001",
-  "mark_value": 16777217,
-  "queue": 4000
+  "outbound": "youtube-out"
  },
  "keyword": {
   "decided": true,
-  "kind": "zapret",
+  "kind": "outbound",
   "rule": 0,
-  "outbound": "youtube-out",
-  "section": "youtube",
-  "index": 1,
-  "mark": "0x01000001",
-  "mark_value": 16777217,
-  "queue": 4000
+  "outbound": "youtube-out"
  },
  "exact_domain_other_host": {
   "decided": true,
@@ -216,13 +155,8 @@
  },
  "case_insensitive": {
   "decided": true,
-  "kind": "zapret",
+  "kind": "outbound",
   "rule": 0,
-  "outbound": "youtube-out",
-  "section": "youtube",
-  "index": 1,
-  "mark": "0x01000001",
-  "mark_value": 16777217,
-  "queue": 4000
+  "outbound": "youtube-out"
  }
 }

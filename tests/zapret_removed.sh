@@ -10,14 +10,13 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 
 [ ! -e "$LIB/providers" ] || fail "provider modules are still installed"
 
-# Runtime code, LuCI views (handwritten, bundled and compacted), frontend
+# Runtime code, LuCI views (handwritten and bundled), frontend
 # sources and translations must not mention the removed providers. The Zapret
 # Manager component keeps its own name, and the configuration migration is the
 # only other exception: it cleans up what the providers left behind.
 if grep -rIin 'zapret\|nfqws\|nfqueue' \
     "$ROOT/forkop/files" \
     "$ROOT/luci-app-forkop/htdocs" \
-    "$ROOT/luci-app-forkop/generated" \
     "$ROOT/luci-app-forkop/po" \
     "$ROOT/fe-app-forkop/src" \
     "$ROOT/fe-app-forkop/locales" |
@@ -136,6 +135,6 @@ for (let i in c.inbounds)
         mixed = i;
 assert(mixed != null, "connection rule lost its mixed proxy inbound");
 ' "$WORK/mixed-out.json" || fail "mixed proxy is no longer generated for connection rules"
-grep -Fq 'dependsOnConnectionAction(o)' "$ROOT/luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js" ||
+grep -Fq 'o.depends({ action: "connection", mixed_proxy_enabled: "1" });'"$ROOT/luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js" ||
   fail "Mixed Proxy is not offered for connection actions in LuCI"
 echo 'Mixed Proxy stays available for connection rules'

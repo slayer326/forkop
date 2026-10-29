@@ -12,7 +12,6 @@ export FORKOP_CONFIG_FILE="$WORK/forkop"
 export FORKOP_SNAPSHOT_DIR="$WORK/snapshots"
 export FORKOP_SNAPSHOT_HASH_DIR="$WORK/hash"
 export FORKOP_SNAPSHOT_LOCK_DIR="$WORK/run/config-snapshot.lock"
-export FORKOP_AUTOTUNE_APPLY_STATE="$WORK/autotune-apply.json"
 export FORKOP_LIB="$LIB"
 
 snapshot() { ucode -L "$LIB" "$SCRIPT" "$@"; }
@@ -65,21 +64,6 @@ latest="$(snapshot create-rolling manual | snapshot_id)"
 [ -e "$FORKOP_SNAPSHOT_DIR/$new.json" ] || exit 1
 [ -e "$FORKOP_SNAPSHOT_DIR/$latest.json" ] || exit 1
 [ "$(snapshot_count)" = 2 ] || exit 1
-snapshot confirm-working > /dev/null
-[ "$(snapshot_count)" = 1 ] || exit 1
-
-# An autotune rollback point remains until its recovery record is gone.
-config 4.4.4.4
-protected="$(snapshot create automatic | snapshot_id)"
-printf '{"phase":"applied","reload":{},"pre_snapshot":"%s"}\n' "$protected" > "$FORKOP_AUTOTUNE_APPLY_STATE"
-config 5.5.5.5
-next="$(snapshot create-rolling manual | snapshot_id)"
-[ -e "$FORKOP_SNAPSHOT_DIR/$protected.json" ] || exit 1
-snapshot confirm-working > /dev/null
-[ -e "$FORKOP_SNAPSHOT_DIR/$protected.json" ] || exit 1
-[ -e "$FORKOP_SNAPSHOT_DIR/$next.json" ] || exit 1
-[ "$(snapshot_count)" = 2 ] || exit 1
-rm "$FORKOP_AUTOTUNE_APPLY_STATE"
 snapshot confirm-working > /dev/null
 [ "$(snapshot_count)" = 1 ] || exit 1
 

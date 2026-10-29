@@ -115,7 +115,7 @@ describe('executeShellCommand in a read-only session', () => {
     ['/usr/bin/forkop', ['clash_api', 'close_all_connections']],
     ['/usr/bin/forkop', ['ui_action_ack', 'latency', 'job']],
     ['/usr/bin/forkop', ['urltest_override_save', 'main', 'a']],
-    ['/usr/bin/forkop', ['component_action_async', 'zapret', 'remove']],
+    ['/usr/bin/forkop', ['component_action_async', 'zapret_manager', 'remove']],
     ['/usr/bin/forkop', ['config_snapshot_restore', '1']],
     ['/usr/bin/forkop', ['support_report']],
     ['/etc/init.d/forkop', ['disable']],

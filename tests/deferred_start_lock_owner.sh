@@ -10,9 +10,9 @@ set -euo pipefail
 # next contender, and a reload then runs next to the start.
 #
 # rc.common is emulated as in OpenWrt: fd 1000 is open and flocked when the
-# real init script's start_service runs. service/initd.uc, service/state.uc,
-# config/snapshots.uc and autotune/apply.uc are real; `forkop start` blocks
-# until the test releases it.
+# real init script's start_service runs. service/initd.uc, service/state.uc
+# and config/snapshots.uc are real; `forkop start` blocks until the test
+# releases it.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LIB="$ROOT_DIR/forkop/files/usr/lib"
@@ -65,8 +65,7 @@ export FORKOP_SNAPSHOT_HASH_DIR="$WORK_DIR/hash"
 export FORKOP_SNAPSHOT_LOCK_DIR="$WORK_DIR/run/forkop/config-snapshot.lock"
 export FORKOP_HISTORY_FILE="$WORK_DIR/history.jsonl"
 export FORKOP_RELOAD_COMMAND="$WORK_DIR/bin/no-init"
-export FORKOP_AUTOTUNE_APPLY_STATE="$WORK_DIR/autotune-apply.json"
-export FORKOP_AUTOTUNE_STATE_DIR="$WORK_DIR/run/forkop/autotune"
+export FORKOP_UCI_SAVEDIR="$WORK_DIR/uci-save"
 unset FORKOP_UI_ACTION_TRACKED
 
 # Nothing here may reach the host's syslog, nftables or init scripts.
@@ -223,17 +222,15 @@ if "$REAL_UCODE" -L "$LIB" "$LIB/service/state.uc" acquire-runtime-dir-lock "$LO
 fi
 [ "$(lock_owner)" = "$OWNER" ] || fail "a failed contender changed the reload.lock owner"
 
-# 3. The owner record keeps the lock readers working: a snapshot apply and an
-#    autotune apply see the running start as a lifecycle action.
+# 3. The owner record keeps the lock readers working: a snapshot restore sees
+#    the running start as a lifecycle action.
 printf 'config settings\n' >"$FORKOP_CONFIG_FILE"
-printf 'config settings\n\toption changed 1\n' >"$WORK_DIR/candidate"
-config_hash="$(sha256sum "$FORKOP_CONFIG_FILE" | cut -d' ' -f1)"
-answer="$("$REAL_UCODE" -L "$LIB" "$LIB/config/snapshots.uc" apply "$WORK_DIR/candidate" "$config_hash")" || true
-[ "$answer" = '{ "status": "stale", "reason": "service_action_in_progress" }' ] ||
-  fail "snapshot apply did not see the running start: $answer"
-answer="$("$REAL_UCODE" -L "$LIB" "$LIB/autotune/apply.uc" status | grep -o '"service_action": *"[a-z_]*"' || true)"
-[ "$answer" = '"service_action": "service_action_in_progress"' ] ||
-  fail "autotune apply did not see the running start: '$answer'"
+snapshot_id="$("$REAL_UCODE" -L "$LIB" "$LIB/config/snapshots.uc" create manual |
+  sed -n 's/.*"id": *"\([0-9_]*\)".*/\1/p' | head -n 1)"
+[ -n "$snapshot_id" ] || fail "fixture: no snapshot to restore"
+answer="$("$REAL_UCODE" -L "$LIB" "$LIB/config/snapshots.uc" restore "$snapshot_id")" || true
+[ "$answer" = '{ "status": "busy", "reason": "service_action_in_progress" }' ] ||
+  fail "snapshot restore did not see the running start: $answer"
 
 # 4. A reload requested during the start is queued, not run next to it.
 status=0

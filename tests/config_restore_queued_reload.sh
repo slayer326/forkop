@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-# A snapshot restore (and the autotune apply transaction) against the real
+# A snapshot restore against the real
 # init.d script and service/initd.uc reload-service (UC-005, UC-047). A
 # reload that initd.uc only queued because another lifecycle action owns
 # reload.lock never counts as applied: no success, LKG untouched, the restore
@@ -29,7 +29,6 @@ export FORKOP_SNAPSHOT_DIR="$WORK/snapshots" FORKOP_SNAPSHOT_HASH_DIR="$WORK/has
 # Changes staged with uci refuse a restore (UC-068): the test has its own
 # save directory, never the host's /tmp/.uci.
 export FORKOP_UCI_SAVEDIR="$WORK/uci-save"
-export FORKOP_AUTOTUNE_APPLY_STATE="$WORK/autotune-apply.json"
 export FORKOP_SNAPSHOT_LOCK_DIR="$WORK/run/config-snapshot.lock"
 export FORKOP_RUNTIME_STATE_DIR="$WORK/run/forkop"
 export FORKOP_PENDING_RELOAD_FILE="$WORK/run/forkop/reload.pending"
@@ -213,42 +212,7 @@ events | grep -q '^health:restore:recovered$' || fail "recovered restore not rec
 guard_removed_only_after_reload "recovered restore"
 [ ! -e "$FORKOP_PENDING_RELOAD_FILE" ] || fail "the drained queue left reload.pending"
 
-# 5. Autotune apply (apply mode) through the same path: busy lock -> stale
-#    before any change; a queued reload without a live owner is drained by the
-#    apply's own reload, as for a restore; lock taken after the check -> never
-#    success.
-config bad; snap confirm-working > /dev/null; base_lkg="$(lkg)"; base_hash="$(chash)"
-config good; cp "$FORKOP_CONFIG_FILE" "$WORK/candidate"; config bad
-hold_lock; before="$(snaps)"
-run apply "$WORK/candidate" "$base_hash"
-expect stale service_action_in_progress "apply under a live reload lock"
-{ [ "$(snaps)" = "$before" ] && [ "$(chash)" = "$base_hash" ] && [ -z "$(events)" ]; } || fail "apply under a live lock changed state"
-release_lock
-printf 'reason=reload_busy\nupdated_at=1\n' > "$FORKOP_PENDING_RELOAD_FILE"
-run apply "$WORK/candidate" "$base_hash"
-expect success "" "apply with a queued reload without a live owner"
-{ [ "$(marker)" = "marker 'good'" ] && [ "$(lkg)" = "$base_lkg" ] && [ "$(cat "$STATE/guard")" = absent ]; } ||
-  fail "apply with a queued reload without a live owner: $(cat "$WORK/result.json")"
-events | grep -q "^runtime-reload:autotune:marker 'good'$" || fail "the apply did not reload its candidate: $(events)"
-events | grep -q "^runtime-reload:pending:marker 'good'$" || fail "the apply's reload did not drain the queued reload: $(events)"
-[ ! -e "$FORKOP_PENDING_RELOAD_FILE" ] || fail "the apply left the queued reload behind"
-config bad; before="$(snaps)"
-: > "$STATE/take-lock"
-run apply "$WORK/candidate" "$base_hash"
-expect needs_attention rollback_reload_queued "apply: target and rollback reload queued"
-{ [ "$(cat "$STATE/guard")" = valid ] && [ "$(lkg)" = "$base_lkg" ] && [ "$(marker)" = "marker 'bad'" ]; } || fail "apply double queue: $(cat "$WORK/result.json")"
-! events | grep -q '^runtime-reload:' || fail "apply double queue: a runtime reload ran"
-[ "$(events | grep -c '^init.d-reload:autotune$')" = 2 ] || fail "apply did not pass its reason to init.d: $(events)"
-events | grep -q '^health:autotune_apply:failure$' || fail "apply double queue not recorded as a failure: $(events)"
-release_lock; rm -f "$FORKOP_PENDING_RELOAD_FILE"
-: > "$STATE/take-lock"; : > "$STATE/release-after-queue"
-run apply "$WORK/candidate" "$base_hash"
-expect recovered target_reload_queued "apply: target reload queued, rollback ran"
-[ "$(cat "$STATE/guard")" = absent ] || fail "apply recovery kept the guard"
-! events | grep -q "^runtime-reload:.*marker 'good'" || fail "the queued candidate reached the runtime: $(events)"
-guard_removed_only_after_reload "apply recovery"
-
-# 6. Recovery while the running configuration is broken. A restore made
+# 5. Recovery while the running configuration is broken. A restore made
 #    during a list update is queued twice (needs_attention, guard kept); the
 #    update then drains the queue, which fails for the broken configuration
 #    and retains the request; the dashboard Reload fails the same way. The
@@ -274,7 +238,7 @@ expect success "" "recovery restore while the running configuration is broken"
 events | grep -q '^health:restore:success$' || fail "broken: recovery not recorded: $(events)"
 guard_removed_only_after_reload "broken recovery"
 
-# 7. Same without a guard: a configuration saved during a list update is
+# 6. Same without a guard: a configuration saved during a list update is
 #    queued, its drain fails; the restore still recovers.
 config good; snap confirm-working > /dev/null
 hold_lock; config broken

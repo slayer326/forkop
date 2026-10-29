@@ -6,9 +6,8 @@ set -euo pipefail
 # The command name (field 2) is the only stat field that may contain spaces
 # and parentheses, so the fields after it start at the last ") " of the line.
 # core/process_identity.uc parsed it so; service/state.uc (sing-box
-# provenance and age), components/action.uc (sing-box processes of an
-# upgrade) and providers/runtime_snapshot.uc (zombie check) each carried their
-# own copy that split at the first ") ". They now read the fields through
+# provenance and age) and components/action.uc (sing-box processes of an
+# upgrade) each carried their own copy that split at the first ") ". They now read the fields through
 # process_identity.stat_fields() or start_ticks().
 #
 # 1. Seeded property test of the shared parser over synthetic stat lines.
@@ -65,7 +64,7 @@ mapfile -t modules < <(find "$LIB" -name '*.uc' ! -path "$LIB/core/process_ident
 [ "${#modules[@]}" -gt 50 ] || fail "fixture: the module list is incomplete"
 source_refute "only core/process_identity.uc may split a /proc/<pid>/stat line" -F '") "' "${modules[@]}"
 source_refute "only core/process_identity.uc may read the state field of a stat line" -F '\) Z' "${modules[@]}"
-for module in service/state.uc components/action.uc providers/runtime_snapshot.uc; do
+for module in service/state.uc components/action.uc; do
   source_require "$LIB/$module"
   grep -Eq 'process_identity\.(stat_fields|start_ticks)\(' "$LIB/$module" ||
     fail "$module must read stat fields through core/process_identity.uc"

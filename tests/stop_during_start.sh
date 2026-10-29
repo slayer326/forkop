@@ -392,7 +392,6 @@ UC
 }
 for module in service/state.uc subscription/cache.uc config/validator.uc nft/apply.uc singbox/runtime.uc singbox/generator.uc \
   singbox/priority.uc singbox/dns_failover.uc singbox/ruleset_cache.uc components/updates.uc \
-  autotune/manager.uc providers/byedpi/runtime.uc providers/zapret/runtime.uc providers/zapret2/runtime.uc \
   dns/apply.uc diagnostics/runtime.uc diagnostics/health.uc config/snapshots.uc core/packages.uc \
   service/ui.uc service/reload.uc service/lifecycle.uc; do
   fake_module "$module"
@@ -441,11 +440,10 @@ has_event "service/state.uc stop-managed-sing-box-runtime" || fail "the abandone
 grep -q 'start abandoned before sing-box' "$WORK_DIR/syslog" || fail "the abandoned start was not logged"
 no_event '^diagnostics/health.uc record start failure' || fail "a start abandoned for a stop was recorded as a failed start"
 
-# 6b. A stop requested once sing-box runs: providers start before the deferred
-#     subscription bootstrap so provider-routed downloads have a live target.
-#     Once Stop wins, no later provider, bootstrap, DNS, or background work may
-#     start, and the runtime started so far is cleaned up.
-for gate in "subscription/cache.uc run-deferred-bootstrap" "providers/zapret2/runtime.uc start-runtime" \
+# 6b. A stop requested once sing-box runs: once Stop wins, no later
+#     bootstrap, DNS, or background work may start, and the runtime started
+#     so far is cleaned up.
+for gate in "singbox/priority.uc start-runtime" "subscription/cache.uc run-deferred-bootstrap" \
   "service/state.uc write-current-reload-state-clean"; do
   reset_case
   rm -f "$WORK_DIR/fake.gate"
@@ -457,7 +455,7 @@ for gate in "subscription/cache.uc run-deferred-bootstrap" "providers/zapret2/ru
   [ "$(lifecycle_start_status)" != 0 ] || fail "a start overtaken by a stop at $gate reported success"
   has_event "service/state.uc start-managed-sing-box-runtime" || fail "the start did not reach sing-box before $gate"
   after_stop="$(sed -n '/^-- stop requested$/,$p' "$EVENTS")"
-  for step in "providers/zapret/runtime.uc start-runtime" "providers/zapret2/runtime.uc start-runtime" \
+  for step in "subscription/cache.uc run-deferred-bootstrap" \
     "dns/apply.uc configure" "dns/apply.uc restore" "singbox/dns_failover.uc start-runtime" \
     "components/updates.uc list-update-after-start" "service/lifecycle.uc refresh-rulesets-after-start" \
     "diagnostics/runtime.uc automatic-latency-test"; do
@@ -482,20 +480,6 @@ FAKE_FAIL=""
 [ "$(lifecycle_start_status)" != 0 ] || fail "a failing start reported success"
 has_event "diagnostics/health.uc record start failure" || fail "a failed start without a stop request was not recorded"
 
-# A configured provider must be running before deferred subscription work.
-# Provider startup failure aborts instead of letting a protected download time
-# out or fall back through another route.
-reset_case
-rm -f "$WORK_DIR/fake.gate"
-FAKE_FAIL="providers/zapret/runtime.uc start-runtime"
-run_lifecycle_start ""
-FAKE_FAIL=""
-[ "$(lifecycle_start_status)" != 0 ] || fail "a failed Zapret start was accepted"
-no_event '^subscription/cache.uc run-deferred-bootstrap' ||
-  fail "deferred subscriptions ran after Zapret failed to start"
-has_event "diagnostics/health.uc record start failure" ||
-  fail "a provider startup failure was not recorded"
-
 # 7. Control: without a stop request the same start reaches sing-box, and an
 #    earlier stop request does not hold it back.
 reset_case
@@ -504,14 +488,9 @@ printf 'earlier\n' >"$STOP_MARKER"
 run_lifecycle_start ""
 lifecycle_start_status >/dev/null
 has_event "service/state.uc start-managed-sing-box-runtime" || fail "a start without a stop request did not start sing-box"
-for step in "providers/zapret/runtime.uc start-runtime" "providers/zapret2/runtime.uc start-runtime" \
-  "dns/apply.uc restore" "singbox/dns_failover.uc start-runtime"; do
+for step in "dns/apply.uc restore" "singbox/dns_failover.uc start-runtime"; do
   has_event "$step" || fail "a start without a stop request did not run $step"
 done
-before "providers/zapret/runtime.uc start-runtime" "subscription/cache.uc run-deferred-bootstrap" ||
-  fail "Zapret must start before deferred subscriptions"
-before "providers/zapret2/runtime.uc start-runtime" "subscription/cache.uc run-deferred-bootstrap" ||
-  fail "Zapret2 must start before deferred subscriptions"
 wait_until 20 has_event "service/lifecycle.uc refresh-rulesets-after-start" ||
   fail "a start without a stop request did not start its background workers"
 has_event "diagnostics/health.uc record start success" || fail "a start without a stop request was not recorded"

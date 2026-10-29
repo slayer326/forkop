@@ -45,7 +45,7 @@ assert.match(messages[0], /property "even" failed for case 2 \(replay: PROPERTY_
 assert.equal(messages[1], 'case: 5');
 assert.throws(() => exercised('rare', 1, 2), /exercised by 1 cases, want at least 2/);
 
-const out = ucodeBatch(lib, 'let dpi = require("core.dpi_strategy");\nfunction evaluate(input) { return [ input.n * 2, type(dpi) ]; }',
+const out = ucodeBatch(lib, 'let identity = require("core.process_identity");\nfunction evaluate(input) { return [ input.n * 2, type(identity) ]; }',
   Array.from({ length: 100 }, (_, n) => ({ n })));
 assert.deepEqual(out.map((o) => o[0]), Array.from({ length: 100 }, (_, n) => n * 2), 'results in input order');
 assert.equal(out[0][1], 'object', 'production modules are on the module path');

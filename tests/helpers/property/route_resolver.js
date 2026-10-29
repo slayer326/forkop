@@ -174,7 +174,7 @@ forAll("an undecidable matcher before the deciding rule is never guessed past", 
   assert.equal(got.status, "undecidable");
   assert.equal(got.route_rule, v.at, "undecidable at the inserted rule");
   assert.equal(got.provenance, "unknown");
-  for (const key of ["kind", "section", "action", "outbound", "dpi", "zapret"]) assert.equal(got[key], null, key);
+  for (const key of ["kind", "section", "action", "outbound"]) assert.equal(got[key], null, key);
 });
 forAll("domain matchers follow the sing-box semantics case-insensitively", seed, domainCases, (c, i) => {
   assert.equal(domainResults[i], modelMatch(c) ? "match" : "no");

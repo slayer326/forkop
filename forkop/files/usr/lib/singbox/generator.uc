@@ -3442,8 +3442,7 @@ function bootstrap_sections(sections, target_name, settings) {
     let target_section = section_by_name(sections, target_name);
     if (target_section == null)
         runtime_generate_unsupported("list download section has no usable connection");
-    // Provider actions depend on their own processes and, for Zapret, on the
-    // production nft policy which deliberately does not exist during this
+    // Only a Connection/VPN section provides an outbound during this
     // fail-closed pre-start phase. Cached starts keep working; a cacheless
     // bootstrap must use an actual Connection/VPN section.
     if (!connections.is_connections_action(option(target_section, "action", "")))

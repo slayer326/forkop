@@ -1,15 +1,13 @@
 #!/bin/sh
 set -eu
 
-# A configuration edit committed while a restore or an autotune apply owns the
-# configuration (a LuCI Save & Apply, an autotune policy change, another
-# tab's URLTest override) is never discarded (UC-023, UC-017). The
+# A configuration edit committed while a restore owns the configuration (a
+# LuCI Save & Apply, another tab's URLTest override) is never discarded (UC-023, UC-017). The
 # transaction puts the previous configuration back only while the file still
 # holds what it wrote itself; otherwise the edit is kept in place, also saved
 # as an automatic snapshot, and the result is needs_attention
 # config_changed_during_transaction. A restore given the hash it expects to
-# replace (the automatic rollback of autotune) refuses the same way before it
-# changes anything. The lifecycle's own shutdown_correctly bookkeeping is no
+# replace refuses the same way before it changes anything. The lifecycle's own shutdown_correctly bookkeeping is no
 # edit.
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 LIB="$ROOT/forkop/files/usr/lib"
@@ -25,7 +23,6 @@ export FORKOP_CONFIG_FILE="$WORK/etc/forkop"
 export FORKOP_SNAPSHOT_DIR="$WORK/snapshots"
 export FORKOP_SNAPSHOT_HASH_DIR="$WORK/hash"
 export FORKOP_SNAPSHOT_LOCK_DIR="$WORK/run/config-snapshot.lock"
-export FORKOP_AUTOTUNE_APPLY_STATE="$WORK/autotune-apply.json"
 export FORKOP_LIB="$LIB"
 export FORKOP_RELOAD_COMMAND="$WORK/reload"
 export FORKOP_PENDING_RELOAD_FILE="$WORK/run/reload.pending"
@@ -219,9 +216,8 @@ restore valid "0"
 [ "$(marker)" = guardedit ] && [ "$(cat "$STATE/guard")" = valid ] || fail "inherited guard: edit overwritten or guard removed"
 ok "edit while the guard is installed -> refused before the write, own guard released, inherited guard kept"
 
-# 7. A restore given the hash it expects to replace (the automatic rollback
-#    of autotune passes the candidate's) refuses before any change when the
-#    file is something else, and saves that file.
+# 7. A restore given the hash it expects to replace refuses before any
+#    change when the file is something else, and saves that file.
 config bad; expected="$(sha "$FORKOP_CONFIG_FILE")"
 config other; echo stale > "$FORKOP_SNAPSHOT_DIR/last-known-working"
 restore absent "0" "$expected"
@@ -239,7 +235,7 @@ ok "restore with an expected hash that the file no longer has -> needs_attention
 
 # 7a. The expected file restores normally; one that differs only by the
 #     lifecycle's shutdown_correctly flag counts as the expected one (the
-#     expected value may be its user fingerprint, as autotune records it).
+#     expected value may be its user fingerprint).
 config bad; expected="$(sha "$FORKOP_CONFIG_FILE")"
 restore absent "0" "$expected"
 [ "$(field status)" = success ] && [ "$(marker)" = good ] || fail "expected hash: $(cat "$WORK/result.json")"
@@ -253,23 +249,7 @@ restore absent "0" "not-a-hash"
   fail "a malformed expected hash must be refused: $(cat "$WORK/result.json")"
 ok "expected hash or user fingerprint matches -> restore proceeds; malformed -> refused"
 
-# 8. An autotune apply (snapshots.uc apply): the candidate reload fails and an
-#    edit landed while it ran -> the same protection.
-config bad; before_hash="$(sha "$FORKOP_CONFIG_FILE")"
-sed "s/option marker 'bad'/option marker 'candidate'/" "$FORKOP_CONFIG_FILE" > "$WORK/candidate"
-echo absent > "$STATE/guard"; echo "e1" > "$STATE/plan"
-run apply "$WORK/candidate" "$before_hash"
-[ "$(field status)" = needs_attention ] && [ "$(field reason)" = config_changed_during_transaction ] ||
-  fail "edit during a failed candidate reload: $(cat "$WORK/result.json")"
-[ "$(marker)" = edit ] && [ "$(reloads)" = 1 ] || fail "apply: the edit was overwritten or a rollback reload ran"
-saved="$(field saved_snapshot)"
-[ -n "$saved" ] && [ "$(snapshot_holding edit concurrent-change)" != "" ] &&
-  grep -q '"reason": *"concurrent-change"' "$FORKOP_SNAPSHOT_DIR/$saved.json" &&
-  grep -q "option marker 'edit'" "$FORKOP_SNAPSHOT_DIR/$saved.json" || fail "apply: the edit is not saved: $(cat "$WORK/result.json")"
-[ -n "$(field pre_snapshot)" ] || fail "apply: the before-autotune snapshot is not named"
-ok "autotune apply: edit during a failed candidate reload -> kept, saved, needs_attention"
-
-# 9. Another snapshot (here an automatic before-reload one, next in line for
+# 8. Another snapshot (here an automatic before-reload one, next in line for
 #    retention) already holds exactly the edited configuration. The edit is
 #    still saved as a "Concurrent edit" snapshot of its own, and the result
 #    names that one: the page says so, and retention does not take it first.

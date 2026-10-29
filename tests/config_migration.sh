@@ -41,9 +41,6 @@ grep -Fq 'release_at_most(ctx, "1.0.1")' "$MIGRATION" ||
 grep -Fq 'release_at_most(ctx, "1.0.4")' "$MIGRATION" ||
   fail "HTTP connection URLs must only migrate from Forkop 1.0.4 and below"
 
-eval "$(ucode -L "$FORKOP_LIB" "$FORKOP_LIB/core/constants.uc" shell-env)"
-export ZAPRET_LEGACY_DEFAULT_NFQWS_OPT ZAPRET_DEFAULT_NFQWS_OPT
-
 node >"$WORK_DIR/fixture.json" <<'NODE'
 const fixture = {
   settings: {
@@ -125,8 +122,9 @@ const fixture = {
       '.name': 'legacy-zap',
       '.type': 'section',
       action: 'zapret',
-      nfqws_opt: process.env.ZAPRET_LEGACY_DEFAULT_NFQWS_OPT,
-      cmd_opts: '--legacy-bye'
+      nfqws_opt: '--filter-tcp=443 --dpi-desync=fake',
+      cmd_opts: '--legacy-bye',
+      community_lists: [ 'youtube' ]
     },
     {
       '.name': 'legacy-vpn',
@@ -321,9 +319,14 @@ assert(legacyExclusion.action === 'bypass', 'legacy exclusion connection type mi
 absent(legacyExclusion, 'connection_type', 'legacy-exclusion');
 
 const legacyZap = sections['legacy-zap'];
-assert(legacyZap.nfqws_opt === process.env.ZAPRET_DEFAULT_NFQWS_OPT, 'zapret legacy default migrated');
-assert(legacyZap.byedpi_cmd_opts === '--legacy-bye', 'cmd_opts copied to byedpi_cmd_opts');
+// Zapret and ByeDPI are retired: the rule keeps its lists, disabled, as a
+// bypass rule without any strategy.
+assert(legacyZap.action === 'bypass', 'retired zapret rule becomes a bypass rule');
+assert(legacyZap.enabled === '0', 'retired zapret rule is disabled');
+assert(JSON.stringify([].concat(legacyZap.community_lists)) === JSON.stringify(['youtube']), 'retired zapret rule keeps its lists');
+absent(legacyZap, 'nfqws_opt', 'legacy-zap');
 absent(legacyZap, 'cmd_opts', 'legacy-zap');
+absent(legacyZap, 'byedpi_cmd_opts', 'legacy-zap');
 
 const legacyVpn = sections['legacy-vpn'];
 assert(legacyVpn.action === 'connection', 'vpn action inferred');

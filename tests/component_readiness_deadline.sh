@@ -59,7 +59,7 @@ function forkop_status_running_with_timeout() {
     return false;
 }
 UCODE
-source_between "$ACTION" '^function wait_forkop_running_after_sing_box_change\(' '^function opkg_arch_list\(' \
+source_between "$ACTION" '^function wait_forkop_running_after_sing_box_change\(' '^function select_archive_member_path\(' \
   >>"$WORK_DIR/harness.uc" || fail "the readiness wait was not found"
 cat >>"$WORK_DIR/harness.uc" <<'UCODE'
 let ok = wait_forkop_running_after_sing_box_change();

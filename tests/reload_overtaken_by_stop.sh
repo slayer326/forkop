@@ -7,8 +7,8 @@ set -euo pipefail
 # The reload holds reload.lock; init.d stop_service records the stop request,
 # waits for the lock only for a bounded time and then stops without it. The
 # reload checked for a stop only when it began: once past that check it
-# started the new sing-box, Priority, DNS failover, the DPI providers, the new
-# nft table and the dnsmasq change after the stop had torn the runtime down,
+# started the new sing-box, Priority, DNS failover, the new nft table and the
+# dnsmasq change after the stop had torn the runtime down,
 # and a transition that failed because of the teardown was "rolled back" by
 # starting the previous sing-box again. Forkop then showed "Stopped by user"
 # with a lone sing-box behind it.
@@ -57,8 +57,7 @@ fail() {
 FAKE_LIB="$WORK_DIR/fake-lib"
 mkdir -p "$WORK_DIR/bin" "$WORK_DIR/run/forkop" "$WORK_DIR/tmp" "$WORK_DIR/singbox-tmp/rulesets" \
   "$FAKE_LIB/service" "$FAKE_LIB/subscription" "$FAKE_LIB/config" "$FAKE_LIB/singbox" "$FAKE_LIB/nft" \
-  "$FAKE_LIB/dns" "$FAKE_LIB/components" "$FAKE_LIB/autotune" "$FAKE_LIB/diagnostics" \
-  "$FAKE_LIB/providers/zapret" "$FAKE_LIB/providers/zapret2" "$FAKE_LIB/providers/byedpi"
+  "$FAKE_LIB/dns" "$FAKE_LIB/components" "$FAKE_LIB/diagnostics"
 cat >"$WORK_DIR/uci.state" <<'EOF'
 forkop.settings=settings
 forkop.settings.yacd_secret_key=0123456789abcdef
@@ -276,10 +275,8 @@ ev("dns " + mode);
 exit(0);
 UC
 
-for module in singbox/priority singbox/dns_failover components/updates autotune/manager \
-  providers/zapret/runtime providers/zapret2/runtime providers/byedpi/runtime; do
+for module in singbox/priority singbox/dns_failover components/updates; do
   name="${module#*/}"
-  case "$module" in providers/*) name="${module#providers/}"; name="${name%/runtime}" ;; esac
   cat >"$FAKE_LIB/$module.uc" <<UC
 $fake_header
 if (mode == "snapshot-runtime")
@@ -348,8 +345,8 @@ reload_overtaken_by_stop() {
 assert_nothing_started_after_stop() {
   local label="$1" anchor="${2:-stop end}"
   ! event_after '^start-managed$' "$anchor" || fail "$label: sing-box was started after the stop"
-  ! event_after '^(priority|dns_failover|zapret|zapret2|byedpi) (start-runtime|restore-runtime)$' "$anchor" ||
-    fail "$label: an auxiliary or DPI runtime was started after the stop"
+  ! event_after '^(priority|dns_failover) (start-runtime|restore-runtime)$' "$anchor" ||
+    fail "$label: an auxiliary runtime was started after the stop"
   ! event_after '^nft nft-(apply|commit)-candidate-batch$' "$anchor" || fail "$label: the nft table was rebuilt after the stop"
   ! event_after '^dns (configure|restore)' "$anchor" || fail "$label: dnsmasq was changed after the stop"
   [ "$(cat "$SING_BOX_STATE")" = stopped ] || fail "$label: sing-box runs after the stop"
@@ -362,8 +359,6 @@ assert_nothing_started_after_stop() {
 
 SINGBOX_PLAN="has_work=1 needs_sing_box_reload=1 changed_sing_box=1"
 NFT_DNS_PLAN="has_work=1 needs_nft_rebuild=1 needs_dnsmasq_configure=1"
-DPI_PLAN="has_work=1 needs_zapret_restart=1"
-DPI_DNS_PLAN="has_work=1 needs_zapret_restart=1 needs_dnsmasq_configure=1"
 
 # 0. Controls: without a stop each reload applies its plan.
 reset_case
@@ -376,10 +371,6 @@ reset_case
 env PLAN="$NFT_DNS_PLAN" "$WORK_DIR/reload" "" >"$WORK_DIR/reload.out" 2>&1 || fail "the nft reload failed: $(cat "$WORK_DIR/reload.out")"
 has_event '^nft nft-apply-candidate-batch$' || fail "the nft reload did not apply the new table"
 has_event '^dns configure' || fail "the nft reload did not configure dnsmasq"
-reset_case
-: >"$GATE"
-env PLAN="$DPI_PLAN" "$WORK_DIR/reload" "" >"$WORK_DIR/reload.out" 2>&1 || fail "the DPI reload failed: $(cat "$WORK_DIR/reload.out")"
-has_event '^zapret start-runtime$' || fail "the DPI reload did not restart Zapret"
 
 # 1. The stop gives up waiting while the reload publishes the new sing-box
 #    configuration (sing-box is down): the reload does not start it.
@@ -402,33 +393,15 @@ reset_case
 reload_overtaken_by_stop "$NFT_DNS_PLAN" nft-rebuild
 assert_nothing_started_after_stop "stop during the nft rebuild"
 
-# 4. The stop gives up waiting while the reload snapshots the DPI provider it
-#    is about to restart: the provider is not started again.
-reset_case
-reload_overtaken_by_stop "$DPI_PLAN" "zapret snapshot-runtime"
-assert_nothing_started_after_stop "stop before the DPI switch"
-
-# 5. A stop that is still waiting for reload.lock when the reload reaches the
+# 4. A stop that is still waiting for reload.lock when the reload reaches the
 #    sing-box start: the reload does not start it either, and the stop then
-#    runs under the lock.
+#    runs under the lock. The reload leaves sing-box stopped behind, so that
+#    init.d tells a snapshot restore "stopped" rather than a reload that ran,
+#    before the stop has even begun its teardown.
 reset_case
 STOP_WAIT=20 reload_overtaken_by_stop "$SINGBOX_PLAN" commit-config-stage
 assert_nothing_started_after_stop "stop waiting during the sing-box switch" "held at commit-config-stage"
 grep -q 'did not get the runtime lock' "$WORK_DIR/syslog" && fail "the waiting stop did not get reload.lock"
-
-# 6. The stop gives up waiting once the reload has switched the DPI provider:
-#    dnsmasq is not pointed at the stopped runtime.
-reset_case
-reload_overtaken_by_stop "$DPI_DNS_PLAN" dpi-guard-removal
-assert_nothing_started_after_stop "stop before the dnsmasq change"
-
-# 7. A stop still waiting for reload.lock when the reload reaches its DPI
-#    switch: the reload leaves sing-box stopped behind, so that init.d tells
-#    a snapshot restore or an autotune apply "stopped" rather than a reload
-#    that ran, before the stop has even begun its teardown.
-reset_case
-STOP_WAIT=20 reload_overtaken_by_stop "$DPI_PLAN" "zapret snapshot-runtime"
-assert_nothing_started_after_stop "stop waiting before the DPI switch" "held at zapret snapshot-runtime"
 has_event '^reload returned, sing-box stopped$' || fail "the abandoned reload left sing-box running for init.d to report"
 
 printf 'reload overtaken by stop checks passed\n'

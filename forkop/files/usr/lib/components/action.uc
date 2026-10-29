@@ -1138,8 +1138,8 @@ const ZAPRET_MANAGER_WEB_SCRIPT = "/opt/zapret-manager-luci/backend.sh";
 const ZAPRET_MANAGER_CRONTAB = getenv("FORKOP_CRONTAB_FILE") || "/etc/crontabs/root";
 // Zapret-Manager's automatic strategy selection: the script's "zmsA
 // --auto-best" job and the web version's "# zm-autobest" one. Each run
-// restarts zapret with one strategy after another and rewrites its NFQWS_OPT;
-// Forkop X keeps automatic DPI strategy selection off (components/updates.uc
+// restarts the DPI service with one strategy after another and rewrites its
+// options; Forkop X keeps automatic DPI strategy selection off (components/updates.uc
 // removes them again on every cron refresh).
 const ZAPRET_MANAGER_AUTOBEST_MARKERS = [ "zmsA --auto-best", "# zm-autobest" ];
 

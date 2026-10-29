@@ -1,9 +1,9 @@
 #!/bin/sh
 set -eu
 
-# A snapshot restore, the autotune apply transaction and autotune/apply.uc
-# see a running list update as a lifecycle action, although the list worker
-# runs its DNS probe and downloads without reload.lock (UC-057).
+# A snapshot restore sees a running list update as a lifecycle action,
+# although the list worker runs its DNS probe and downloads without
+# reload.lock (UC-057).
 #
 # While the list worker runs, init.d queues every reload for it (service/
 # initd.uc), as when it held reload.lock for the whole update. A restore
@@ -11,13 +11,10 @@ set -eu
 # and replaced the configuration, and both its target reload and its
 # rollback reload came back queued -> needs_attention with the guard left
 # active until the user acted. It must be refused before anything changes,
-# as under a live reload.lock owner; the autotune apply transaction must be
-# stale, and autotune/apply.uc must report the service action (its
-# automatic rollback waits for it). A record that a dead worker left behind
+# as under a live reload.lock owner. A record that a dead worker left behind
 # is no running update.
 #
-# snapshots.uc, initd.uc, the init.d script and autotune/apply.uc are the
-# real code. The list worker is a stand-in updates.uc that records itself
+# snapshots.uc, initd.uc and the init.d script are the real code. The list worker is a stand-in updates.uc that records itself
 # exactly as components/updates.uc list_update_pid_begin() does and waits.
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REAL_LIB="$ROOT/forkop/files/usr/lib"
@@ -58,7 +55,6 @@ export FORKOP_PENDING_RELOAD_FILE="$WORK/run/forkop/reload.pending"
 export FORKOP_RELOAD_LOCK_DIR="$WORK/run/forkop.reload.lock"
 export FORKOP_LIST_UPDATE_PID_FILE="$WORK/run/list.pid"
 export FORKOP_RELOAD_COMMAND="$WORK/init.d" FORKOP_SERVICE_INIT="$WORK/init.d"
-export FORKOP_AUTOTUNE_APPLY_STATE="$WORK/autotune-apply.json" FORKOP_AUTOTUNE_STATE_DIR="$WORK/run/autotune"
 mkdir -p "$WORK/bin" "$WORK/run/forkop" "$STATE"
 echo absent > "$STATE/guard"
 
@@ -84,8 +80,7 @@ case "${3:-}" in
 esac
 exec "$REAL_UCODE" "$@"
 STUB
-# No nft tables: no restore guard and no probe path for autotune/apply.uc,
-# and no guard kept by a failed lifecycle transition (config/snapshots.uc
+# No nft tables: no restore guard, and no guard kept by a failed lifecycle transition (config/snapshots.uc
 # asks for that one table or chain by name).
 cat > "$WORK/bin/nft" <<'STUB'
 #!/bin/sh
@@ -126,7 +121,6 @@ lkg() { cat "$FORKOP_SNAPSHOT_DIR/last-known-working" 2>/dev/null || true; }
 snaps() { find "$FORKOP_SNAPSHOT_DIR" -maxdepth 1 -name '*.json' | wc -l; }
 chash() { sha256sum "$FORKOP_CONFIG_FILE" | cut -d' ' -f1; }
 events() { cat "$STATE/events" 2>/dev/null || true; }
-autotune_action() { "$REAL_UCODE" -L "$LIB" "$LIB/autotune/apply.uc" status | grep -o '"service_action": *[a-z_"]*' || true; }
 # run <snapshots.uc args...>: result in $WORK/result.json, exit status in $rc.
 run() {
   : > "$STATE/events"
@@ -148,7 +142,6 @@ unchanged() { # unchanged <what>
 # Target snapshot "good"; production runs "bad", confirmed as last-known-working.
 config good
 good_id="$(snap create manual | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).snapshot.id))')"
-config good; cp "$FORKOP_CONFIG_FILE" "$WORK/candidate"
 config bad
 snap confirm-working > /dev/null
 base_lkg="$(lkg)"; base_hash="$(chash)"
@@ -169,25 +162,13 @@ expect busy service_action_in_progress "restore during a list update"
 [ "$rc" != 0 ] || fail "busy restore exited 0"
 unchanged "restore during a list update"
 
-# 2. The autotune apply transaction during the list update: stale, nothing
-#    changed.
-run apply "$WORK/candidate" "$base_hash"
-expect stale service_action_in_progress "autotune apply during a list update"
-unchanged "autotune apply during a list update"
-
-# 3. autotune/apply.uc (its checks and the wait of an automatic rollback).
-[ "$(autotune_action)" = '"service_action": "service_action_in_progress"' ] ||
-  fail "autotune/apply.uc did not see the list update: '$(autotune_action)'"
-
-# 4. The worker is gone and left its record behind: no service action.
+# 2. The worker is gone and left its record behind: no service action.
 : > "$WORK/release"
 worker="$(cat "$WORK/worker.pid")"
 for _ in $(seq 1 200); do kill -0 "$worker" 2>/dev/null || break; sleep 0.05; done
 ! kill -0 "$worker" 2>/dev/null || fail "fixture: the list worker did not exit"
 : > "$WORK/worker.pid"
 [ -s "$FORKOP_LIST_UPDATE_PID_FILE" ] || fail "fixture: the dead worker's record is gone"
-[ "$(autotune_action)" = '"service_action": null' ] ||
-  fail "autotune/apply.uc took a dead list worker's record for a service action: '$(autotune_action)'"
 run restore "$good_id"
 expect success "" "restore after the list update"
 [ "$(cat "$STATE/guard")" = absent ] || fail "restore after the list update kept the guard"

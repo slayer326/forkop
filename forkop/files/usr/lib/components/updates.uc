@@ -1598,8 +1598,8 @@ function cron_refresh_plan(settings, sections, bin, list_marker, subscription_ma
 
 // Zapret-Manager's automatic strategy selection: the script's "zmsA
 // --auto-best" and the web version's "# zm-autobest" job. Each run restarts
-// zapret with one strategy after another and rewrites its NFQWS_OPT; Forkop X
-// keeps automatic DPI strategy selection off.
+// the DPI service with one strategy after another and rewrites its options;
+// Forkop X keeps automatic DPI strategy selection off.
 const ZAPRET_MANAGER_AUTOBEST_MARKERS = [ "zmsA --auto-best", "# zm-autobest" ];
 // The cron line of the removed DPI autotune.
 const RETIRED_AUTOTUNE_CRON_MARKER = "# forkop-autotune";

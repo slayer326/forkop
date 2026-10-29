@@ -11,9 +11,6 @@ mkdir -p "$WORK_DIR/ipv6/all" "$WORK_DIR/ipv6/lo"
 printf '0\n' >"$WORK_DIR/ipv6/all/disable_ipv6"
 printf '0\n' >"$WORK_DIR/ipv6/lo/disable_ipv6"
 export FORKOP_IPV6_SYSCTL_DIR="$WORK_DIR/ipv6"
-export ZAPRET_DEFAULT_NFQWS_OPT="--default-zapret"
-export ZAPRET2_DEFAULT_NFQWS2_OPT="--default-zapret2"
-export BYEDPI_DEFAULT_CMD_OPTS="--default-bye"
 export FORKOP_FAKE_INIT_CAPTURE="$WORK_DIR/pending-reload-init.args"
 
 cleanup() {
@@ -574,13 +571,6 @@ cat >"$WORK_DIR/sing-box-signature.json" <<'JSON'
       "resolve_real_ip_for_routing": "0"
     },
     {
-      ".name": "bye1",
-      ".type": "section",
-      "enabled": "1",
-      "action": "byedpi",
-      "mixed_proxy_enabled": "0"
-    },
-    {
       ".name": "vpn1",
       ".type": "section",
       "enabled": "1",
@@ -832,38 +822,6 @@ disabled
 
 [rule.out1.domain_ip_lists]
 
-[rule.bye1.action]
-byedpi
-[rule.bye1.byedpi_index]
-1
-[rule.bye1.mixed_proxy_enabled]
-0
-[rule.bye1.resolve_real_ip_for_routing]
-1
-[rule.bye1.domain]
-
-[rule.bye1.domain_suffix]
-
-[rule.bye1.domain_keyword]
-
-[rule.bye1.domain_regex]
-
-[rule.bye1.ip_cidr]
-
-[rule.bye1.source_ip_cidr]
-
-[rule.bye1.ports]
-
-[rule.bye1.fully_routed_ips]
-
-[rule.bye1.community_lists]
-
-[rule.bye1.rule_set]
-
-[rule.bye1.rule_set_with_subnets]
-
-[rule.bye1.domain_ip_lists]
-
 [rule.vpn1.action]
 vpn
 [rule.vpn1.connection_urls]
@@ -943,163 +901,6 @@ EOF_SING_BOX_SIG
 assert_eq "$(md5_file "$WORK_DIR/sing-box-signature.expected")" \
   "$(state_ucode sing-box-signature-fixture "$WORK_DIR/sing-box-signature.json")" \
   "sing-box signature hash"
-
-cat >"$WORK_DIR/dpi-signatures.json" <<'JSON'
-{
-  "section": [
-    {
-      ".name": "disabled_zap",
-      ".type": "section",
-      "enabled": "0",
-      "action": "zapret",
-      "nfqws_opt": "--disabled"
-    },
-    {
-      ".name": "zap1",
-      ".type": "section",
-      "enabled": "1",
-      "action": "zapret",
-      "domain": [ "legacy.example" ],
-      "domain_suffix": [ "full:full.example", "suffix.example", "keyword:ads" ],
-      "domain_suffix_text": "full:textfull.example text-suffix.example",
-      "community_lists": [ "telegram", "youtube" ],
-      "rule_set": [ "https://example.com/zap.srs" ],
-      "rule_set_with_subnets": [ "https://example.com/zap-sub.srs" ],
-      "domain_ip_lists": [ "local.lst", "https://example.com/ip.lst" ],
-      "user_domain_list_type": "dynamic",
-      "user_domains": [ "dyn.example" ],
-      "user_domains_text": "ignored.example",
-      "local_domain_lists": [ "local-a" ],
-      "remote_domain_lists": [ "remote-a" ]
-    },
-    {
-      ".name": "zap2",
-      ".type": "section",
-      "enabled": "1",
-      "action": "zapret2",
-      "nfqws2_opt": "--z2\n opt",
-      "domain": [ "z2.example" ],
-      "domain_suffix": [ "z2-suffix.example" ],
-      "community_lists": [ "discord" ],
-      "rule_set": [ "https://example.com/zap2.srs" ],
-      "rule_set_with_subnets": [ "https://example.com/zap2-sub.srs" ],
-      "domain_ip_lists": [ "https://example.com/zap2-ip.lst" ],
-      "user_domain_list_type": "text",
-      "user_domains": [ "ignored-dyn.example" ],
-      "user_domains_text": "text.example text2.example",
-      "local_domain_lists": [ "local-b" ],
-      "remote_domain_lists": [ "remote-b" ]
-    },
-    {
-      ".name": "bye_disabled",
-      ".type": "section",
-      "enabled": "0",
-      "action": "byedpi",
-      "byedpi_cmd_opts": "--disabled"
-    },
-    {
-      ".name": "bye1",
-      ".type": "section",
-      "enabled": "1",
-      "action": "byedpi"
-    },
-    {
-      ".name": "bye2",
-      ".type": "section",
-      "enabled": "1",
-      "action": "byedpi",
-      "byedpi_cmd_opts": "--disorder   3\n--fake-sni example.org"
-    }
-  ]
-}
-JSON
-
-cat >"$WORK_DIR/zapret-queue.expected" <<'EOF_ZAPRET_QUEUE'
-[zapret_queue.section]
-zap1
-EOF_ZAPRET_QUEUE
-
-cat >"$WORK_DIR/zapret2-queue.expected" <<'EOF_ZAPRET2_QUEUE'
-[zapret2_queue.section]
-zap2
-EOF_ZAPRET2_QUEUE
-
-cat >"$WORK_DIR/zapret-runtime.expected" <<'EOF_ZAPRET_RUNTIME'
-[zapret.zap1.nfqws_opt]
---default-zapret
-[zapret.zap1.domain]
-textfull.example,full.example,legacy.example
-[zapret.zap1.domain_suffix]
-text-suffix.example,suffix.example
-[zapret.zap1.community_lists]
-telegram youtube
-[zapret.zap1.rule_set]
-https://example.com/zap.srs
-[zapret.zap1.rule_set_with_subnets]
-https://example.com/zap-sub.srs
-[zapret.zap1.domain_ip_lists]
-local.lst https://example.com/ip.lst
-[zapret.zap1.user_domain_list_type]
-dynamic
-[zapret.zap1.local_domain_lists]
-local-a
-[zapret.zap1.remote_domain_lists]
-remote-a
-[zapret.zap1.user_domains]
-dyn.example
-EOF_ZAPRET_RUNTIME
-
-cat >"$WORK_DIR/zapret2-runtime.expected" <<'EOF_ZAPRET2_RUNTIME'
-[zapret2.zap2.nfqws2_opt]
---z2 opt
-[zapret2.zap2.domain]
-z2.example
-[zapret2.zap2.domain_suffix]
-z2-suffix.example
-[zapret2.zap2.community_lists]
-discord
-[zapret2.zap2.rule_set]
-https://example.com/zap2.srs
-[zapret2.zap2.rule_set_with_subnets]
-https://example.com/zap2-sub.srs
-[zapret2.zap2.domain_ip_lists]
-https://example.com/zap2-ip.lst
-[zapret2.zap2.user_domain_list_type]
-text
-[zapret2.zap2.local_domain_lists]
-local-b
-[zapret2.zap2.remote_domain_lists]
-remote-b
-[zapret2.zap2.user_domains]
-text.example text2.example
-EOF_ZAPRET2_RUNTIME
-
-cat >"$WORK_DIR/byedpi-runtime.expected" <<'EOF_BYEDPI_RUNTIME'
-[byedpi.bye1.index]
-1
-[byedpi.bye1.byedpi_cmd_opts]
---default-bye
-[byedpi.bye2.index]
-2
-[byedpi.bye2.byedpi_cmd_opts]
---disorder 3 --fake-sni example.org
-EOF_BYEDPI_RUNTIME
-
-assert_eq "$(md5_file "$WORK_DIR/zapret-queue.expected")" \
-  "$(state_ucode zapret-queue-signature-fixture "$WORK_DIR/dpi-signatures.json")" \
-  "zapret queue signature hash"
-assert_eq "$(md5_file "$WORK_DIR/zapret2-queue.expected")" \
-  "$(state_ucode zapret2-queue-signature-fixture "$WORK_DIR/dpi-signatures.json")" \
-  "zapret2 queue signature hash"
-assert_eq "$(md5_file "$WORK_DIR/zapret-runtime.expected")" \
-  "$(state_ucode zapret-runtime-signature-fixture "$WORK_DIR/dpi-signatures.json")" \
-  "zapret runtime signature hash"
-assert_eq "$(md5_file "$WORK_DIR/zapret2-runtime.expected")" \
-  "$(state_ucode zapret2-runtime-signature-fixture "$WORK_DIR/dpi-signatures.json")" \
-  "zapret2 runtime signature hash"
-assert_eq "$(md5_file "$WORK_DIR/byedpi-runtime.expected")" \
-  "$(state_ucode byedpi-runtime-signature-fixture "$WORK_DIR/dpi-signatures.json")" \
-  "byedpi runtime signature hash"
 
 cat >"$WORK_DIR/reload-state-signatures.json" <<'JSON'
 {
@@ -1386,11 +1187,6 @@ service_trigger_signature=$(state_ucode service-trigger-signature-fixture "$WORK
 dnsmasq_signature=$(state_ucode dnsmasq-signature-fixture "$WORK_DIR/reload-state-signatures.json")
 sing_box_signature=$(state_ucode sing-box-signature-fixture "$WORK_DIR/reload-state-signatures.json")
 nft_signature=$nft_signature
-zapret_queue_signature=$(state_ucode zapret-queue-signature-fixture "$WORK_DIR/reload-state-signatures.json")
-zapret_runtime_signature=$(state_ucode zapret-runtime-signature-fixture "$WORK_DIR/reload-state-signatures.json")
-zapret2_queue_signature=$(state_ucode zapret2-queue-signature-fixture "$WORK_DIR/reload-state-signatures.json")
-zapret2_runtime_signature=$(state_ucode zapret2-runtime-signature-fixture "$WORK_DIR/reload-state-signatures.json")
-byedpi_runtime_signature=$(state_ucode byedpi-runtime-signature-fixture "$WORK_DIR/reload-state-signatures.json")
 list_signature=$(state_ucode list-update-signature-fixture "$WORK_DIR/reload-state-signatures.json")
 cron_signature=$(state_ucode cron-signature-fixture "$WORK_DIR/reload-state-signatures.json")
 urltest_enabled_sections=list_proxy urltest_custom

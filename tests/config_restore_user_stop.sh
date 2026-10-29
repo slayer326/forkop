@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 
-# A snapshot restore and an autotune apply while Forkop is stopped by the
-# user (UC-056, D-15(a)), against the real init.d script, service/initd.uc
+# A snapshot restore while Forkop is stopped by the user (UC-056, D-15(a)),
+# against the real init.d script, service/initd.uc
 # reload-service and config/snapshots.uc.
 #
 # Before: the restore's reload of an explicitly stopped runtime started the
@@ -11,14 +11,13 @@ set -eu
 # restore reported success and moved last-known-working to a configuration
 # no runtime had loaded.
 #
-# Now init.d answers "stopped" for the restore and autotune reasons. A
+# Now init.d answers "stopped" for the restore reason. A
 # restore keeps the validated configuration for the next explicit start and
 # says so (restored_not_started): no runtime is started or claimed, LKG is
 # not moved, and the restore guard, also one inherited from an earlier
 # needs_attention, is released, so it cannot outlive the start that the
 # runtime now waits for. A snapshot that does not validate is put back, the
-# same way. An autotune apply is refused before anything changes; a stop
-# that overtakes it puts the previous configuration back. A stop that is
+# same way. A stop that is
 # already under way (it holds reload.lock, the runtime is not down yet) gets
 # the same answer: before, the reload and its rollback were only queued
 # behind it, the stop dropped both, and the restore guard stayed active past
@@ -45,7 +44,6 @@ export FORKOP_SNAPSHOT_DIR="$WORK/snapshots" FORKOP_SNAPSHOT_HASH_DIR="$WORK/has
 # Changes staged with uci refuse a restore (UC-068): the test has its own
 # save directory, never the host's /tmp/.uci.
 export FORKOP_UCI_SAVEDIR="$WORK/uci-save"
-export FORKOP_AUTOTUNE_APPLY_STATE="$WORK/autotune-apply.json"
 export FORKOP_SNAPSHOT_LOCK_DIR="$WORK/run/config-snapshot.lock"
 export FORKOP_RUNTIME_STATE_DIR="$WORK/run/forkop"
 export FORKOP_PENDING_RELOAD_FILE="$WORK/run/forkop/reload.pending"
@@ -229,28 +227,7 @@ events | grep -q '^lifecycle-skipped:config-restore$' || fail "fixture: the stop
 { [ "$(marker)" = "marker 'good'" ] && [ "$(lkg)" = "$base_lkg" ] && [ "$(cat "$STATE/guard")" = absent ]; } ||
   fail "restore overtaken by a stop: $(cat "$WORK/result.json")"
 
-# 6. Autotune apply while stopped: refused before anything changes.
-config bad; base_hash="$(chash)"
-config good; cp "$FORKOP_CONFIG_FILE" "$WORK/candidate"; config bad
-before="$(snaps)"
-run apply "$WORK/candidate" "$base_hash"
-expect stale service_stopped "autotune apply while stopped"
-{ [ "$(snaps)" = "$before" ] && [ "$(chash)" = "$base_hash" ] && [ -z "$(events)" ]; } ||
-  fail "autotune apply while stopped changed state"
-
-# 7. A stop overtakes the apply's reload: the candidate is put back, nothing
-#    is started, the guard goes, LKG stays.
-user_start; snap confirm-working > /dev/null; base_lkg="$(lkg)"
-: > "$STATE/stop-during-reload"
-run apply "$WORK/candidate" "$base_hash"
-expect failed service_stopped "autotune apply overtaken by a stop"
-[ "$(field "$WORK/result.json" runtime)" = stopped ] || fail "apply overtaken by a stop: $(cat "$WORK/result.json")"
-[ "$(chash)" = "$base_hash" ] || fail "apply overtaken by a stop kept the candidate"
-! events | grep -q '^runtime-reload:' || fail "apply overtaken by a stop reloaded the runtime"
-{ [ "$(cat "$STATE/guard")" = absent ] && [ "$(lkg)" = "$base_lkg" ]; } || fail "apply overtaken by a stop: guard or LKG"
-[ "$(cat "$STATE/runtime")" = down ] || fail "apply overtaken by a stop started the runtime"
-
-# 8. Control: a runtime that went down without a stop after an explicit start
+# 6. Control: a runtime that went down without a stop after an explicit start
 #    (it crashed) is repaired by the restore's reload, as before. One that was
 #    not started since a reboot with autostart disabled is not: the restore
 #    keeps the configuration for the start (D-15(a);
@@ -261,7 +238,7 @@ expect success "" "restore of a crashed runtime"
 events | grep -q "^runtime-reload:config-restore:marker 'good'$" || fail "restore of a crashed runtime did not reload it"
 [ "$(lkg)" = "$good_id" ] || fail "restore of a crashed runtime did not confirm LKG"
 
-# 9. A stop that takes reload.lock after the restore's busy check, while the
+# 7. A stop that takes reload.lock after the restore's busy check, while the
 #    runtime is still up: the restore's reload is not queued behind it (the
 #    stop drops what is queued for the runtime it takes down), so neither the
 #    reload nor its rollback ends "queued" with the restore guard kept past
@@ -281,18 +258,5 @@ expect restored_not_started service_stopped "restore overtaken by a stop that ho
   fail "restore behind a stop that holds reload.lock: configuration or LKG"
 [ "$(cat "$STATE/guard")" = absent ] || fail "restore behind a stop that holds reload.lock left the restore guard behind"
 ! events | grep -q '^runtime-reload:' || fail "restore behind a stop that holds reload.lock reloaded the runtime"
-
-# 9b. The same for an autotune apply: the candidate is put back and the guard
-#     goes.
-user_start; config bad; snap confirm-working > /dev/null; base_lkg="$(lkg)"; base_hash="$(chash)"
-: > "$STATE/stop-takes-lock"
-run apply "$WORK/candidate" "$base_hash"
-stop_finishes
-[ ! -e "$STATE/stop-takes-lock" ] || fail "fixture: the stop did not take reload.lock"
-expect failed service_stopped "autotune apply overtaken by a stop that holds reload.lock"
-[ "$(field "$WORK/result.json" runtime)" = stopped ] || fail "apply behind a stop that holds reload.lock: $(cat "$WORK/result.json")"
-[ "$(chash)" = "$base_hash" ] || fail "apply behind a stop that holds reload.lock kept the candidate"
-{ [ "$(cat "$STATE/guard")" = absent ] && [ "$(lkg)" = "$base_lkg" ]; } ||
-  fail "apply behind a stop that holds reload.lock: guard or LKG"
 
 printf 'config_restore_user_stop: PASS\n'

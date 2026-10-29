@@ -52,8 +52,6 @@ eval "$(ucode -L "$FORKOP_LIB" "$CONSTANTS_UC" shell-env)"
   fail "core/constants.uc shell-env did not derive FORKOP_CONFIG"
 [ "$TMP_RULESET_FOLDER" = "/tmp/sing-box/rulesets" ] ||
   fail "core/constants.uc shell-env did not derive TMP_RULESET_FOLDER"
-[ "$BYEDPI_PID_DIR" = "/var/run/forkop/byedpi/pid" ] ||
-  fail "core/constants.uc shell-env did not derive BYEDPI_PID_DIR"
 
 [ "$(ucode -L "$FORKOP_LIB" "$CONSTANTS_UC" get FAKEIP_TEST_DOMAIN)" = "fakeip.podkop.fyi" ] ||
   fail "FakeIP diagnostics must use the deployed public endpoint"

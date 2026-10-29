@@ -11,8 +11,6 @@ STATE_UC="$ROOT_DIR/forkop/files/usr/lib/service/state.uc"
 UI_UC="$ROOT_DIR/forkop/files/usr/lib/service/ui.uc"
 UPDATES_UC="$ROOT_DIR/forkop/files/usr/lib/components/updates.uc"
 SUBSCRIPTION_CACHE_UC="$ROOT_DIR/forkop/files/usr/lib/subscription/cache.uc"
-NFQUEUE_RUNTIME_UC="$ROOT_DIR/forkop/files/usr/lib/providers/nfqueue/runtime.uc"
-BYEDPI_RUNTIME_UC="$ROOT_DIR/forkop/files/usr/lib/providers/byedpi/runtime.uc"
 PRIORITY_UC="$ROOT_DIR/forkop/files/usr/lib/singbox/priority.uc"
 
 fail() {
@@ -114,10 +112,6 @@ require_file_pattern "$UPDATES_UC" '>/dev/null 2>&1 1000>&- & echo $!' \
   "components/updates.uc async workers must close inherited procd lock fd"
 require_file_pattern "$SUBSCRIPTION_CACHE_UC" '>/dev/null 2>&1 1000>&- & echo $!' \
   "subscription/cache.uc retry worker must close inherited procd lock fd"
-require_file_pattern "$NFQUEUE_RUNTIME_UC" '>>" + shell_quote(logfile) + " 2>&1 1000>&- & echo $!' \
-  "nfqueue provider supervisors must close inherited procd lock fd"
-require_file_pattern "$BYEDPI_RUNTIME_UC" '>>" + shell_quote(logfile) + " 2>&1 1000>&- & echo $!' \
-  "byedpi supervisor must close inherited procd lock fd"
 require_file_pattern "$PRIORITY_UC" '>/dev/null 2>&1 1000>&- & echo $!' \
   "priority worker must close inherited procd lock fd"
 awk '

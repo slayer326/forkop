@@ -19,7 +19,7 @@ set -euo pipefail
 # before, instead of leaving the whole runtime down until someone restarts.
 # A refused start is not retried automatically (initd.uc start_service): no
 # retry can succeed before the restart, and each would log a fatal and
-# record a failed start. The guard of a restore or an autotune apply
+# record a failed start. The guard of a restore
 # (ForkopConfigRestoreDpiGuard) is how every such transaction reloads: the
 # reload goes on under it, a cold start builds the runtime (the restore of
 # a snapshot releases that guard), and only a duplicate start, which starts
@@ -134,7 +134,6 @@ UC
 }
 for module in service/state.uc subscription/cache.uc config/validator.uc nft/apply.uc singbox/runtime.uc singbox/generator.uc \
   singbox/priority.uc singbox/dns_failover.uc singbox/ruleset_cache.uc components/updates.uc \
-  autotune/manager.uc providers/byedpi/runtime.uc providers/zapret/runtime.uc providers/zapret2/runtime.uc \
   dns/apply.uc diagnostics/runtime.uc diagnostics/health.uc config/snapshots.uc core/packages.uc \
   service/ui.uc service/reload.uc; do
   fake_module "$module"
@@ -173,7 +172,6 @@ refused_untouched() {
   ! has_event '^nft/apply.uc install-dpi-transition-guard' || fail "$what: tried the create-only DPI guard install"
   ! has_event '^nft/apply.uc remove-dpi-transition-guard' || fail "$what: removed the kept guard"
   ! has_event '^nft/apply.uc nft-rebuild-runtime-from-uci' || fail "$what: rebuilt the policy under the kept guard"
-  ! has_event '^providers/.* \(stop\|start\)-runtime' || fail "$what: switched a DPI runtime"
   ! has_event '^service/state.uc stop-managed-sing-box-runtime' || fail "$what: stopped sing-box"
   ! confirmed || fail "$what: confirmed the working configuration"
   logged 'runtime_guard_active' || fail "$what: did not log the reason runtime_guard_active"

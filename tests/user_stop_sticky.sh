@@ -4,9 +4,8 @@ set -euo pipefail
 # An explicit stop stays in effect until an explicit start (UC-056, D-15(a)).
 #
 # Before: only the reloads that background work requests on its own were
-# skipped after a stop. A manual `init.d reload`, a snapshot restore
-# ("config-restore") and an autotune apply ("autotune") of a stopped runtime
-# took the "runtime state is incomplete" branch and started the whole
+# skipped after a stop. A manual `init.d reload` and a snapshot restore
+# ("config-restore") of a stopped runtime took the "runtime state is incomplete" branch and started the whole
 # runtime again (restart_runtime_for_reload), which also ended the stop. A
 # reload that restarted the runtime cleared a stop that was still waiting
 # for reload.lock. The stop left the rule-set refresh workers running (their
@@ -304,10 +303,10 @@ lifecycle() {
 }
 
 # 1. Every reload of a runtime that an explicit stop took down is skipped
-#    under reload.lock: a manual reload, a snapshot restore, an autotune apply
-#    and any other reason as well as the background ones. The runtime is not
+#    under reload.lock: a manual reload, a snapshot restore and any other
+#    reason as well as the background ones. The runtime is not
 #    touched and the stop stays in effect.
-for reason in "" config-restore autotune list-content ruleset-cache pending on_config_change some-caller; do
+for reason in "" config-restore list-content ruleset-cache pending on_config_change some-caller; do
   reset_case
   runtime_down
   printf 'stop\n' >"$STOP_MARKER"
@@ -357,7 +356,7 @@ grep -q 'Reload state is unavailable; restarting Forkop runtime' "$WORK_DIR/sysl
 no_event '^start-managed$' || fail "a reload restarted sing-box while a stop was pending"
 
 # 3. init.d: the reload of a stopped runtime is not run, whoever requests
-#    it. The transaction callers (snapshot restore, autotune apply) are told
+#    it. The transaction caller (snapshot restore) is told
 #    "stopped", never an empty answer that reads as a reload that ran
 #    (tests/config_restore_user_stop.sh), and so is the job of a UI reload
 #    (service/ui.uc, tests/ui_reload_queued_job.sh); for others the answer
@@ -365,13 +364,13 @@ no_event '^start-managed$' || fail "a reload restarted sing-box while a stop was
 initd_reload() {
   env -u FORKOP_UI_ACTION_TRACKED bash "$WORK_DIR/rc" reload "$@" 2>"$WORK_DIR/initd.err"
 }
-for reason in "" list-content some-caller config-restore autotune; do
+for reason in "" list-content some-caller config-restore; do
   reset_case
   runtime_down
   printf 'stop\n' >"$STOP_MARKER"
   output="$(initd_reload "$reason")" || fail "init.d reload '$reason' of a stopped runtime failed: $(cat "$WORK_DIR/initd.err")"
   case "$reason" in
-    config-restore | autotune) want=stopped ;;
+    config-restore) want=stopped ;;
     *) want='' ;;
   esac
   [ "$output" = "$want" ] || fail "init.d reload '$reason' of a stopped runtime answered '$output', not '$want'"

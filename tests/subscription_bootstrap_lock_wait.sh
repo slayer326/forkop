@@ -12,8 +12,7 @@ set -euo pipefail
 # that took reload.lock and then waited (up to 300 s) for the retry, or a
 # start whose start_main waited for it inside the reload.lock of init.d, held
 # reload.lock all that time: a DNS failover switch (it gives reload.lock 2 s)
-# was refused, every reload only queued, a restore and an autotune apply were
-# refused as busy.
+# was refused, every reload only queued, a restore was refused as busy.
 #
 # 1. The retry holds its lock for 20 s when a forced update comes: the update
 #    waits for it without reload.lock, a DNS failover switch applies
@@ -212,7 +211,6 @@ exit(0);
 UC
 for module in service/state.uc subscription/cache.uc config/validator.uc nft/apply.uc singbox/runtime.uc singbox/generator.uc \
   singbox/priority.uc singbox/dns_failover.uc singbox/ruleset_cache.uc components/updates.uc \
-  autotune/manager.uc providers/byedpi/runtime.uc providers/zapret/runtime.uc providers/zapret2/runtime.uc \
   dns/apply.uc diagnostics/runtime.uc diagnostics/health.uc config/snapshots.uc core/packages.uc \
   service/ui.uc service/reload.uc service/lifecycle.uc; do
   mkdir -p "$(dirname "$FAKE_LIB/$module")"

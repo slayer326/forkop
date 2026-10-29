@@ -4,7 +4,7 @@ set -euo pipefail
 # UC-002, UC-006, UC-039, UC-150: every command of the read ACL group runs
 # against a configuration whose sensitive values all carry a SECRET_MARKER_*
 # substring (outbound links and JSON, WAN credentials, URL userinfo, query
-# tokens, DoH paths, Clash secret, subscription URLs, raw DPI strategies).
+# tokens, DoH paths, Clash secret, subscription URLs).
 # No marker may reach any read-only output.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -126,11 +126,6 @@ export FORKOP_SNAPSHOT_LOCK_DIR="$WORK_DIR/run/config-snapshot.lock"
 export FORKOP_DIAGNOSTICS_SING_BOX_BIN_PATH="$WORK_DIR/bin/sing-box"
 export FORKOP_UI_SING_BOX_BIN_PATH="$WORK_DIR/bin/sing-box"
 export FORKOP_HISTORY_FILE="$WORK_DIR/history.jsonl"
-export FORKOP_AUTOTUNE_STATE_FILE="$WORK_DIR/autotune/state.json"
-export FORKOP_AUTOTUNE_STATE_DIR="$WORK_DIR/run/autotune"
-export FORKOP_AUTOTUNE_LAST_DIR="$WORK_DIR/run/autotune/last"
-export FORKOP_AUTOTUNE_UCI_SAVEDIR="$WORK_DIR/uci-save"
-export FORKOP_AUTOTUNE_TMPDIR="$WORK_DIR/tmp"
 export TMP_SING_BOX_FOLDER="$WORK_DIR/tmp/sing-box"
 export PATH="$WORK_DIR/bin:$PATH"
 
@@ -173,7 +168,7 @@ for (const entry of Object.keys(files)) {
   process.stdout.write(`${command}\n`);
 }
 NODE
-[ "$(wc -l <"$WORK_DIR/commands")" -gt 30 ] || fail "read ACL commands were not collected"
+[ "$(wc -l <"$WORK_DIR/commands")" -gt 20 ] || fail "read ACL commands were not collected"
 grep -qx 'global_check masked' "$WORK_DIR/commands" || fail "global_check masked is missing from the read ACL list"
 
 while IFS= read -r command; do

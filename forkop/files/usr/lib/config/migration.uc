@@ -1490,6 +1490,8 @@ function migrate_retired_byedpi(ctx) {
             set_option(ctx, section, "action", "bypass");
         }
         delete_option(ctx, section, "byedpi_cmd_opts");
+        // The ByeDPI strategy option of releases before byedpi_cmd_opts.
+        delete_option(ctx, section, "cmd_opts");
     }
 
     // Components fall back to the lists section when they have none.
@@ -1723,7 +1725,7 @@ function remove_retired_zapret_state() {
             run("rm -rf " + shell_quote(FORKOP_RUNTIME_STATE_DIR + "/" + name));
 }
 
-// The DPI autotune was removed with the Zapret providers it tuned: its apply
+// The DPI autotune was removed with the DPI providers it tuned: its apply
 // record and its runtime state (job results, probes, locks).
 function remove_retired_autotune_state() {
     fs.unlink(FORKOP_AUTOTUNE_APPLY_STATE);

@@ -1,9 +1,8 @@
 #!/bin/sh
 set -eu
-# route_trace names the Forkop rule, action, outbound and DPI strategy the
-# generated sing-box config assigns to a connection (calculated, marked
-# "simulated"; the strategy "configured"), says why when the config cannot
-# answer, and never returns secrets or raw strategy options.
+# route_trace names the Forkop rule, action and outbound the generated
+# sing-box config assigns to a connection (calculated, marked "simulated"),
+# says why when the config cannot answer, and never returns secrets.
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 LIB="$ROOT/forkop/files/usr/lib"
 TRACE="$LIB/diagnostics/route_trace.uc"
@@ -14,9 +13,8 @@ cat >"$WORK/forkop" <<CONF
 config settings 'settings'
 	option config_path '$WORK/sing-box.json'
 config section 'youtube'
-	option action 'zapret'
+	option action 'connection'
 	option label 'YouTube'
-	option nfqws_opt '--filter-tcp=443 --dpi-desync=multisplit --dpi-desync-split-pos=1,midsld'
 config section 'discord'
 	option action 'vpn'
 	option label 'Discord'
@@ -68,11 +66,10 @@ const read = (name) => JSON.parse(fs.readFileSync(`${dir}/${name}.json`, 'utf8')
 const brief = (t) => [t.rule.value, t.rule.reason ?? null, t.action.value, t.outbound.value];
 
 const yt = read('youtube');
-assert.deepEqual(brief(yt), ['YouTube', null, 'zapret', 'youtube-out']);
+assert.deepEqual(brief(yt), ['YouTube', null, 'connection', 'youtube-out']);
 assert.equal(yt.rule.provenance, 'simulated');
 assert.equal(yt.rule.section, 'youtube');
-assert.deepEqual([yt.dpi.value, yt.dpi.strategy, yt.dpi.strategy_custom, yt.dpi.provenance],
-  ['zapret', 'multisplit', false, 'configured']);
+assert.equal(yt.dpi, undefined, 'no DPI strategy is reported');
 
 assert.deepEqual(brief(read('block')), [null, 'block', 'block', null]);
 assert.deepEqual(brief(read('bypass')), [null, 'bypass', 'bypass', 'bypass-out']);
@@ -82,7 +79,6 @@ assert.deepEqual([any.rule.provenance, any.rule.reason, any.rule.status], ['unkn
 const dev = read('discord-dev');
 assert.deepEqual(brief(dev), ['Discord', null, 'connection', 'discord-out'], 'legacy vpn action reads as connection');
 assert.equal(dev.target.source_applied, true);
-assert.equal(dev.dpi.provenance, 'unknown');
 assert.equal(read('discord-other').rule.reason, 'undecidable_matcher');
 assert.equal(read('discord-other').rule.status, 'undecidable');
 
@@ -91,8 +87,8 @@ assert.equal(read('noconfig').rule.reason, 'singbox_config_unavailable');
 assert.equal(read('noconfig').rule.status, 'unavailable');
 
 for (const name of fs.readdirSync(dir).filter((f) => f.endsWith('.json') && f !== 'sing-box.json'))
-  assert.doesNotMatch(fs.readFileSync(`${dir}/${name}`, 'utf8'), /secret|vless:|dpi-desync|nfqws/,
-    `${name}: no secrets or raw strategy options`);
+  assert.doesNotMatch(fs.readFileSync(`${dir}/${name}`, 'utf8'), /secret|vless:/,
+    `${name}: no secrets`);
 NODE
 
 echo "route_trace owner checks passed"

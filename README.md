@@ -4,7 +4,7 @@
 
 Forkop X направляет трафик домашней сети через прокси прямо на роутере с OpenWrt. Выбранные сайты, сервисы и устройства идут через ваши серверы VLESS, Trojan, Hysteria2 и другие, остальное — напрямую. На устройствах ничего настраивать не нужно.
 
-Всё управляется из LuCI: подписки от провайдера или свои ссылки, готовые списки сайтов и подсетей, обход DPI, выбор ядра и диагностика. Установка и обновления идут через собственное зеркало и откатываются, если что-то пошло не так.
+Всё управляется из LuCI: подписки от провайдера или свои ссылки, готовые списки сайтов и подсетей, выбор ядра и диагностика. Установка и обновления идут через собственное зеркало и откатываются, если что-то пошло не так.
 
 > **Forkop — это бывший Podkop Plus.** Проект переименован и развивается как независимый форк [Podkop](https://github.com/itdoginfo/podkop).
 > Эта сборка — продолжение [Forkop](https://github.com/ushan0v/forkop) с упором на то, чтобы установка и обновление доходили до конца, а не падали на полпути.
@@ -70,7 +70,6 @@ Forkop никогда не трогает sing-box, который ему не �
 - В журнале видно, удалось ли автоматическое восстановление после неудачного запуска.
 - В Diagnostics и Components корректно определяется установленный вариант sing-box.
 - Дополнительные встроенные наборы правил: Blizzard, Sony, Bungie, Riot, Twitch, Nintendo, Epic Games, Valve и другие.
-- Установка zapret-manager полностью с зеркала, прямо из интерфейса.
 
 ## Возможности
 
@@ -81,8 +80,6 @@ Forkop никогда не трогает sing-box, который ему не �
 **Ядро.** sing-box на выбор: Tiny — минимум памяти; Extended — с Tailscale и NaiveProxy; [podkop-engine](https://github.com/podkop-net/podkop-engine) — для свежих серверов Xray, XHTTP и VLESS Encryption, с экономией памяти и быстрым уходом с упавшего сервера. Переключение одной кнопкой, при неудаче Forkop сам возвращает прежнее ядро.
 
 **DNS.** Собственный резолвер sing-box, резервный DNS, автопереключение при отказе, режимы работы с dnsmasq, защита от утечек.
-
-**Обход DPI.** Интеграция с Zapret, Zapret2 и ByeDPI как с отдельными компонентами — установка и обновление из интерфейса.
 
 **Обслуживание.** Обновление Forkop, sing-box и компонентов из LuCI. Автоматическое обновление списков и подписок по расписанию. Диагностика с проверками DNS, FakeIP, маршрутов и подключений. Отчёт для поддержки одной кнопкой.
 
@@ -101,10 +98,9 @@ Forkop X построен на работе других авторов. Спа�
 
 - [itdoginfo/podkop](https://github.com/itdoginfo/podkop) — Podkop, с которого всё началось, и списки доменов [itdoginfo/allow-domains](https://github.com/itdoginfo/allow-domains).
 - [ushan0v/forkop](https://github.com/ushan0v/forkop) — Forkop (бывший Podkop Plus), основа этой сборки, и набор правил [ushan0v/sing-box-supercell-ruleset](https://github.com/ushan0v/sing-box-supercell-ruleset).
-- [Screamshow/forkop-x](https://github.com/Screamshow/forkop-x) — Forkop X: отсюда перенесены многие исправления, а [Screamshow/Zapret-Manager](https://github.com/Screamshow/Zapret-Manager) используется для установки обхода DPI. Оригинал менеджера — [StressOzz/Zapret-Manager](https://github.com/StressOzz/Zapret-Manager).
+- [Screamshow/forkop-x](https://github.com/Screamshow/forkop-x) — Forkop X: отсюда перенесены многие исправления.
 - [SagerNet/sing-box](https://github.com/SagerNet/sing-box) и [shtorm-7/sing-box-extended](https://github.com/shtorm-7/sing-box-extended) — ядро маршрутизации.
 - [podkop-net/podkop-engine](https://github.com/podkop-net/podkop-engine) — сборка sing-box для роутеров, совместимая с современными серверами Xray-core: REALITY, XHTTP, шифрование VLESS, экономия памяти и устойчивые DNS и FakeIP. Отдельное спасибо за открытые замеры и контрольные суммы в каждом релизе — это позволило встроить его в Forkop X с проверкой целостности и откатом.
-- [bol-van/zapret](https://github.com/bol-van/zapret), [bol-van/zapret2](https://github.com/bol-van/zapret2), [remittor/zapret-openwrt](https://github.com/remittor/zapret-openwrt) и [hufrea/byedpi](https://github.com/hufrea/byedpi) — обход DPI.
 - [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat), [zxc-rv/ad-filter](https://github.com/zxc-rv/ad-filter) и [Greeg0ry/b4geoip-forkop](https://github.com/Greeg0ry/b4geoip-forkop) — списки маршрутизации.
 - [OpenWrt](https://github.com/openwrt/openwrt), [LuCI](https://github.com/openwrt/luci) и [ucode](https://github.com/ucode-lang/ucode).
 

@@ -459,11 +459,6 @@ function action_success(component, action, message) {
     outcome = { success: true, message };
     die("ACTION_END");
 }
-function pkg_is_installed(name) { return true; }
-function provider_installed(module) { return false; }
-function provider_package_version(module) { return "1.0"; }
-function is_apk() { return false; }
-function clear_version_caches() { return true; }
 function reset(values) {
     uci = { "forkop.settings.direct_proxy_enabled": "0", "forkop.settings.direct_proxy_port": "2080" };
     calls = []; results = values; outcome = null;
@@ -507,11 +502,6 @@ reset([]);
 forkop_was_running = false;
 check(restart_forkop_after_successful_change() === true, "a skipped restart was reported as failed");
 check(index(join(",", calls), "wait:") < 0 && index(join(",", calls), "init:") < 0, "a stopped Forkop was restarted after a component change");
-
-// The component action reports a Forkop that did not come back.
-reset([ false ]);
-run(function() { remove_optional_component("zapret", "zapret", "zapret", "/lib/providers/zapret/runtime.uc"); });
-check(outcome != null && !outcome.success, "a component removal was reported as success although Forkop did not start again");
 
 // After a failed sing-box change, a start that fails falls back to a restart.
 reset([ false, true ]);
@@ -572,7 +562,6 @@ pathlib.Path(sys.argv[2]).write_text('\n'.join([
     extract('forkop_active_for_setting_change', optional=True),
     extract('restart_forkop_after_failed_sing_box_change'),
     extract('restart_forkop_after_successful_change'),
-    extract('remove_optional_component'),
     extract('set_direct_proxy'),
     cases,
 ]))

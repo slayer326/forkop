@@ -18,8 +18,8 @@ for (const [name, rules, opts = {}] of cases) {
     outbounds: [
       { type: 'direct', tag: 'direct-out' },
       { type: 'vless', tag: 'main-out' },
-      { type: 'direct', tag: 'youtube-out', routing_mark: Number(opts.mark || '0x01000001') },
-      { type: 'direct', tag: 'discord-out', routing_mark: 0x01000002 },
+      { type: 'vless', tag: 'youtube-out' },
+      { type: 'vless', tag: 'discord-out' },
     ] }));
   const fakeip = !(opts.dns && !opts.dns.startsWith('198.18.'));
   out[name] = JSON.parse(execFileSync('ucode', ['-L', lib, path.join(work, 'resolve.uc'), path.join(dir, 'forkop'), singbox,

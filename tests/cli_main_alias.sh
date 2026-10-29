@@ -118,7 +118,6 @@ UC
 }
 for module in service/state.uc subscription/cache.uc config/validator.uc nft/apply.uc singbox/runtime.uc singbox/generator.uc \
   singbox/priority.uc singbox/dns_failover.uc singbox/ruleset_cache.uc components/updates.uc \
-  autotune/manager.uc providers/byedpi/runtime.uc providers/zapret/runtime.uc providers/zapret2/runtime.uc \
   dns/apply.uc diagnostics/runtime.uc diagnostics/health.uc config/snapshots.uc core/packages.uc \
   service/ui.uc service/reload.uc; do
   fake_module "$module"
@@ -155,7 +154,6 @@ no_event '^nft/apply.uc' || fail "forkop main touched the nftables policy while 
 no_event '^nft ' || fail "forkop main ran nft while sing-box ownership is ambiguous"
 no_event '^singbox/runtime.uc' || fail "forkop main rewrote the sing-box configuration while ownership is ambiguous"
 no_event '^components/updates.uc' || fail "forkop main refreshed cron while sing-box ownership is ambiguous"
-no_event '^providers/byedpi/runtime.uc' || fail "forkop main started ByeDPI while sing-box ownership is ambiguous"
 no_event '^service/state.uc start-managed-sing-box-runtime' || fail "forkop main started sing-box while ownership is ambiguous"
 grep -q 'Refusing Forkop start: sing-box process ownership is ambiguous' "$WORK_DIR/syslog" ||
   fail "forkop main did not log the ownership refusal"

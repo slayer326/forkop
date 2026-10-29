@@ -55,7 +55,6 @@ export FORKOP_SNAPSHOT_DIR="$ETC/snapshots" FORKOP_SNAPSHOT_HASH_DIR="$RUN/forko
 # Changes staged with uci refuse a restore (UC-068): the test has its own
 # save directory, never the host's /tmp/.uci.
 export FORKOP_UCI_SAVEDIR="$WORK/uci-save"
-export FORKOP_AUTOTUNE_APPLY_STATE="$ETC/autotune-apply.json"
 export FORKOP_SNAPSHOT_LOCK_DIR="$RUN/forkop/config-snapshot.lock"
 export FORKOP_RUNTIME_STATE_DIR="$RUN/forkop"
 export FORKOP_PENDING_RELOAD_FILE="$RUN/forkop/reload.pending"
@@ -199,11 +198,11 @@ reboot
 # 1a. Reloads by any reason, a manual one included, do not start it; the
 #     transaction callers are told "stopped", the others get no answer (not
 #     "queued" either: the start applies everything).
-for reason in "" ruleset-cache pending badwan_interface_up list-content some-caller config-restore autotune; do
+for reason in "" ruleset-cache pending badwan_interface_up list-content some-caller config-restore; do
   clear_events
   output="$(initd reload "$reason")" || fail "reload '$reason' of a Forkop not started since boot failed: $(cat "$WORK/init.d.err")"
   case "$reason" in
-    config-restore | autotune) want=stopped ;;
+    config-restore) want=stopped ;;
     *) want='' ;;
   esac
   [ "$output" = "$want" ] || fail "reload '$reason' of a Forkop not started since boot answered '$output', not '$want'"
@@ -230,18 +229,7 @@ no_event '^runtime-reload:' || fail "the restore started a Forkop that was not s
 [ "$(cat "$STATE/guard")" = absent ] || fail "the restore left its guard behind"
 has_event '^health:restore:not_started$' || fail "the restore was not recorded as not started"
 
-# 1c. An autotune apply is put back: nothing verifies it, nothing starts.
-config bad; bad_hash="$(sha256sum "$FORKOP_CONFIG_FILE" | cut -d' ' -f1)"
-config other; cp "$FORKOP_CONFIG_FILE" "$WORK/candidate"; config bad
-clear_events
-snap apply "$WORK/candidate" "$bad_hash" >"$WORK/result.json" || true
-[ "$(field "$WORK/result.json" reason)" = service_stopped ] ||
-  fail "autotune apply to a Forkop not started since boot: $(cat "$WORK/result.json")"
-[ "$(sha256sum "$FORKOP_CONFIG_FILE" | cut -d' ' -f1)" = "$bad_hash" ] || fail "the autotune apply kept its candidate"
-no_event '^runtime-reload:' || fail "the autotune apply started a Forkop that was not started since boot"
-[ "$(lkg)" = "$base_lkg" ] || fail "the autotune apply moved last-known-working"
-
-# 1d. A list update commits its generation; its final reload does not start
+# 1c. A list update commits its generation; its final reload does not start
 #     Forkop, and the generation stays marked for the next start.
 list_update_finish() {
   "$REAL_UCODE" -L "$LIB" "$LIB/components/updates.uc" finish-list-update-fixture 0 1 1 >/dev/null 2>&1
@@ -255,7 +243,7 @@ no_event '^runtime-reload:' || fail "the list update started a Forkop that was n
 [ "$(cat "$FORKOP_LIST_UPDATE_RELOAD_FILE" 2>/dev/null)" = apply-pending ] ||
   fail "the list update dropped the apply request of its committed generation"
 
-# 1e. A runtime that runs without a start record (a previous version started
+# 1d. A runtime that runs without a start record (a previous version started
 #     it and kept none) goes down while a restore reloads it: the lifecycle
 #     gate skips the reload under reload.lock, and init.d tells the restore
 #     so; it keeps the configuration for the start and does not move

@@ -25,7 +25,6 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FORKOP_LIB="$ROOT_DIR/forkop/files/usr/lib"
 RUNTIME_UC="$FORKOP_LIB/diagnostics/runtime.uc"
-AUTOTUNE_APPLY_UC="$FORKOP_LIB/autotune/apply.uc"
 WORK_DIR="$(mktemp -d)"
 LISTENER_PIDS=()
 cleanup() {
@@ -75,8 +74,6 @@ while IFS= read -r module; do
 done < <(grep -R -l -E 'SB_CLASH_API_CONTROLLER_PORT|clash_api_url\(|external_controller' "$FORKOP_LIB")
 printf '%s\n' "${controller_modules[@]}" | grep -Fxq "$RUNTIME_UC" ||
   fail "diagnostics/runtime.uc no longer requests the controller: update this test"
-printf '%s\n' "${controller_modules[@]}" | grep -Fxq "$AUTOTUNE_APPLY_UC" ||
-  fail "autotune/apply.uc no longer requests the controller: update this test"
 
 # Each curl argument list (`"curl"` or CURL up to the end of its statement)
 # names --connect-timeout and --max-time. A curl in a shell string is a
@@ -115,9 +112,6 @@ for module in "${controller_modules[@]}"; do
     fail "a curl to the Clash API controller lacks --connect-timeout or --max-time"
   }
 done
-clash_connections="$(source_function "$AUTOTUNE_APPLY_UC" clash_connections)" || exit 1
-printf '%s\n' "$clash_connections" | grep -Fq -- '"--connect-timeout"' ||
-  fail "autotune clash_connections must bound the connect phase"
 
 # --- Controller doubles --------------------------------------------------------
 

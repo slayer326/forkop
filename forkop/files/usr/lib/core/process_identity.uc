@@ -89,10 +89,9 @@ function read_record(path) {
     return { pid, ticks };
 }
 
-// Arguments as comparable tokens. nfqws tokenises a comma list in place
-// while it parses its options, so "--dpi-desync=fake,multisplit" reads back
-// from /proc/<pid>/cmdline as two arguments, "--dpi-desync=fake" and
-// "multisplit". Both sides are split at commas (argv[0], a path, is not);
+// Arguments as comparable tokens. A program may tokenise a comma list in
+// place while it parses its options, so "--mode=fake,split" reads back from
+// /proc/<pid>/cmdline as two arguments, "--mode=fake" and "split". Both sides are split at commas (argv[0], a path, is not);
 // a null expectation stays one wildcard token.
 function argv_tokens(argv) {
     let tokens = [];
