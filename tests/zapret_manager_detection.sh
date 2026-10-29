@@ -21,7 +21,8 @@ RUNTIME="$ROOT_DIR/forkop/files/usr/lib/diagnostics/runtime.uc"
     '  { name: "mirror", zms: mirror, auto: mirror, expected: true },' \
     '  { name: "official", zms: official, auto: official, expected: true },' \
     '  { name: "mixed", zms: official, auto: mirror, expected: true },' \
-    '  { name: "missing", zms: official, expected: false },' \
+    '  { name: "without zmsA", zms: mirror, expected: true },' \
+    '  { name: "zmsA only", auto: official, expected: false },' \
     '  { name: "unrelated", zms: "#!/bin/sh\necho hello\n", auto: official, expected: false },' \
     '  { name: "wrong file", zms: official + ".old", auto: official, expected: false }' \
     '];' \

@@ -1414,6 +1414,126 @@ function install_byedpi(action) {
     action_success("byedpi", action, "ByeDPI package has been installed", current_version, pkg.version, 1, "latest", release.release_url || "");
 }
 
+// The web version ("Zapret Manager for WEB + LuCI") is what the script's
+// "w" command installs. Its state follows the script: installed when the
+// rpcd backend exists, with the version from its backend.sh. Adapted from
+// Forkop X 2.5.0 (c0861b65).
+const ZAPRET_MANAGER_WEB_BACKEND = "/usr/libexec/rpcd/zapret-manager";
+const ZAPRET_MANAGER_WEB_SCRIPT = "/opt/zapret-manager-luci/backend.sh";
+const ZAPRET_MANAGER_CRONTAB = getenv("FORKOP_CRONTAB_FILE") || "/etc/crontabs/root";
+// Zapret-Manager's automatic strategy selection: the script's "zmsA
+// --auto-best" job and the web version's "# zm-autobest" one. Each run
+// restarts zapret with one strategy after another and rewrites its NFQWS_OPT,
+// which Forkop manages, so Forkop keeps both off (components/updates.uc
+// removes them again on every cron refresh).
+const ZAPRET_MANAGER_AUTOBEST_MARKERS = [ "zmsA --auto-best", "# zm-autobest" ];
+
+function zapret_manager_web_installed_version() {
+    let matched = match(read_file(ZAPRET_MANAGER_WEB_SCRIPT), /(^|\n)ZM_VERSION="([^"]*)"/);
+    return matched != null ? matched[2] : "";
+}
+
+// Same rule as the script's zm_ver_gt: numeric dotted fields.
+function zapret_manager_version_newer(candidate, installed) {
+    let a = split(as_string(candidate), "."), b = split(as_string(installed), ".");
+    for (let i = 0; i < length(a) || i < length(b); i++) {
+        let x = int(a[i] || 0), y = int(b[i] || 0);
+        if (x != y)
+            return x > y;
+    }
+    return false;
+}
+
+// The web installer the script names, through the Forkop mirror; "" when the
+// script names none.
+function zapret_manager_web_url(manager_source) {
+    let path = match(manager_source, /ZM_LUCI_URL="\$\{GH_RAW\}\/([^"]+)"/);
+    return path != null ? FORKOP_MIRROR_BASE_URL + "/zapret-manager/proxy/raw.githubusercontent.com/" + path[1] : "";
+}
+
+// Install or update the web version like "w" does, but never remove it.
+// "" on success, otherwise the reason it was not activated.
+function activate_zapret_manager_web(manager_source) {
+    let url = zapret_manager_web_url(manager_source);
+    if (url == "")
+        return "the script does not name its web installer";
+    let installer = tmp_dir + "/ZapretManager_LuCI.sh";
+    if (!download_with_retry(url, installer, "Zapret-Manager web version"))
+        return "its installer could not be downloaded from the mirror";
+    let header = match(read_file(installer), /\n# Version:[ \t]*([0-9.]+)/);
+    let latest = header != null ? header[1] : "";
+    let installed = file_exists(ZAPRET_MANAGER_WEB_BACKEND) ? zapret_manager_web_installed_version() : "";
+    if (installed != "" && !zapret_manager_version_newer(latest, installed)) {
+        remove_file(installer);
+        updates_log("Zapret-Manager web version " + installed + " is already installed");
+        return "";
+    }
+    let ok = run_logged("Activating the Zapret-Manager web version" + (latest != "" ? " " + latest : ""),
+        command_from_args([ "sh", installer ]) + " </dev/null");
+    remove_file(installer);
+    if (!ok || !file_exists(ZAPRET_MANAGER_WEB_BACKEND))
+        return "its installer failed; see the component log";
+    return "";
+}
+
+function zapret_manager_launcher(url) {
+    return "#!/bin/sh\nexport ZAPRET_MANAGER_MIRROR=" + shell_quote(FORKOP_MIRROR_BASE_URL) +
+        "\nexec sh <(wget -q -O - " + shell_quote(url) + ") \"$@\"\n";
+}
+
+// zms runs Zapret-Manager and zmw updates its web version (the web version's
+// own command). There is no zmsA: it exists only for the automatic strategy
+// selection job.
+function write_zapret_manager_launchers(manager_url, web_url) {
+    let paths = [ "/usr/bin/zms" ];
+    if (!write_file("/usr/bin/zms", zapret_manager_launcher(manager_url)))
+        return false;
+    if (web_url != "") {
+        if (!write_file("/usr/bin/zmw", zapret_manager_launcher(web_url)))
+            return false;
+        push(paths, "/usr/bin/zmw");
+    }
+    return command_success_from_args([ "chmod", "0755", ...paths ]);
+}
+
+// Launchers Forkop may remove: its mirror launchers and the ones
+// Zapret-Manager writes itself (from GitHub). Any other /usr/bin/zms* belongs
+// to the user and is kept.
+function zapret_manager_launcher_owned(source) {
+    return index(source, "/zapret-manager/proxy/") >= 0 ||
+        match(source, /raw\.githubusercontent\.com\/(StressOzz|Screamshow)\/Zapret-Manager\//) != null;
+}
+
+// The crontab without Zapret-Manager's automatic strategy selection, or null
+// when it has none.
+function crontab_without_zapret_manager_autobest(text) {
+    let kept = [], removed = false;
+    for (let line in split(as_string(text), "\n")) {
+        let autobest = false;
+        for (let marker in ZAPRET_MANAGER_AUTOBEST_MARKERS)
+            if (index(line, marker) >= 0)
+                autobest = true;
+        if (autobest)
+            removed = true;
+        else
+            push(kept, line);
+    }
+    return removed ? join("\n", kept) : null;
+}
+
+function disable_zapret_manager_autobest() {
+    let filtered = crontab_without_zapret_manager_autobest(read_file(ZAPRET_MANAGER_CRONTAB));
+    if (filtered == null)
+        return true;
+    let staged = make_tmp_file("crontab");
+    let ok = staged != "" && write_file(staged, filtered) && command_success_from_args([ "crontab", staged ]);
+    if (staged != "")
+        remove_file(staged);
+    if (ok)
+        updates_log("Zapret-Manager automatic strategy selection is disabled in Forkop X; its cron job has been removed", "warn");
+    return ok;
+}
+
 function install_zapret_manager(action) {
     let component = "zapret_manager";
     let manager_url = FORKOP_MIRROR_BASE_URL + "/zapret-manager/proxy/raw.githubusercontent.com/Screamshow/Zapret-Manager/main/Zapret-Manager.sh";
@@ -1428,30 +1548,65 @@ function install_zapret_manager(action) {
     let source = read_file(manager_file);
     let matched = match(source, /ZAPRET_MANAGER_VERSION="([^"]+)"/);
     let latest_version = matched != null ? as_string(matched[1]) : "mirror";
-    let wrapper = "#!/bin/sh\nexport ZAPRET_MANAGER_MIRROR=" + shell_quote(FORKOP_MIRROR_BASE_URL) +
-        "\nexec sh <(wget -q -O - " + shell_quote(manager_url) + ") \"$@\"\n";
-    let auto_wrapper = wrapper;
 
-    if (!write_file("/usr/bin/zms", wrapper) || !write_file("/usr/bin/zmsA", auto_wrapper) ||
-        !command_success_from_args([ "chmod", "0755", "/usr/bin/zms", "/usr/bin/zmsA" ]))
+    // The web installer may replace zms, so the Forkop mirror launchers are
+    // written after it.
+    let web_error = activate_zapret_manager_web(source);
+    if (!write_zapret_manager_launchers(manager_url, zapret_manager_web_url(source)))
         action_fail(component, action, "Failed to install Zapret-Manager launchers", current_version, latest_version);
+    if (file_exists("/usr/bin/zmsA") && zapret_manager_launcher_owned(read_file("/usr/bin/zmsA")))
+        remove_file("/usr/bin/zmsA");
+    if (!disable_zapret_manager_autobest())
+        action_fail(component, action, "Zapret-Manager has been installed, but its automatic strategy selection could not be disabled",
+            "installed", latest_version);
 
     clear_version_caches();
-    action_success(component, action, "Zapret-Manager has been installed from the Forkop mirror", current_version,
-        latest_version, 1, "latest", manager_url);
+    if (web_error != "")
+        action_fail(component, action, "Zapret-Manager has been installed, but its web version was not activated: " + web_error,
+            "installed", latest_version);
+    action_success(component, action, "Zapret-Manager and its web version have been installed from the Forkop mirror (LuCI: Services → Zapret Manager)",
+        current_version, latest_version, 1, "latest", manager_url);
+}
+
+// Remove the web version the way the script's "w" command does.
+function remove_zapret_manager_web() {
+    if (!file_exists(ZAPRET_MANAGER_WEB_BACKEND) && !file_exists(ZAPRET_MANAGER_WEB_SCRIPT))
+        return true;
+    let script = join("\n", [
+        "[ -x /opt/zapret-manager-luci/backend.sh ] && /opt/zapret-manager-luci/backend.sh redbtn_panel_gone >/dev/null 2>&1",
+        "rm -rf /opt/zapret-manager-luci /usr/lib/zapret-manager* /usr/libexec/rpcd/zapret-manager* " +
+            "/usr/share/luci/menu.d/luci-app-zapret-manager.json /usr/share/rpcd/acl.d/luci-app-zapret-manager.json " +
+            "/www/luci-static/resources/view/zapret-manager* /www/luci-static/resources/zapret-manager* " +
+            "/www/luci-static/resources/bytetube /www/luci-static/resources/view/bytetube /www/zm /www/zm-webui.html " +
+            "/tmp/zapret-manager* /tmp/zm_uninstall_panel.sh /tmp/zm_luci_latest /tmp/luci-indexcache* /tmp/luci-modulecache/* 2>/dev/null",
+        "[ -s /etc/zm-steer/owned ] || rm -rf /usr/share/zm-redbtn",
+        "uci -q delete uhttpd.zmweb && uci -q commit uhttpd",
+        "/etc/init.d/rpcd restart >/dev/null 2>&1",
+        "/etc/init.d/uhttpd restart >/dev/null 2>&1",
+        "exit 0"
+    ]);
+    run_logged("Removing the Zapret-Manager web version", command_from_args([ "sh", "-c", script ]));
+    return !file_exists(ZAPRET_MANAGER_WEB_BACKEND);
 }
 
 function remove_zapret_manager(action) {
     let component = "zapret_manager";
-    let managed_marker = "/zapret-manager/proxy/";
-    let paths = [ "/usr/bin/zms", "/usr/bin/zmsA" ];
+    let paths = [ "/usr/bin/zms", "/usr/bin/zmsA", "/usr/bin/zmw" ];
     let removed = 0;
+
+    // Refuse a foreign launcher before anything is changed.
+    for (let path in paths)
+        if (file_exists(path) && !zapret_manager_launcher_owned(read_file(path)))
+            action_fail(component, action, "Existing " + path + " was not created by Forkop X or Zapret-Manager and was not removed");
+    if (file_exists(ZAPRET_MANAGER_WEB_BACKEND) || file_exists(ZAPRET_MANAGER_WEB_SCRIPT)) {
+        if (!remove_zapret_manager_web())
+            action_fail(component, action, "Failed to remove the Zapret-Manager web version");
+        removed++;
+    }
 
     for (let path in paths) {
         if (!file_exists(path))
             continue;
-        if (index(read_file(path), managed_marker) < 0)
-            action_fail(component, action, "Existing " + path + " was not created by Forkop X and was not removed");
         remove_file(path);
         if (file_exists(path))
             action_fail(component, action, "Failed to remove " + path);
@@ -1460,8 +1615,8 @@ function remove_zapret_manager(action) {
 
     clear_version_caches();
     action_success(component, action, removed > 0 ?
-        "Zapret-Manager launchers have been removed" :
-        "Zapret-Manager launchers are already removed", "installed", "", 1);
+        "Zapret-Manager and its web version have been removed" :
+        "Zapret-Manager is already removed", "installed", "", 1);
 }
 
 function remove_optional_component(component, package_name, label, runtime_module) {

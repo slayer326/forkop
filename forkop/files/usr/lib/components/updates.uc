@@ -1596,11 +1596,22 @@ function cron_refresh_plan(settings, sections, bin, list_marker, subscription_ma
     print_cron_refresh_plan(cron_refresh_plan_rows(settings, sections, bin, list_marker, subscription_marker, component_marker));
 }
 
+// Zapret-Manager's automatic strategy selection: the script's "zmsA
+// --auto-best" and the web version's "# zm-autobest" job. Each run restarts
+// zapret with one strategy after another and rewrites its NFQWS_OPT, which
+// Forkop manages, so Forkop keeps it off.
+const ZAPRET_MANAGER_AUTOBEST_MARKERS = [ "zmsA --auto-best", "# zm-autobest" ];
+
 function cron_refresh_apply_result(settings, sections, existing_crontab, bin, list_marker, subscription_marker, component_marker) {
     let plan = cron_refresh_plan_rows(settings, sections, bin, list_marker, subscription_marker, component_marker);
     let filtered_crontab = filter_cron_markers_text(existing_crontab, [ list_marker, subscription_marker, component_marker ]);
     let cron_jobs = "";
     let logs = [ { level: "info", message: "The cron job removed" } ];
+    let without_autobest = filter_cron_markers_text(filtered_crontab, ZAPRET_MANAGER_AUTOBEST_MARKERS);
+    if (without_autobest != filtered_crontab) {
+        filtered_crontab = without_autobest;
+        push(logs, { level: "warn", message: "Zapret-Manager automatic strategy selection is disabled in Forkop X; its cron job has been removed" });
+    }
     let tab = "\t";
 
     for (let row in plan.rows) {

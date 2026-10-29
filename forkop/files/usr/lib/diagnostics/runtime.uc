@@ -960,9 +960,10 @@ function zapret_manager_launcher_installed(path) {
         match(source, /https:\/\/raw\.githubusercontent\.com\/(StressOzz|Screamshow)\/Zapret-Manager\/main\/Zapret-Manager\.sh([ \t\r\n"')]|$)/) != null;
 }
 
+// zms alone: Forkop no longer installs zmsA, the launcher of Zapret-Manager's
+// automatic strategy selection (components/action.uc).
 function zapret_manager_is_installed() {
-    return zapret_manager_launcher_installed("/usr/bin/zms") &&
-        zapret_manager_launcher_installed("/usr/bin/zmsA");
+    return zapret_manager_launcher_installed("/usr/bin/zms");
 }
 
 function system_info_cache_is_valid() {
