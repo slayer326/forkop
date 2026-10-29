@@ -71,7 +71,9 @@ for asset in document["assets"]:
     assert asset["digest"] == f"sha256:{digest}"
 PY
 
-tar -tzf "$WORK_DIR/output/forkop-timeweb-$VERSION.tar.gz" |
-  grep -Fxq 'forkop/updates/latest.json' || fail "archive does not contain latest.json"
+# List first: grep -q stops reading at the match, and under pipefail tar's
+# write error on the closed pipe failed the check with the entry present.
+listing="$(tar -tzf "$WORK_DIR/output/forkop-timeweb-$VERSION.tar.gz")"
+grep -Fxq 'forkop/updates/latest.json' <<<"$listing" || fail "archive does not contain latest.json"
 
 printf 'hosting release bundle checks passed\n'
