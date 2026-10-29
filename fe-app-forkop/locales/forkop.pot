@@ -655,7 +655,7 @@ msgid "Autotune history"
 msgstr ""
 
 #: src/forkop/tabs/autotune/initController.ts:1161
-msgid "Autotune is off. To apply the recommendation, switch to \"Recommendations only\" and apply it here, or to \"Automatic\"."
+msgid "Autotune is off. To apply the recommendation, switch to \"Recommendations only\" and apply it here."
 msgstr ""
 
 #: src/forkop/ui/status.ts:284

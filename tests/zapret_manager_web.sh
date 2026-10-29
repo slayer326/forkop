@@ -139,8 +139,14 @@ awk '
   f && /^}/ { exit }
   END { exit !(own && web > own && rm > web) }
 ' "$ACTION" || fail 'removal order: ownership check, web version, launchers'
-grep -Fq 'uci -q delete uhttpd.zmweb && uci -q commit uhttpd' "$ACTION" ||
-  fail 'the web version removal does not drop its uhttpd instance'
+awk '
+  /^function remove_zapret_manager_web\(/ { f = 1 }
+  f && /uci_core.delete\("uhttpd.zmweb"\)/ && !del { del = NR }
+  f && /uci_core.commit\("uhttpd"\)/ && !commit { commit = NR }
+  f && /uhttpd restart/ && !restart { restart = NR }
+  f && /^}/ { exit }
+  END { exit !(del && commit >= del && restart > commit) }
+' "$ACTION" || fail 'the web version removal does not drop its uhttpd instance before the restart'
 
 # Every cron refresh (each Forkop start and reload) removes the auto-best
 # jobs again, should they have been turned on in Zapret-Manager.

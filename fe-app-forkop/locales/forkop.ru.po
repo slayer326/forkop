@@ -470,8 +470,8 @@ msgstr "Автоподбор проверяет только перечисле�
 msgid "Autotune history"
 msgstr "История автоподбора"
 
-msgid "Autotune is off. To apply the recommendation, switch to \"Recommendations only\" and apply it here, or to \"Automatic\"."
-msgstr "Автоподбор выключен. Чтобы применить рекомендацию, включите режим «Только рекомендации» и примените её здесь или включите режим «Автоматически»."
+msgid "Autotune is off. To apply the recommendation, switch to \"Recommendations only\" and apply it here."
+msgstr "Автоподбор выключен. Чтобы применить рекомендацию, включите режим «Только рекомендации» и примените её здесь."
 
 msgid "Autotune mode changed"
 msgstr "Изменён режим автоподбора"

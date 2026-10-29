@@ -1580,12 +1580,15 @@ function remove_zapret_manager_web() {
             "/www/luci-static/resources/bytetube /www/luci-static/resources/view/bytetube /www/zm /www/zm-webui.html " +
             "/tmp/zapret-manager* /tmp/zm_uninstall_panel.sh /tmp/zm_luci_latest /tmp/luci-indexcache* /tmp/luci-modulecache/* 2>/dev/null",
         "[ -s /etc/zm-steer/owned ] || rm -rf /usr/share/zm-redbtn",
-        "uci -q delete uhttpd.zmweb && uci -q commit uhttpd",
-        "/etc/init.d/rpcd restart >/dev/null 2>&1",
-        "/etc/init.d/uhttpd restart >/dev/null 2>&1",
         "exit 0"
     ]);
     run_logged("Removing the Zapret-Manager web version", command_from_args([ "sh", "-c", script ]));
+    // Its own uhttpd instance goes before the web services restart.
+    if (uci_core.available() && uci_core.exists("uhttpd.zmweb") &&
+        (!uci_core.delete("uhttpd.zmweb") || !uci_core.commit("uhttpd")))
+        return false;
+    run_logged("Restarting rpcd and uhttpd after removing the Zapret-Manager web version",
+        "/etc/init.d/rpcd restart >/dev/null 2>&1; /etc/init.d/uhttpd restart >/dev/null 2>&1; exit 0");
     return !file_exists(ZAPRET_MANAGER_WEB_BACKEND);
 }
 
