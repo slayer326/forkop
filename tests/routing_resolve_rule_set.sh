@@ -14,14 +14,17 @@ trap 'rm -rf "$WORK"' EXIT HUP INT TERM
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 
 # Stub of "sing-box rule-set match -f <format> <path> <value>": a list file
-# holds one matching value per line; "!fail" makes the command fail.
+# holds one matching value per line; "!fail" makes the command fail. Like
+# sing-box, it prints the answer through its logger, on stderr; a miss may
+# still print a warning that mentions matching.
 cat >"$WORK/sing-box" <<EOF
 #!/bin/sh
 printf '%s\n' "\$*" >>"$WORK/calls"
 [ "\$1 \$2 \$3" = "rule-set match -f" ] || exit 2
 [ "\$4" = binary ] || [ "\$4" = source ] || exit 2
 grep -qx '!fail' "\$5" && { echo "FATAL read rule-set" >&2; exit 1; }
-grep -qxF "\$6" "\$5" && echo "match rules.[0]: domain/domain_suffix=<binary>"
+grep -qxF "\$6" "\$5" && { echo "match rules.[0]: domain/domain_suffix=<binary>" >&2; exit 0; }
+echo "WARN[0000] no rule-set rule to match" >&2
 exit 0
 EOF
 chmod +x "$WORK/sing-box"
@@ -35,8 +38,7 @@ printf '!fail\n' >"$WORK/broken.srs"
 cat >"$WORK/forkop" <<'EOF'
 config settings 'settings'
 config section 'youtube'
-	option action 'zapret'
-	option nfqws_opt '--filter-tcp=443 --dpi-desync=multisplit'
+	option action 'connection'
 config section 'main'
 	option action 'connection'
 EOF
@@ -48,7 +50,7 @@ let c = json(fs.readfile(ARGV[1]));
 let t = r.target(c.host, c.ip || "198.18.0.9", { fakeip: c.fakeip != false });
 let config = { route: { final: "direct-out", rule_set: c.rule_set, rules: c.rules },
     outbounds: [ { type: "direct", tag: "direct-out" }, { type: "vless", tag: "main-out" },
-        { type: "direct", tag: "youtube-out", routing_mark: 16777217 } ] };
+        { type: "vless", tag: "youtube-out" } ] };
 let got = r.resolve(config, sections, t);
 print(sprintf("%J\n", { status: got.status, reason: got.reason, rule: got.route_rule, section: got.section, kind: got.kind }));
 EOF
@@ -73,10 +75,10 @@ sets="[ { \"type\": \"local\", \"tag\": \"yt\", \"format\": \"binary\", \"path\"
   { \"type\": \"remote\", \"tag\": \"remote\", \"format\": \"binary\", \"url\": \"https://lists.invalid/x.srs\" } ]"
 yt='{ "action": "route", "inbound": [ "tproxy-in" ], "rule_set": "yt", "outbound": "youtube-out" }'
 other='{ "action": "route", "inbound": [ "tproxy-in" ], "rule_set": [ "other" ], "outbound": "main-out" }'
-zapret='{ "status": "decided", "reason": null, "rule": 0, "section": "youtube", "kind": "rule" }'
+youtube='{ "status": "decided", "reason": null, "rule": 0, "section": "youtube", "kind": "rule" }'
 
 # A list that holds the host decides the rule.
-expect list_hit "{ \"host\": \"youtube.com\", \"rule_set\": $sets, \"rules\": [ $yt ] }" "$zapret"
+expect list_hit "{ \"host\": \"youtube.com\", \"rule_set\": $sets, \"rules\": [ $yt ] }" "$youtube"
 grep -qx "rule-set match -f binary $WORK/youtube.srs youtube.com" "$WORK/calls" || fail "list_hit: sing-box was not asked"
 
 # A list above the owner that does not hold the host no longer hides it.
@@ -93,17 +95,17 @@ expect list_miss_all "{ \"host\": \"nothing.test\", \"rule_set\": $sets, \"rules
 
 # One rule, several lists: any of them matches; asking stops at the first hit.
 many='{ "action": "route", "inbound": [ "tproxy-in" ], "rule_set": [ "yt", "broken" ], "outbound": "youtube-out" }'
-expect list_any "{ \"host\": \"youtube.com\", \"rule_set\": $sets, \"rules\": [ $many ] }" "$zapret"
+expect list_any "{ \"host\": \"youtube.com\", \"rule_set\": $sets, \"rules\": [ $many ] }" "$youtube"
 [ "$(wc -l <"$WORK/calls")" = 1 ] || fail "list_any: lists after the hit were asked"
 
 # A static matcher hit needs no list at all.
 mixed='{ "action": "route", "inbound": [ "tproxy-in" ], "domain_suffix": [ "youtube.com" ], "rule_set": [ "broken" ], "outbound": "youtube-out" }'
-expect static_hit "{ \"host\": \"youtube.com\", \"rule_set\": $sets, \"rules\": [ $mixed ] }" "$zapret"
+expect static_hit "{ \"host\": \"youtube.com\", \"rule_set\": $sets, \"rules\": [ $mixed ] }" "$youtube"
 [ ! -s "$WORK/calls" ] || fail "static_hit: a list was asked although a static matcher decided"
 
 # A real-address connection is matched by the address as well as the host.
 addr='{ "action": "route", "inbound": [ "tproxy-in" ], "rule_set": "addresses", "outbound": "youtube-out" }'
-expect address_hit "{ \"host\": \"plain.test\", \"ip\": \"203.0.113.7\", \"fakeip\": false, \"rule_set\": $sets, \"rules\": [ $addr ] }" "$zapret"
+expect address_hit "{ \"host\": \"plain.test\", \"ip\": \"203.0.113.7\", \"fakeip\": false, \"rule_set\": $sets, \"rules\": [ $addr ] }" "$youtube"
 grep -qx "rule-set match -f source $WORK/addresses.srs 203.0.113.7" "$WORK/calls" || fail "address_hit: the address was not asked"
 # A FakeIP connection reaches sing-box as the name: its address is not asked.
 expect fakeip_address "{ \"host\": \"plain.test\", \"ip\": \"198.18.0.9\", \"rule_set\": $sets, \"rules\": [ $addr ] }" \
