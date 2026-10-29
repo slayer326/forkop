@@ -7,7 +7,6 @@ import {
   applyResultView,
   candidateRows,
   currentStrategyLabel,
-  decisionText,
   durationChoices,
   groupCards,
   mutationErrorText,
@@ -250,22 +249,6 @@ describe('groupCards', () => {
       live(),
     );
     expect(direct.applyCandidate).toBeNull();
-
-    const [auto] = groupCards(
-      status({
-        policy: policy({ mode: 'auto' }),
-        groups: {
-          youtube: {
-            ...ready,
-            decision: { reason: 'daily_limit_reached', at: NOW },
-          },
-        },
-      }),
-      live(),
-    );
-    expect(auto.manualHint).toBe(false);
-    expect(auto.applyCandidate).toBeNull();
-    expect(auto.explanation).toContain(decisionText('daily_limit_reached'));
   });
 
   it('explains a conflict with the target names, not ids', () => {

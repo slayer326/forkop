@@ -17,9 +17,9 @@
 //   list-domains <rule_set>  the domains of a list a DPI rule uses, for
 //                   choosing pinned domains (read-only)
 //   run <all|group>     tune the targets of the groups now (write)
-//   if-due              the scheduled run, when enabled and due (cron); in
-//                       mode "auto" it may apply one confirmed group
-//                       recommendation through autotune/apply.uc
+//   if-due              the scheduled run, when enabled and due (cron); it
+//                       only measures: the mode "auto", which applied a
+//                       confirmed recommendation, is off (autotune/policy.uc)
 //   run-async <all|group>  start a run as a background job; prints its id
 //   run-status <job>    state and result of a job (read-only)
 //   rollback            the operator's rollback of the recorded apply

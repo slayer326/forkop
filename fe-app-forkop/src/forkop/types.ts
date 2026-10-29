@@ -107,7 +107,7 @@ export namespace Forkop {
   }
   // autotune/manager.uc: policy, targets and cached results. Strategy
   // identities are catalog candidate ids, never raw strategies.
-  export type AutotuneMode = 'off' | 'recommend' | 'auto';
+  export type AutotuneMode = 'off' | 'recommend';
 
   export interface AutotunePolicy {
     mode: AutotuneMode;

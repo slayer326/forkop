@@ -3,10 +3,10 @@ set -euo pipefail
 
 # Stage 6.8.6: crash recovery and history of the autotune worker. A run is
 # marked running in the persistent state; a run that dies (crash, kill,
-# reboot) is found by the next one and recorded; an apply of unknown outcome
-# counts against the daily limit and cools its candidate down; stale
-# temporary files are removed; a corrupt state is kept aside and autonomous
-# applies wait out a cooldown. Stand-ins: tests/helpers/autotune_scheduler.
+# reboot) is found by the next one and recorded; a corrupt state is kept
+# aside. Autonomous applies are off (the mode "auto" is refused), so a
+# scheduled run never reaches the apply phase.
+# Stand-ins: tests/helpers/autotune_scheduler.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=tests/helpers/autotune_scheduler/setup.sh
@@ -72,31 +72,6 @@ manager status >"$WORK/status-reboot.json"
 manager run youtube >"$WORK/after-reboot.json"
 [ "$(json_get "$WORK/after-reboot.json" recovered.trigger)" = '"schedule"' ] || fail "the rebooted run is found: $(cat "$WORK/after-reboot.json")"
 
-# ---- a crash while applying ---------------------------------------------------
-manager policy-set mode auto >/dev/null
-manager run youtube >/dev/null; manager run youtube >/dev/null
-state_edit 's.next_run_at=1; s.rotation=1'
-mkdir -p "$WORK/tmp/forkop-autotune-apply.leftover"
-STUB_APPLY_SLEEP=5 ucode -L "$LIB" "$LIB/autotune/manager.uc" if-due >/dev/null &
-run_pid=$!
-wait_for "$WORK/tune/apply.log" '^apply '
-[ "$(json_get "$FORKOP_AUTOTUNE_STATE_FILE" worker.phase)" = '"applying"' ] || fail "the apply phase is marked"
-[ "$(json_get "$FORKOP_AUTOTUNE_STATE_FILE" worker.candidate)" = '"fake"' ] || fail "the applied candidate is marked"
-crash "$run_pid"
-find "$WORK/tmp" -maxdepth 1 -name 'forkop-autotune-apply.*' | grep -q . || fail "fixture: a crash leaves the apply directory"
-manager run youtube >"$WORK/after-apply-crash.json"
-[ "$(json_get "$WORK/after-apply-crash.json" recovered.phase)" = '"applying"' ] || fail "apply crash found: $(cat "$WORK/after-apply-crash.json")"
-[ "$(json_get "$FORKOP_AUTOTUNE_STATE_FILE" applies.0.status)" = '"unknown"' ] || fail "an apply of unknown outcome is recorded"
-[ "$(json_get "$FORKOP_AUTOTUNE_STATE_FILE" applies.0.reason)" = '"worker_crashed_during_apply"' ] || fail "its reason"
-[ "$(json_get "$FORKOP_AUTOTUNE_STATE_FILE" applies.0.counted)" = true ] || fail "it counts against the daily limit"
-[ "$(json_get "$FORKOP_AUTOTUNE_STATE_FILE" groups.youtube.cooldowns.fake)" -gt "$(date +%s)" ] || fail "its candidate cools down"
-if find "$WORK/tmp" -maxdepth 1 -name 'forkop-autotune-apply.*' | grep -q .; then fail "stale apply directories are removed"; fi
-manager run youtube >/dev/null
-state_edit 's.next_run_at=1; s.rotation=1'
-manager if-due >"$WORK/after-apply-crash-due.json"
-[ "$(json_get "$WORK/after-apply-crash-due.json" groups.youtube.decision)" = '"candidate_in_cooldown"' ] ||
-  fail "no apply of the crashed candidate: $(cat "$WORK/after-apply-crash-due.json")"
-
 # ---- a corrupt state ----------------------------------------------------------
 printf '{"version":1,"targets":{' >"$FORKOP_AUTOTUNE_STATE_FILE"
 manager status >"$WORK/status-corrupt.json"
@@ -105,15 +80,6 @@ manager run youtube >/dev/null
 [ "$(cat "$FORKOP_AUTOTUNE_STATE_FILE.corrupt")" = '{"version":1,"targets":{' ] || fail "the corrupt state is kept aside"
 recovered="$(json_get "$FORKOP_AUTOTUNE_STATE_FILE" recovered_at)"
 [ "$recovered" != null ] && [ "$recovered" -le "$(date +%s)" ] || fail "recovered_at recorded: $recovered"
-manager run youtube >/dev/null
-[ "$(json_get "$FORKOP_AUTOTUNE_STATE_FILE" groups.youtube.ready)" = true ] || fail "fixture: youtube confirmed again"
-state_edit 's.next_run_at=1; s.rotation=1'
-manager if-due >"$WORK/recovered-due.json"
-[ "$(json_get "$WORK/recovered-due.json" groups.youtube.decision)" = '"state_recovered"' ] ||
-  fail "no autonomous apply right after a state recovery: $(cat "$WORK/recovered-due.json")"
-state_edit 's.recovered_at=1; s.next_run_at=1; s.rotation=1'
-manager if-due >"$WORK/recovered-later.json"
-[ "$(json_get "$WORK/recovered-later.json" applied.status)" = '"applied"' ] || fail "applies resume after the cooldown: $(cat "$WORK/recovered-later.json")"
 
 printf '{"version":99}\n' >"$FORKOP_AUTOTUNE_STATE_FILE"
 manager status >"$WORK/status-version.json"

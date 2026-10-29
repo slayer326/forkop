@@ -104,7 +104,7 @@ assert.deepEqual([defaults.policy.mode, defaults.policy.interval, defaults.polic
 assert.deepEqual(defaults.targets, []);
 
 const policy = read('policy');
-assert.equal(policy.policy.mode, 'auto');
+assert.equal(policy.policy.mode, 'recommend', 'a stored auto reads as recommend: autonomous apply is off');
 assert.equal(policy.policy.interval, '6h', 'an interval below 1h falls back to the default');
 assert.equal(policy.policy.confirmations, 3, 'out-of-range confirmations fall back to the default');
 assert.equal(policy.policy.min_confidence, 'high', 'an invalid confidence falls back to high');

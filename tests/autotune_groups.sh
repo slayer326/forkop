@@ -141,8 +141,8 @@ manager groups >"$WORK/groups.json"
 
 # ---- policy and targets (write) -------------------------------------------
 before="$(cat "$WORK/config/forkop")"
-manager policy-set mode auto >"$WORK/mode.json"
-manager policy-set mode auto >"$WORK/mode-again.json"
+manager policy-set mode recommend >"$WORK/mode.json"
+manager policy-set mode recommend >"$WORK/mode-again.json"
 if manager policy-set interval 10m >"$WORK/interval.json"; then fail "a too short interval must be refused"; fi
 if manager policy-set nosuch 1 >"$WORK/unknown-option.json"; then fail "unknown options must be refused"; fi
 echo "forkop.youtube.enabled='0'" >"$WORK/uci-save/forkop"
@@ -201,7 +201,7 @@ assert.deepEqual(outside, {
 });
 assert.doesNotMatch(fs.readFileSync(`${work}/groups.json`, 'utf8'), /secret|private-z2|dpi-desync/, 'no raw strategies or secrets');
 
-assert.deepEqual([read('mode').status, read('mode').value, read('mode').previous], ['ok', 'auto', 'off']);
+assert.deepEqual([read('mode').status, read('mode').value, read('mode').previous], ['ok', 'recommend', 'off']);
 assert.equal(read('interval').reason, 'duration_out_of_range');
 assert.equal(read('unknown-option').reason, 'unknown_option');
 assert.equal(read('staged').reason, 'uncommitted_uci_changes');
@@ -212,7 +212,7 @@ assert.equal(read('target-bad').reason, 'invalid_host');
 assert.equal(read('target-remove-again').reason, 'unknown_target');
 
 const status = read('status');
-assert.deepEqual([status.policy.mode, status.policy.confirmations], ['auto', 4]);
+assert.deepEqual([status.policy.mode, status.policy.confirmations], ['recommend', 4]);
 const byId = Object.fromEntries(status.targets.map((t) => [t.id, t]));
 assert.deepEqual([byId.yt.host, byId.yt.resolver, byId.yt.last], ['m.youtube.com', null, null],
   'a new host drops the results of the old one');
@@ -226,6 +226,6 @@ assert.deepEqual(history.map((e) => [e.kind, e.status]), [['autotune_mode', 'suc
 const conf = fs.readFileSync(`${work}/after.conf`, 'utf8');
 for (const kept of ["option proxy_string 'vless://secret-uuid@example.net:443'", "option nfqws2_opt '--lua-desync=private-z2'"])
   assert(conf.includes(kept), `rules are untouched: ${kept}`);
-assert.match(conf, /config autotune 'autotune'\n\toption mode 'auto'\n\toption confirmations '4'/);
+assert.match(conf, /config autotune 'autotune'\n\toption mode 'recommend'\n\toption confirmations '4'/);
 console.log('autotune groups checks passed');
 NODE

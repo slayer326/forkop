@@ -221,7 +221,7 @@ wait_until 30 worker_lock_free || fail "the pruning job did not finish"
 manager policy-set mode off >/dev/null
 if grep -q forkop-autotune "$WORK/crontab"; then fail "mode off removes the cron line"; fi
 grep -Fxq '0 3 * * * /usr/bin/other-job' "$WORK/crontab" || fail "other cron jobs stay after removal"
-manager policy-set mode auto >/dev/null
+manager policy-set mode recommend >/dev/null
 manager cron-remove >/dev/null
 if grep -q forkop-autotune "$WORK/crontab"; then fail "cron-remove removes the cron line"; fi
 

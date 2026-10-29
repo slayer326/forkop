@@ -5,14 +5,14 @@ import type { StatusTone } from '../../ui/status';
 // groups). Every backend code becomes words here; raw codes never reach the
 // page.
 
-export const MODES: Forkop.AutotuneMode[] = ['off', 'recommend', 'auto'];
+// The automatic mode is off: a strategy changes only when an administrator
+// applies a recommendation (autotune/policy.uc).
+export const MODES: Forkop.AutotuneMode[] = ['off', 'recommend'];
 
 export function modeLabel(mode: string) {
   switch (mode) {
     case 'recommend':
       return _('Recommendations only');
-    case 'auto':
-      return _('Automatic');
     default:
       return _('Off');
   }
@@ -23,10 +23,6 @@ export function modeDescription(mode: string) {
     case 'recommend':
       return _(
         'Forkop X measures the targets on schedule and shows recommendations. It does not change rules.',
-      );
-    case 'auto':
-      return _(
-        'Forkop X measures the targets on schedule and applies a confirmed recommendation by itself, with a production check and automatic rollback.',
       );
     default:
       return _(
@@ -186,47 +182,6 @@ const DEVICE_LIMITED_TEXT = () =>
   _(
     'The rule is limited to devices: the result holds for them. Forkop X checks a change with router requests sent through the queue of this rule.',
   );
-
-// Why autonomous apply did not happen on the last run (autoapply.uc).
-export function decisionText(reason: string | null | undefined) {
-  switch (reason) {
-    case 'mode_not_auto':
-      return _('Forkop X does not apply recommendations in this mode.');
-    case 'manual_run':
-      return _(
-        'Manual checks only measure; changes are applied only on schedule.',
-      );
-    case 'not_confirmed':
-      return _('The recommendation is not confirmed yet.');
-    case 'confidence_too_low':
-      return _('Automatic apply requires high confidence.');
-    case 'custom_strategy_kept':
-      return _('The rule has a custom strategy; Forkop X keeps it.');
-    case 'candidate_in_cooldown':
-      return _(
-        'This strategy was rolled back recently; it waits for the cooldown.',
-      );
-    case 'state_recovered':
-      return _(
-        'The autotune state was restored after damage; automatic apply waits for the cooldown.',
-      );
-    case 'applies_disabled':
-      return _('Automatic applies are disabled by the policy (0 per day).');
-    case 'daily_limit_reached':
-      return _('The daily limit of automatic applies is reached.');
-    case 'one_apply_per_run':
-      return _(
-        'Another group was changed in this run; at most one change per run.',
-      );
-    case 'direct_not_applicable':
-      return _('Forkop X never turns DPI bypass off by itself.');
-    case 'representative_not_measured':
-    case 'no_recommendation':
-      return '';
-    default:
-      return '';
-  }
-}
 
 // The candidate failed its check, but the configuration was edited while it
 // was checked: the automatic rollback kept the edit instead of restoring the
@@ -415,11 +370,6 @@ export function groupCards(
       explanation.push(inconclusiveText(result.reason));
     }
 
-    const decision =
-      status.policy.mode === 'auto' && result?.status === 'recommendation'
-        ? decisionText(state?.decision?.reason)
-        : '';
-    if (decision) explanation.push(decision);
     if (custom && result?.status === 'recommendation')
       explanation.push(_('The rule has a custom strategy; Forkop X keeps it.'));
     if (deviceLimited && !explanation.includes(DEVICE_LIMITED_TEXT()))

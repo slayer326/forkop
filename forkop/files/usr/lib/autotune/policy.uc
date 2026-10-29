@@ -3,7 +3,7 @@
 // Autotune policy and targets from the Forkop UCI config:
 //
 //   config autotune 'autotune'
-//       option mode 'off'                 # off | recommend | auto
+//       option mode 'off'                 # off | recommend (a stored auto reads as recommend)
 //       option interval '6h'              # between scheduled runs
 //       option confirmations '3'          # same result N runs in a row
 //       option min_confidence 'high'      # high | medium (auto needs high)
@@ -27,7 +27,12 @@
 let probe_module = require("autotune.probe");
 let lists_module = require("autotune.lists");
 
-const MODES = [ "off", "recommend", "auto" ];
+// The "auto" mode, in which Forkop applied a confirmed recommendation by
+// itself, is turned off: a strategy changes only when an administrator
+// applies it. A stored "auto" reads as "recommend", and policy-set refuses it.
+// autotune/autoapply.uc still decides, and always answers mode_not_auto.
+const MODES = [ "off", "recommend" ];
+const RETIRED_MODES = { auto: "recommend" };
 const CONFIDENCES = [ "medium", "high" ];
 const DEFAULTS = {
     mode: "off", interval: "6h", confirmations: 3, min_confidence: "high",
@@ -99,6 +104,7 @@ function read(sections) {
     for (let key, fallback in DEFAULTS) {
         let raw = options[key];
         if (raw == null || as_string(raw) == "") { policy[key] = fallback; continue; }
+        if (key == "mode" && RETIRED_MODES[as_string(raw)] != null) { policy[key] = RETIRED_MODES[as_string(raw)]; continue; }
         let checked = check(key, raw);
         if (checked.error) { push(errors, { option: key, error: checked.error }); policy[key] = fallback; }
         else policy[key] = checked.value;

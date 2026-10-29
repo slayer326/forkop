@@ -57,8 +57,6 @@ manager policy-set mode recommend >/dev/null
 confirm_youtube
 manager policy-set mode off >/dev/null
 refused mode-off mode_off
-manager policy-set mode auto >/dev/null
-refused mode-auto mode_not_recommend
 manager policy-set mode recommend >/dev/null
 
 # ---- a pending (not yet confirmed) recommendation is refused --------------------

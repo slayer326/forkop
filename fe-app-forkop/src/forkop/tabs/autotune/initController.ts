@@ -184,25 +184,6 @@ async function mutate(
 
 async function setMode(mode: Forkop.AutotuneMode) {
   if (!status || status.policy.mode === mode) return;
-  if (mode === 'auto') {
-    const confirmed = await confirmAction({
-      title: _('Turn on automatic mode?'),
-      message: _(
-        'Forkop X will change the strategy of existing DPI rules by itself, only after several confirmations in a row, with a production check and automatic rollback.',
-      ),
-      consequences: [
-        _(
-          'It never creates or deletes rules, never turns DPI bypass off and never moves targets between rules.',
-        ),
-        _('At most %d change(s) per day; a rolled back strategy waits %s.')
-          .replace('%d', String(status.policy.max_applies_per_day))
-          .replace('%s', durationLabel(status.policy.cooldown)),
-        _('Changes are made only by scheduled checks, one group at a time.'),
-      ],
-      confirmLabel: _('Turn on'),
-    });
-    if (!confirmed) return;
-  }
   await mutate(
     () => ForkopShellMethods.autotunePolicySet('mode', mode),
     _('Autotune mode changed'),
@@ -462,12 +443,6 @@ function showPolicyEditor() {
       ],
       policy.min_confidence,
     ),
-    max_applies_per_day: numberInput(
-      'max_applies_per_day',
-      policy.max_applies_per_day,
-      0,
-      5,
-    ),
     cooldown: select(
       'cooldown',
       durationChoices(COOLDOWN_CHOICES, policy.cooldown).map((v) => [
@@ -505,18 +480,7 @@ function showPolicyEditor() {
         controls.confirmations,
         _('The same result this many checks in a row (2–10).'),
       ),
-      ...field(
-        _('Minimum confidence'),
-        controls.min_confidence,
-        _(
-          'For recommendations. Automatic apply always requires high confidence.',
-        ),
-      ),
-      ...field(
-        _('Automatic changes per day'),
-        controls.max_applies_per_day,
-        _('0–5; 0 turns automatic changes off.'),
-      ),
+      ...field(_('Minimum confidence'), controls.min_confidence),
       ...field(
         _('Pause after a rollback'),
         controls.cooldown,
@@ -804,10 +768,6 @@ function policySummary(policy: Forkop.AutotunePolicy) {
   return [
     _('every %s').replace('%s', durationLabel(policy.interval)),
     _('%d confirmations').replace('%d', String(policy.confirmations)),
-    _('up to %d automatic change(s) per day').replace(
-      '%d',
-      String(policy.max_applies_per_day),
-    ),
     _('pause after a rollback %s').replace(
       '%s',
       durationLabel(policy.cooldown),
@@ -1159,7 +1119,7 @@ function renderGroup(card: GroupCard) {
             'p',
             { class: 'fkp-autotune__muted' },
             _(
-              'Autotune is off. To apply the recommendation, switch to "Recommendations only" and apply it here, or to "Automatic".',
+              'Autotune is off. To apply the recommendation, switch to "Recommendations only" and apply it here.',
             ),
           ),
         ]
