@@ -135,6 +135,6 @@ for (let i in c.inbounds)
         mixed = i;
 assert(mixed != null, "connection rule lost its mixed proxy inbound");
 ' "$WORK/mixed-out.json" || fail "mixed proxy is no longer generated for connection rules"
-grep -Fq 'o.depends({ action: "connection", mixed_proxy_enabled: "1" });'"$ROOT/luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js" ||
+grep -Fq 'o.depends({ action: "connection", mixed_proxy_enabled: "1" });' "$ROOT/luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js" ||
   fail "Mixed Proxy is not offered for connection actions in LuCI"
 echo 'Mixed Proxy stays available for connection rules'
