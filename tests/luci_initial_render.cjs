@@ -19,10 +19,10 @@ async function check(readonly) {
   };
   const entry = new Function(
     'view', 'form', 'main', 'shell', 'configform', 'settings', 'section',
-    'dashboard', 'monitoring', 'diagnostic', 'updates', 'history', 'autotune', '_',
+    'dashboard', 'monitoring', 'diagnostic', 'updates', 'history', '_',
     source,
   )(
-    { extend: (value) => value }, {}, {}, shell, {}, {}, {}, {}, {}, {}, {}, {}, {},
+    { extend: (value) => value }, {}, {}, shell, {}, {}, {}, {}, {}, {}, {}, {},
     (value) => value,
   );
   const access = await Promise.race([
@@ -33,22 +33,19 @@ async function check(readonly) {
   assert.equal(startPageCalled, true);
 }
 
+// The rule grid and its editor render without waiting for any probe.
 async function checkRuleGrid() {
-  let resolveAvailability;
   const env = createEnvironment({
-    config: { rule: { '.name': 'rule', '.type': 'section', enabled: '1', action: 'zapret' } },
-    providerAvailabilityLoader: () => new Promise((resolve) => { resolveAvailability = resolve; }),
+    config: { rule: { '.name': 'rule', '.type': 'section', enabled: '1', action: 'connection' } },
   });
-  await Promise.race([
-    env.grid.map.render(),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('Rule grid waited for provider probe')), 100)),
-  ]);
-  const modal = env.openRule('rule');
-  await Promise.resolve();
-  assert.equal(typeof resolveAvailability, 'function');
-  resolveAvailability({ zapretInstalled: true, zapret2Installed: false, byedpiInstalled: false });
-  const rule = await modal;
-  assert.ok(rule.option('action').keylist.includes('zapret'));
+  const timeout = (what) => new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(`${what} waited for a probe`)), 100));
+  await Promise.race([env.grid.map.render(), timeout('Rule grid')]);
+  const rule = await Promise.race([env.openRule('rule'), timeout('Rule editor')]);
+  const actions = rule.option('action').keylist;
+  assert.ok(actions.includes('connection'));
+  for (const retired of ['zapret', 'zapret2', 'byedpi'])
+    assert.equal(actions.includes(retired), false, `${retired} is not offered`);
 }
 
 Promise.all([check(false), check(true), checkRuleGrid()])

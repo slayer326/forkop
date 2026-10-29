@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-25 19:32+0300\n"
-"PO-Revision-Date: 2026-10-25 19:32+0300\n"
+"POT-Creation-Date: 2026-10-29 12:54+0300\n"
+"PO-Revision-Date: 2026-10-29 12:54+0300\n"
 "Last-Translator: slayer\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -20,20 +20,8 @@ msgstr ""
 msgid "-- Select --"
 msgstr "-- Выберите --"
 
-msgid "%d confirmations"
-msgstr "подтверждений: %d"
-
 msgid "%d connections now"
 msgstr "Соединений сейчас: %d"
-
-msgid "%d d"
-msgstr "%d дн."
-
-msgid "%d entries without a domain name are skipped"
-msgstr "пропущено записей без доменного имени: %d"
-
-msgid "%d h"
-msgstr "%d ч"
 
 msgid "%d h ago"
 msgstr "%d ч назад"
@@ -43,9 +31,6 @@ msgstr "%d мин назад"
 
 msgid "%d more groups"
 msgstr "Ещё групп: %d"
-
-msgid "%d more: refine the search"
-msgstr "ещё %d: уточните поиск"
 
 msgid "%d ms"
 msgstr "%d мс"
@@ -62,26 +47,11 @@ msgstr "Правил: %d · групп узлов: %d"
 msgid "%s (disabled)"
 msgstr "%s (отключена)"
 
-msgid "%s (not installed)"
-msgstr "%s (не установлен)"
-
-msgid "%s (provider not installed)"
-msgstr "%s (провайдер не установлен)"
-
 msgid "%s (unavailable)"
 msgstr "%s (недоступна)"
 
-msgid "%s in the rule \"%t\""
-msgstr "%s в правиле «%t»"
-
 msgid "%s is “%s”: sing-box and the firewall read it differently"
 msgstr "%s = «%s»: sing-box и файрвол читают это значение по-разному"
-
-msgid "%s is not applied again before %t"
-msgstr "%s не применяется повторно до %t"
-
-msgid "%s is not installed. Install it in Components or choose another action."
-msgstr "%s не установлен. Установите его в разделе «Компоненты» или выберите другое действие."
 
 msgid "%s: “%s” cannot be written in the current form unchanged"
 msgstr "%s: «%s» нельзя записать в текущем виде без изменения смысла"
@@ -101,59 +71,26 @@ msgstr "+ Добавить приоритет"
 msgid "+ Add URLTest"
 msgstr "+ Добавить URLTest"
 
-msgid "0–5; 0 turns automatic changes off."
-msgstr "0–5; 0 отключает автоматические изменения."
-
-msgid "1–8 domains, spread evenly over the list; a domain without an address is replaced by the next one."
-msgstr "1–8 доменов, равномерно по списку; домен без адреса заменяется следующим."
-
-msgid "3–7 attempts per strategy and target in each check."
-msgstr "3–7 попыток на стратегию и цель в каждой проверке."
-
-msgid "A check is already running."
-msgstr "Проверка уже идёт."
-
 msgid "A configuration backup will be saved in /etc/forkop-backups. Older versions may not support all current settings."
 msgstr "Резервная копия настроек будет сохранена в /etc/forkop-backups. Старые версии могут поддерживать не все текущие настройки."
 
-msgid "A configuration change did not finish and its protection is still active. Restore a snapshot in History and recovery."
-msgstr "Изменение конфигурации не завершилось, и его защита всё ещё активна. Восстановите снимок в разделе «История и восстановление»."
+msgid "A configuration change is being applied. Wait until it finishes."
+msgstr "Применяется изменение конфигурации. Дождитесь его завершения."
 
-msgid "A configuration change is being applied. Traffic that needs DPI bypass may be blocked until it finishes."
-msgstr "Применяется изменение конфигурации. Трафик, которому нужен обход DPI, может блокироваться, пока оно не завершится."
-
-msgid "A configuration change was not confirmed. Traffic that needs DPI bypass may be blocked; see the recovery details for the next step."
-msgstr "Изменение конфигурации не подтвердилось. Трафик, которому нужен обход DPI, может блокироваться; следующий шаг указан в подробностях о восстановлении."
+msgid "A configuration change was not confirmed. See the recovery details for the next step."
+msgstr "Изменение конфигурации не подтвердилось. Следующий шаг указан в подробностях о восстановлении."
 
 msgid "A configuration restore did not finish: restore the last known good snapshot to finish it."
 msgstr "Восстановление конфигурации не завершено: чтобы завершить его, восстановите снимок последней рабочей конфигурации."
 
-msgid "A configuration restore did not finish. Traffic that needs DPI bypass stays blocked until you restore the last known good snapshot."
-msgstr "Восстановление конфигурации не завершено. Трафик, которому нужен обход DPI, блокируется, пока вы не восстановите снимок последней рабочей конфигурации."
+msgid "A configuration restore did not finish. Restore the last known good snapshot to finish it."
+msgstr "Восстановление конфигурации не завершено. Чтобы завершить его, восстановите снимок последней рабочей конфигурации."
 
-msgid "A domain, or a list of a DPI rule measured through a few of its domains."
-msgstr "Домен или список DPI-правила, который проверяется по нескольким его доменам."
+msgid "A failed change left the safety guard in place: restart Forkop X to remove it."
+msgstr "Неудавшееся изменение оставило защитную блокировку: чтобы снять её, перезапустите Forkop X."
 
-msgid "a failed change left the DPI guard in place; restart Forkop X"
-msgstr "неудавшееся изменение оставило защиту DPI; перезапустите Forkop X"
-
-msgid "A failed change left the DPI guard in place: restart Forkop X to remove it."
-msgstr "Неудавшееся изменение оставило защиту DPI: чтобы снять её, перезапустите Forkop X."
-
-msgid "A failed change left the DPI guard in place. Traffic that needs DPI bypass stays blocked until you restart Forkop X."
-msgstr "Неудавшееся изменение оставило защиту DPI. Трафик, которому нужен обход DPI, блокируется, пока вы не перезапустите Forkop X."
-
-msgid "A group is one Zapret DPI rule. Forkop X changes only the strategy of an existing rule, for all its targets at once. It never creates or deletes rules and never turns DPI bypass off."
-msgstr "Группа — это одно DPI-правило Zapret. Forkop X меняет только стратегию существующего правила, сразу для всех его целей. Он никогда не создаёт и не удаляет правила и не отключает обход DPI."
-
-msgid "A list of a DPI rule. Each check takes a few of its domains; keywords and regular expressions are skipped."
-msgstr "Список DPI-правила. Каждая проверка берёт несколько его доменов; ключевые слова и регулярные выражения пропускаются."
-
-msgid "a previous apply is not resolved"
-msgstr "предыдущее применение не завершено"
-
-msgid "A rolled back strategy is not applied again before this time passes."
-msgstr "Откаченная стратегия не применяется снова, пока не пройдёт это время."
+msgid "A failed change left the safety guard in place. Restart Forkop X to remove it."
+msgstr "Неудавшееся изменение оставило защитную блокировку. Чтобы снять её, перезапустите Forkop X."
 
 msgid "a rule applies to selected devices only; choose a device"
 msgstr "одно из правил действует только для отдельных устройств — выберите устройство"
@@ -164,26 +101,11 @@ msgstr "Адрес блокируется правилом. Так и задум
 msgid "a rule is too complex to calculate"
 msgstr "правило слишком сложное для расчёта"
 
-msgid "A safe isolated check is not possible right now."
-msgstr "Безопасная изолированная проверка сейчас невозможна."
-
-msgid "A site or service checked through the DPI rule that routes it."
-msgstr "Сайт или сервис, который проверяется через DPI-правило, по которому он идёт."
-
-msgid "a snapshot operation is in progress"
-msgstr "идёт операция со снимком"
-
-msgid "A strategy is set for the whole rule, so Forkop X does not change it. You can split the targets into separate rules."
-msgstr "Стратегия задаётся на всё правило, поэтому Forkop X её не меняет. Можно разнести цели по разным правилам вручную."
-
-msgid "about %d min"
-msgstr "около %d мин"
+msgid "A safety guard is active"
+msgstr "Активна защитная блокировка"
 
 msgid "Action"
 msgstr "Действие"
-
-msgid "Action required"
-msgstr "Требуется действие"
 
 msgid "Actions"
 msgstr "Действия"
@@ -203,8 +125,8 @@ msgstr "Активный основной DNS"
 msgid "Active: a change is being applied"
 msgstr "Активна: применяется изменение"
 
-msgid "Active: DPI switch not confirmed"
-msgstr "Активна: переключение DPI не подтверждено"
+msgid "Active: change not confirmed"
+msgstr "Активна: изменение не подтверждено"
 
 msgid "Active: kept by a failed change"
 msgstr "Активна: осталась после неудавшегося изменения"
@@ -215,9 +137,6 @@ msgstr "Активна: восстановление не завершено"
 msgid "Add a section"
 msgstr "Добавить секцию"
 
-msgid "Add a target first"
-msgstr "Сначала добавьте цель"
-
 msgid "Add address"
 msgstr "Добавить адрес"
 
@@ -227,17 +146,11 @@ msgstr "Добавьте хотя бы один DNS-сервер"
 msgid "Add prefix to nodes"
 msgstr "Добавлять префикс к узлам"
 
-msgid "Add target"
-msgstr "Добавить цель"
-
 msgid "add the interface item %s"
 msgstr "добавить интерфейс %s"
 
 msgid "add the interface item %s with the DNS resolver %s %s"
 msgstr "добавить интерфейс %s с DNS-резолвером %s %s"
-
-msgid "Add the sites that go through your DPI rules, for example youtube.com."
-msgstr "Добавьте сайты, которые идут через ваши DPI-правила, например youtube.com."
 
 msgid "Add URLs or local paths to .lst lists containing domains and subnets."
 msgstr "Добавьте URL или локальные пути к спискам .lst с доменами и подсетями."
@@ -326,9 +239,6 @@ msgstr "Обеспечивает доступ к YACD из WAN. Убедитес
 msgid "Allows limiting the list of servers for URLTest"
 msgstr "Позволяет ограничить список серверов для URLTest"
 
-msgid "An administrator can roll it back."
-msgstr "Откатить его может администратор."
-
 msgid "an earlier rule re-resolves the address, so the route depends on its answer"
 msgstr "раньше стоит правило, которое заново разрешает адрес, поэтому маршрут зависит от его ответа"
 
@@ -347,18 +257,6 @@ msgstr "и ещё %d"
 msgid "Anime"
 msgstr "Аниме"
 
-msgid "Another autotune operation is running."
-msgstr "Уже выполняется другая операция автоподбора."
-
-msgid "another check is running"
-msgstr "идёт другая проверка"
-
-msgid "Another check was running."
-msgstr "Шла другая проверка."
-
-msgid "Another group was changed in this run; at most one change per run."
-msgstr "В этой проверке уже изменена другая группа; не больше одного изменения за проверку."
-
 msgid "Another service action is already running"
 msgstr "Другое действие с сервисом уже выполняется"
 
@@ -374,35 +272,14 @@ msgstr "Ответ DNS роутера"
 msgid "Any device"
 msgstr "Любое устройство"
 
-msgid "Applied, check passed"
-msgstr "Применена, проверка пройдена"
-
-msgid "Apply"
-msgstr "Применить"
-
-msgid "Apply %s"
-msgstr "Применить %s"
-
-msgid "Apply %s?"
-msgstr "Применить %s?"
-
-msgid "Apply did not finish: configuration edited"
-msgstr "Применение не завершено: конфигурацию изменили"
-
 msgid "Apply section rules only to the specified local IP addresses"
 msgstr "Применять правила секции только к указанным локальным IP-адресам"
-
-msgid "Applying a strategy"
-msgstr "Применяется стратегия"
 
 msgid "Applying changes…"
 msgstr "Применяются изменения…"
 
 msgid "Applying Forkop configuration…"
 msgstr "Применение конфигурации Forkop…"
-
-msgid "Applying the new strategy did not finish: its reload did not succeed, and the configuration was changed meanwhile. Forkop X kept that change instead of rolling back. Check the rule, or restore the snapshot you need in History and recovery."
-msgstr "Применение новой стратегии не завершено: её перезагрузка не удалась, а конфигурацию тем временем изменили. Forkop X сохранил это изменение вместо отката. Проверьте правило или восстановите нужный снимок в разделе «История и восстановление»."
 
 msgid "Applying…"
 msgstr "Применение…"
@@ -416,32 +293,11 @@ msgstr "Нужно указать хотя бы один корректный д
 msgid "At least one valid IP or subnet must be specified."
 msgstr "Нужно указать хотя бы один корректный IP-адрес или подсеть."
 
-msgid "At most %d change(s) per day; a rolled back strategy waits %s."
-msgstr "Не больше %d изменений в сутки; откаченная стратегия ждёт %s."
-
 msgid "Auto refresh"
 msgstr "Автообновление"
 
-msgid "Automatic"
-msgstr "Автоматически"
-
-msgid "Automatic applies are disabled by the policy (0 per day)."
-msgstr "Автоматические изменения отключены политикой (0 в сутки)."
-
-msgid "Automatic apply requires high confidence."
-msgstr "Для автоматического применения нужна высокая уверенность."
-
-msgid "Automatic changes per day"
-msgstr "Автоизменений в сутки"
-
 msgid "Automatic component update checks"
 msgstr "Автоматическая проверка обновлений компонентов"
-
-msgid "Automatic recovery did not finish."
-msgstr "Автоматическое восстановление не завершилось."
-
-msgid "Automatically"
-msgstr "Автоматически"
 
 msgid "Automatically add text to the name of each server from this subscription for convenient filtering."
 msgstr "Автоматически добавлять текст к имени каждого сервера из этой подписки для удобной фильтрации."
@@ -458,26 +314,11 @@ msgstr "Автозапуск выключен"
 msgid "Autostart is on"
 msgstr "Автозапуск включён"
 
-msgid "Autotune"
-msgstr "Автоподбор"
-
 msgid "Autotune apply"
 msgstr "Применение автоподбора"
 
-msgid "Autotune checks only the sites listed here."
-msgstr "Автоподбор проверяет только перечисленные здесь сайты."
-
-msgid "Autotune history"
-msgstr "История автоподбора"
-
-msgid "Autotune is off. To apply the recommendation, switch to \"Recommendations only\" and apply it here."
-msgstr "Автоподбор выключен. Чтобы применить рекомендацию, включите режим «Только рекомендации» и примените её здесь."
-
 msgid "Autotune mode changed"
 msgstr "Изменён режим автоподбора"
-
-msgid "Autotune policy"
-msgstr "Политика автоподбора"
 
 msgid "Autotune recommendation confirmed"
 msgstr "Рекомендация автоподбора подтверждена"
@@ -485,35 +326,11 @@ msgstr "Рекомендация автоподбора подтверждена
 msgid "Autotune run"
 msgstr "Запуск автоподбора"
 
-msgid "Autotune state is unavailable"
-msgstr "Состояние автоподбора недоступно"
-
-msgid "Autotune: %s applied automatically"
-msgstr "Автоподбор: %s применена автоматически"
-
-msgid "Autotune: %s applied manually"
-msgstr "Автоподбор: %s применена вручную"
-
-msgid "Autotune: automatic apply"
-msgstr "Автоподбор: автоматическое применение"
-
-msgid "Autotune: automatic apply of %s"
-msgstr "Автоподбор: автоматическое применение %s"
-
-msgid "Autotune: manual apply"
-msgstr "Автоподбор: ручное применение"
-
-msgid "Autotune: manual apply of %s"
-msgstr "Автоподбор: ручное применение %s"
-
 msgid "Available actions"
 msgstr "Доступные действия"
 
 msgid "Available to administrators only."
 msgstr "Доступно только администратору."
-
-msgid "Backend validation unavailable: %s. Save again to retry."
-msgstr "Проверка на роутере недоступна: %s. Сохраните ещё раз, чтобы повторить."
 
 msgid "Basics"
 msgstr "Основное"
@@ -526,9 +343,6 @@ msgstr "Перед автоподбором"
 
 msgid "Before restore"
 msgstr "Перед восстановлением"
-
-msgid "Best"
-msgstr "Лучшая"
 
 msgid "Block"
 msgstr "Блокировка"
@@ -569,50 +383,8 @@ msgstr "Встроенные подсети"
 msgid "By flag emoji from name"
 msgstr "По эмодзи флага из названия"
 
-msgid "ByeDPI checks"
-msgstr "Проверки ByeDPI"
-
-msgid "ByeDPI listen address and port are assigned by Forkop and must not be set in the strategy."
-msgstr "Адрес и порт прослушивания ByeDPI назначаются Forkop и не должны задаваться в стратегии."
-
-msgid "ByeDPI option does not accept a compact value: %s"
-msgstr "Опция ByeDPI не принимает компактное значение: %s"
-
-msgid "ByeDPI option does not accept a value: %s"
-msgstr "Опция ByeDPI не принимает значение: %s"
-
-msgid "ByeDPI option requires a value: %s"
-msgstr "Для опции ByeDPI требуется значение: %s"
-
-msgid "ByeDPI package is installed"
-msgstr "Пакет ByeDPI установлен"
-
-msgid "ByeDPI package is not installed"
-msgstr "Пакет ByeDPI не установлен"
-
-msgid "ByeDPI provider binary is available"
-msgstr "Бинарный файл провайдера ByeDPI доступен"
-
-msgid "ByeDPI provider binary is not available"
-msgstr "Бинарный файл провайдера ByeDPI недоступен"
-
-msgid "ByeDPI sing-box outbound is configured"
-msgstr "Outbound ByeDPI в sing-box настроен"
-
-msgid "ByeDPI sing-box outbound is not configured"
-msgstr "Outbound ByeDPI в sing-box не настроен"
-
-msgid "ByeDPI Strategy"
-msgstr "Стратегия ByeDPI"
-
-msgid "ByeDPI strategy cannot be empty"
-msgstr "Стратегия ByeDPI не может быть пустой"
-
 msgid "Bypass"
 msgstr "Обход"
-
-msgid "Bypass not needed"
-msgstr "Обход не нужен"
 
 msgid "Cache File Path"
 msgstr "Путь к файлу кэша"
@@ -650,9 +422,6 @@ msgstr "Изменение выполняется"
 msgid "Changes"
 msgstr "Изменения"
 
-msgid "Changes are made only by scheduled checks, one group at a time."
-msgstr "Изменения вносят только плановые проверки, по одной группе за раз."
-
 msgid "Changes compare a snapshot with the saved configuration. Unsaved form edits are not included."
 msgstr "Изменения сравнивают снимок с сохранённой конфигурацией. Несохранённые правки в формах не учитываются."
 
@@ -661,9 +430,6 @@ msgstr "Изменения после этого снимка"
 
 msgid "Check"
 msgstr "Проверить"
-
-msgid "Check 1 to 8 domains of the list."
-msgstr "Проверяйте от 1 до 8 доменов списка."
 
 msgid "Check a site or app"
 msgstr "Проверить сайт или приложение"
@@ -674,35 +440,11 @@ msgstr "Проверить адрес в Диагностике"
 msgid "Check all"
 msgstr "Проверить всё"
 
-msgid "Check all now"
-msgstr "Проверить все сейчас"
-
-msgid "Check completed"
-msgstr "Проверка завершена"
-
-msgid "Check every"
-msgstr "Проверять каждые"
-
 msgid "Check failed"
 msgstr "Проверка не удалась"
 
-msgid "Check failed, not rolled back: configuration edited"
-msgstr "Проверка не пройдена, откат не выполнен: конфигурацию изменили"
-
-msgid "Check failed, rollback did not finish: configuration edited"
-msgstr "Проверка не пройдена, откат не завершён: конфигурацию изменили"
-
-msgid "Check failed, rolled back automatically"
-msgstr "Проверка не пройдена, выполнен автоматический откат"
-
 msgid "Check interval"
 msgstr "Интервал проверки"
-
-msgid "Check now"
-msgstr "Проверить сейчас"
-
-msgid "Check started. Targets are measured in isolation; production traffic is not changed."
-msgstr "Проверка запущена. Цели измеряются изолированно, рабочий трафик не меняется."
 
 msgid "Check the DNS server addresses in Settings or choose another server."
 msgstr "Проверьте адреса DNS-серверов в «Настройках» или выберите другой сервер."
@@ -719,35 +461,11 @@ msgstr "Проверить обновление"
 msgid "Check URL"
 msgstr "URL проверки"
 
-msgid "Checked"
-msgstr "Проверено"
-
-msgid "Checked %d of %d domains"
-msgstr "Проверяется доменов: %d из %d"
-
-msgid "Checking now"
-msgstr "Проверяется"
-
-msgid "Checking targets"
-msgstr "Идёт проверка целей"
-
-msgid "Checking the configuration before the change"
-msgstr "Проверка конфигурации перед изменением"
-
-msgid "Checking the real production path"
-msgstr "Проверка реального production path"
-
-msgid "Checking the recommendation"
-msgstr "Проверка рекомендации"
-
 msgid "Checking, please wait"
 msgstr "Проверяем, пожалуйста подождите"
 
 msgid "Checking…"
 msgstr "Проверяется…"
-
-msgid "Checks and changes wait until it is rolled back."
-msgstr "Проверки и изменения ждут, пока его не откатят."
 
 msgid "Checks failed"
 msgstr "Проверки не выполнены"
@@ -761,23 +479,11 @@ msgstr "Проверки пройдены с ручным DHCP"
 msgid "Checks run on the router and do not prove the path of a LAN client."
 msgstr "Проверки выполняются на роутере и не подтверждают маршрут клиента LAN."
 
-msgid "Checks that the parameters are valid. It does not test site reachability or bypass effectiveness."
-msgstr "Проверяет корректность параметров. Не проверяет доступность сайтов и эффективность обхода."
-
-msgid "Choose a list of a DPI rule."
-msgstr "Выберите список DPI-правила."
-
 msgid "Choose a ready DNS provider, or Custom DNS to enter a protocol and server."
 msgstr "Выберите готовый DNS или «Свой DNS», чтобы указать протокол и сервер вручную."
 
-msgid "Choose at least one domain of the list."
-msgstr "Выберите хотя бы один домен списка."
-
 msgid "Choose Forkop X version"
 msgstr "Выбор версии Forkop X"
-
-msgid "Choose from the list"
-msgstr "Выбрать из списка"
 
 msgid "Choose version"
 msgstr "Выбрать версию"
@@ -842,12 +548,6 @@ msgstr "Параллельная правка"
 msgid "Conditions"
 msgstr "Условия"
 
-msgid "confidence"
-msgstr "уверенность"
-
-msgid "Confidence"
-msgstr "Уверенность"
-
 msgid "Config File Path"
 msgstr "Путь к файлу конфигурации"
 
@@ -877,21 +577,6 @@ msgstr "Настройте User-Agent в настройках элемента"
 
 msgid "Confirm version change"
 msgstr "Подтвердите смену версии"
-
-msgid "Confirmation"
-msgstr "Подтверждение"
-
-msgid "Confirmation %d / %d"
-msgstr "Подтверждение %d / %d"
-
-msgid "Confirmations"
-msgstr "Подтверждений"
-
-msgid "Confirming"
-msgstr "Подтверждается"
-
-msgid "Conflict"
-msgstr "Конфликт"
 
 msgid "Connect through"
 msgstr "Подключаться через"
@@ -956,9 +641,6 @@ msgstr "Не удалось создать снимок"
 msgid "Could not delete snapshot"
 msgstr "Не удалось удалить снимок"
 
-msgid "Could not determine the current rule of each target; results of the last check are shown."
-msgstr "Не удалось определить текущее правило каждой цели; показаны результаты последней проверки."
-
 msgid "Could not load available versions"
 msgstr "Не удалось загрузить список версий"
 
@@ -974,17 +656,8 @@ msgstr "Не удалось сохранить снимок перед прим�
 msgid "Could not start removal. Another component action may be running."
 msgstr "Не удалось начать удаление. Возможно, выполняется другая операция с компонентами."
 
-msgid "Could not start the apply"
-msgstr "Не удалось запустить применение"
-
-msgid "Could not start the check"
-msgstr "Не удалось запустить проверку"
-
 msgid "Create snapshot"
 msgstr "Создать снимок"
-
-msgid "Creating a snapshot and reloading the service"
-msgstr "Создание снимка и перезагрузка сервиса"
 
 msgid "Current section cannot be used as its own transit section"
 msgstr "Текущую секцию нельзя использовать как транзит для самой себя"
@@ -995,17 +668,8 @@ msgstr "Текущую секцию нельзя выбрать для скач�
 msgid "Custom DNS"
 msgstr "Свой DNS"
 
-msgid "custom list"
-msgstr "свой список"
-
 msgid "Custom outbound configurations in JSON format"
 msgstr "Пользовательские конфигурации outbound в формате JSON"
-
-msgid "custom strategy"
-msgstr "своя стратегия"
-
-msgid "Custom strategy"
-msgstr "Своя стратегия"
 
 msgid "Dashboard currently unavailable"
 msgstr "Дашборд сейчас недоступен"
@@ -1021,12 +685,6 @@ msgstr "Адрес по умолчанию для проверки доступ�
 
 msgid "Default route"
 msgstr "Маршрут по умолчанию"
-
-msgid "default strategy"
-msgstr "стандартная стратегия"
-
-msgid "Default strategy"
-msgstr "Стратегия по умолчанию"
 
 msgid "Delay in milliseconds before reloading Forkop after interface UP"
 msgstr "Задержка в миллисекундах перед перезапуском Forkop после поднятия интерфейса"
@@ -1069,9 +727,6 @@ msgstr "Сведения"
 
 msgid "Detect server country"
 msgstr "Определять страну сервера"
-
-msgid "Determining which rule routes each target…"
-msgstr "Определяется, по какому правилу идёт каждая цель…"
 
 msgid "detour must be a non-empty string"
 msgstr "detour должен быть непустой строкой"
@@ -1133,9 +788,6 @@ msgstr "Отключить QUIC протокол для улучшения со�
 msgid "Disabled"
 msgstr "Выключен"
 
-msgid "Disabling interception is incompatible with action=zapret2 because Forkop sends matched traffic through NFQUEUE."
-msgstr "Отключение перехвата несовместимо с action=zapret2, потому что Forkop отправляет совпавший трафик через NFQUEUE."
-
 msgid "Display name"
 msgstr "Отображаемое имя"
 
@@ -1190,9 +842,6 @@ msgstr "DNS-сервер"
 msgid "DNS server address cannot be empty"
 msgstr "Адрес DNS-сервера не может быть пустым"
 
-msgid "DNS server for checks"
-msgstr "DNS-сервер для проверок"
-
 msgid "DNS server used by the resolver"
 msgstr "DNS-сервер, который будет использовать резолвер"
 
@@ -1232,12 +881,6 @@ msgstr "Не тестировать серверы с одним из выбра
 msgid "Do not test specified servers."
 msgstr "Не тестировать указанные серверы."
 
-msgid "Does not work without bypass; a stable strategy was found."
-msgstr "Без обхода не работает; найдена стабильная стратегия."
-
-msgid "Domain"
-msgstr "Домен"
-
 msgid "Domain and IP lists"
 msgstr "Списки доменов и IP"
 
@@ -1258,12 +901,6 @@ msgstr "Домены"
 
 msgid "Domains in rules may not resolve, or resolve past Forkop, so their rules do not apply."
 msgstr "Домены из правил могут не разрешаться или разрешаться в обход Forkop — тогда правила к ним не применяются."
-
-msgid "Domains of the list"
-msgstr "Домены списка"
-
-msgid "Domains to check"
-msgstr "Доменов для проверки"
 
 msgid "Domains: %d"
 msgstr "Домены: %d"
@@ -1313,33 +950,6 @@ msgstr "загружается при обновлении списков; пр�
 msgid "downloaded by the list update; the rule matches the domains in them"
 msgstr "загружается при обновлении списков; правило сопоставляет домены из него"
 
-msgid "DPI"
-msgstr "DPI"
-
-msgid "DPI autotune"
-msgstr "Автоподбор DPI"
-
-msgid "DPI bypass of the rules using this provider may not work."
-msgstr "Обход DPI в правилах с этим провайдером может не работать."
-
-msgid "DPI guard"
-msgstr "Защита DPI"
-
-msgid "DPI protection is active"
-msgstr "активна защита DPI"
-
-msgid "DPI protection is holding traffic"
-msgstr "DPI-защита удерживает трафик"
-
-msgid "DPI rule groups"
-msgstr "Группы DPI-правил"
-
-msgid "DPI strategy"
-msgstr "Стратегия DPI"
-
-msgid "DPI strategy syntax check"
-msgstr "Проверка синтаксиса DPI-стратегии"
-
 msgid "Drag rows to change priority. The rule at the top is checked first."
 msgstr "Перетаскивайте строки, чтобы изменить приоритет. Правило сверху проверяется первым."
 
@@ -1352,23 +962,14 @@ msgstr "Дублирующееся значение"
 msgid "Duration"
 msgstr "Длительность"
 
-msgid "Each target is measured in isolation; production traffic is not changed. After the probes Forkop X waits until their connections close, which can take a few minutes on a blocked site."
-msgstr "Каждая цель измеряется изолированно, рабочий трафик не меняется. После проб Forkop X ждёт закрытия их соединений — на заблокированном сайте это может занять несколько минут."
-
 msgid "Edit"
 msgstr "Изменить"
 
 msgid "Edit rule action"
 msgstr "Изменить"
 
-msgid "Edit target"
-msgstr "Изменить цель"
-
 msgid "Edit URLTest"
 msgstr "Изменить URLTest"
-
-msgid "Edit…"
-msgstr "Изменить…"
 
 msgid "Enable"
 msgstr "Включить"
@@ -1412,9 +1013,6 @@ msgstr "Введите полный объект outbound sing-box"
 msgid "Enter a display name"
 msgstr "Введите отображаемое имя"
 
-msgid "Enter a domain name, for example youtube.com."
-msgstr "Введите доменное имя, например youtube.com."
-
 msgid "Enter a domain or IP address"
 msgstr "Укажите домен или IP-адрес"
 
@@ -1423,9 +1021,6 @@ msgstr "Введите название уровня"
 
 msgid "Enter a port"
 msgstr "Укажите порт"
-
-msgid "Enter a strategy"
-msgstr "Введите стратегию"
 
 msgid "Enter a valid DNS server address"
 msgstr "Укажите корректный адрес DNS-сервера"
@@ -1444,12 +1039,6 @@ msgstr "Ошибка"
 
 msgid "Errors: %d"
 msgstr "Ошибки: %d"
-
-msgid "every %s"
-msgstr "каждые %s"
-
-msgid "Every change made since the last known working configuration is undone, your own edits included. The current configuration is kept as a \"Before restore\" snapshot in History and recovery."
-msgstr "Все изменения, сделанные после последней рабочей конфигурации, будут отменены, включая ваши собственные правки. Текущая конфигурация сохранится как снимок «Перед восстановлением» в разделе «История и восстановление»."
 
 msgid "Exact match unavailable"
 msgstr "Точное совпадение недоступно"
@@ -1495,12 +1084,6 @@ msgstr "Истекает"
 
 msgid "Expose this section as a local HTTP+SOCKS proxy"
 msgstr "Открыть эту секцию как локальный HTTP+SOCKS прокси"
-
-msgid "External nfqws config files bypass Forkop queue management and explicit validation."
-msgstr "Внешние конфиги nfqws обходят управление очередями и явную валидацию Forkop."
-
-msgid "External nfqws2 config files bypass Forkop queue management and explicit validation."
-msgstr "Внешние конфиги nfqws2 обходят управление очередями и явную валидацию Forkop."
 
 msgid "Failed"
 msgstr "Ошибка"
@@ -1571,12 +1154,6 @@ msgstr "Следить за новыми"
 msgid "Following new connections"
 msgstr "Показаны только новые соединения"
 
-msgid "For a DPI rule this can mean the strategy does not work with your provider."
-msgstr "Для правила DPI это может значить, что стратегия не работает у вашего провайдера."
-
-msgid "For recommendations. Automatic apply always requires high confidence."
-msgstr "Для рекомендаций. Автоматическое применение всегда требует высокой уверенности."
-
 msgid "For whom"
 msgstr "Для кого"
 
@@ -1585,18 +1162,6 @@ msgstr "Принудительная маршрутизация устройст
 
 msgid "Forkop Error"
 msgstr "Ошибка Forkop"
-
-msgid "Forkop manages ciadpi pid files itself, so pidfile options are not allowed here."
-msgstr "Forkop сам управляет pid-файлами ciadpi, поэтому параметры pidfile здесь запрещены."
-
-msgid "Forkop manages the ciadpi process lifecycle itself, so daemon mode is not allowed here."
-msgstr "Forkop сам управляет жизненным циклом ciadpi, поэтому режим daemon здесь запрещён."
-
-msgid "Forkop manages the nfqws process lifecycle itself, so daemon mode is not allowed here."
-msgstr "Forkop сам управляет жизненным циклом nfqws, поэтому режим daemon здесь запрещён."
-
-msgid "Forkop manages the nfqws2 process lifecycle itself, so daemon mode is not allowed here."
-msgstr "Forkop сам управляет жизненным циклом nfqws2, поэтому режим daemon здесь запрещён."
 
 msgid "Forkop service is stopped. Start the service to display connections."
 msgstr "Служба Forkop остановлена. Запустите сервис для отображения соединений."
@@ -1610,9 +1175,6 @@ msgstr "Forkop X и sing-box удалены. Исходные репозитор
 msgid "Forkop X could not apply the change; see the Forkop X log."
 msgstr "Forkop X не смог применить изменение; подробности в журнале Forkop X."
 
-msgid "Forkop X does not apply recommendations in this mode."
-msgstr "В этом режиме Forkop X не применяет рекомендации."
-
 msgid "Forkop X is busy updating data or applying settings. Wait for the operation to finish, then try restarting again."
 msgstr "Forkop X обновляет данные или применяет настройки. Дождитесь завершения операции и повторите перезапуск."
 
@@ -1621,9 +1183,6 @@ msgstr "Forkop X занят другой операцией: изменение 
 
 msgid "Forkop X is running"
 msgstr "Forkop X работает"
-
-msgid "Forkop X is stopped; start it first"
-msgstr "Forkop X остановлен; сначала запустите его"
 
 msgid "Forkop X is stopped: the change applies when it is started."
 msgstr "Forkop X остановлен: изменение применится, когда вы его запустите."
@@ -1634,29 +1193,11 @@ msgstr "Forkop X остановлен: конфигурация будет за�
 msgid "Forkop X kept or restored the previous configuration."
 msgstr "Forkop X сохранил или восстановил прежнюю конфигурацию."
 
-msgid "Forkop X measures the targets on schedule and applies a confirmed recommendation by itself, with a production check and automatic rollback."
-msgstr "Forkop X измеряет цели по расписанию и сам применяет подтверждённую рекомендацию, с проверкой в рабочем режиме и автоматическим откатом."
-
-msgid "Forkop X measures the targets on schedule and shows recommendations. It does not change rules."
-msgstr "Forkop X измеряет цели по расписанию и показывает рекомендации. Правила он не меняет."
-
 msgid "Forkop X needs attention"
 msgstr "Forkop X требует внимания"
 
-msgid "Forkop X never turns DPI bypass off by itself; remove the targets from the rule manually if you want."
-msgstr "Forkop X никогда сам не отключает обход DPI; при желании уберите цели из правила вручную."
-
-msgid "Forkop X never turns DPI bypass off by itself."
-msgstr "Forkop X никогда сам не отключает обход DPI."
-
 msgid "Forkop X reloads the configuration. If the reload fails, the previous configuration is restored automatically."
 msgstr "Forkop X перезагрузит конфигурацию. Если перезагрузка не удастся, прежняя конфигурация восстановится автоматически."
-
-msgid "Forkop X restores the \"Before autotune\" snapshot, reloads the service and checks that the previous strategy works."
-msgstr "Forkop X восстановит снимок «Перед автоподбором», перезагрузит службу и проверит, что прежняя стратегия работает."
-
-msgid "Forkop X restores the last known working configuration if the current one differs from it, and reloads the service."
-msgstr "Forkop X восстановит последнюю рабочую конфигурацию, если текущая от неё отличается, и перезагрузит службу."
 
 msgid "Forkop X Settings"
 msgstr "Настройки Forkop X"
@@ -1673,45 +1214,6 @@ msgstr "Forkop X не запускали после загрузки роуте�
 msgid "Forkop X was not stopped by the user: its start failed or it stopped unexpectedly."
 msgstr "Forkop X не останавливали вручную: его запуск не удался или он неожиданно остановился."
 
-msgid "Forkop X will change the strategy of existing DPI rules by itself, only after several confirmations in a row, with a production check and automatic rollback."
-msgstr "Forkop X будет сам менять стратегию существующих DPI-правил — только после нескольких подтверждений подряд, с проверкой в рабочем режиме и автоматическим откатом."
-
-msgid "Forkop X will create a configuration snapshot, reload the service and check the new strategy with router requests sent through the queue of this rule. If the check fails, the previous configuration is restored automatically."
-msgstr "Forkop X создаст снимок конфигурации, перезагрузит службу и проверит новую стратегию запросами роутера, отправленными через очередь этого правила. Если проверка не пройдёт, прежняя конфигурация восстановится автоматически."
-
-msgid "Forkop X will create a configuration snapshot, reload the service and check the real production path. If the check fails, the previous configuration is restored automatically."
-msgstr "Forkop X создаст снимок конфигурации, перезагрузит сервис и проверит реальный production path. Если проверка не пройдёт, предыдущая конфигурация будет восстановлена автоматически."
-
-msgid "Forkop-managed ciadpi runtime has restarted"
-msgstr "ciadpi Forkop перезапускался"
-
-msgid "Forkop-managed ciadpi runtime is not ready"
-msgstr "ciadpi Forkop не готов"
-
-msgid "Forkop-managed ciadpi runtime is not running"
-msgstr "ciadpi Forkop не запущен"
-
-msgid "Forkop-managed ciadpi runtime is ready"
-msgstr "ciadpi Forkop готов"
-
-msgid "Forkop-managed nfqws runtime is not ready"
-msgstr "NFQWS Forkop не готов"
-
-msgid "Forkop-managed nfqws runtime is not running"
-msgstr "NFQWS Forkop не запущен"
-
-msgid "Forkop-managed nfqws runtime is ready"
-msgstr "NFQWS Forkop готов"
-
-msgid "Forkop-managed nfqws2 runtime is not ready"
-msgstr "NFQWS2 Forkop не готов"
-
-msgid "Forkop-managed nfqws2 runtime is not running"
-msgstr "NFQWS2 Forkop не запущен"
-
-msgid "Forkop-managed nfqws2 runtime is ready"
-msgstr "NFQWS2 Forkop готов"
-
 msgid "From configuration"
 msgstr "Из конфигурации"
 
@@ -1720,9 +1222,6 @@ msgstr "С роутера"
 
 msgid "Full removal"
 msgstr "Полное удаление"
-
-msgid "Fuzzing is not supported here because Forkop needs deterministic runtime validation."
-msgstr "Fuzzing здесь не поддерживается, потому что Forkop нужна предсказуемая runtime-валидация."
 
 msgid "Geo-blocked services"
 msgstr "Сервисы с геоблокировкой"
@@ -1750,9 +1249,6 @@ msgstr "Справка"
 
 msgid "Hide values"
 msgstr "Скрывать значения"
-
-msgid "high"
-msgstr "высокая"
 
 msgid "Higher-level check interval"
 msgstr "Интервал проверки высших уровней"
@@ -1904,9 +1400,6 @@ msgstr "Интервал"
 msgid "Invalid Bootstrap DNS server port"
 msgstr "Некорректный порт резервного DNS"
 
-msgid "Invalid ByeDPI strategy"
-msgstr "Некорректная стратегия ByeDPI"
-
 msgid "Invalid CIDR prefix"
 msgstr "Неверный префикс CIDR"
 
@@ -1969,9 +1462,6 @@ msgstr "Неверный IP-адрес"
 
 msgid "Invalid JSON format"
 msgstr "Неверный формат JSON"
-
-msgid "Invalid NFQWS2 strategy"
-msgstr "Некорректная стратегия NFQWS2"
 
 msgid "Invalid path format. Path must start with \"/\" and contain valid characters"
 msgstr "Неверный формат пути. Путь должен начинаться с \"/\" и содержать допустимые символы"
@@ -2078,33 +1568,6 @@ msgstr "Только IPv6"
 msgid "Issues detected"
 msgstr "Обнаружены проблемы"
 
-msgid "It goes directly and is not in a DPI rule. No bypass is configured for it."
-msgstr "Идёт напрямую и не входит в DPI-правило. Обход для неё не настроен."
-
-msgid "It goes through a proxy or VPN rule. DPI autotune does not apply."
-msgstr "Идёт через правило прокси или VPN. Автоподбор DPI не применим."
-
-msgid "It goes through a Zapret2 or ByeDPI rule; autotune supports Zapret rules only."
-msgstr "Идёт через правило Zapret2 или ByeDPI; автоподбор поддерживает только правила Zapret."
-
-msgid "It is blocked by a rule."
-msgstr "Блокируется правилом."
-
-msgid "It is excluded from Forkop X routing."
-msgstr "Исключена из маршрутизации Forkop X."
-
-msgid "It is not in a DPI rule."
-msgstr "Не входит в DPI-правило."
-
-msgid "It is not routed by a DPI rule."
-msgstr "Идёт не по DPI-правилу."
-
-msgid "It never creates or deletes rules, never turns DPI bypass off and never moves targets between rules."
-msgstr "Он никогда не создаёт и не удаляет правила, не отключает обход DPI и не переносит цели между правилами."
-
-msgid "Its measurements are deleted as well. Routing rules are not changed."
-msgstr "Её измерения тоже удаляются. Правила маршрутизации не меняются."
-
 msgid "JSON outbound"
 msgstr "JSON outbound"
 
@@ -2135,20 +1598,8 @@ msgstr "Держать URLTest перед серверами, отсортиро
 msgid "Keyword must not contain spaces or commas"
 msgstr "Ключевое слово не должно содержать пробелы или запятые"
 
-msgid "Last change"
-msgstr "Последнее изменение"
-
-msgid "last check"
-msgstr "последняя проверка"
-
 msgid "Last check"
 msgstr "Последняя проверка"
-
-msgid "Last check completed"
-msgstr "Последняя проверка завершена"
-
-msgid "Last check postponed"
-msgstr "Последняя проверка отложена"
 
 msgid "Last diagnostics: %s"
 msgstr "Последняя диагностика: %s"
@@ -2183,14 +1634,8 @@ msgstr "Установлена последняя версия"
 msgid "Latest version:"
 msgstr "Последняя версия:"
 
-msgid "left"
-msgstr "осталось"
-
 msgid "Legacy settings"
 msgstr "Устаревшие настройки"
-
-msgid "less than a minute"
-msgstr "меньше минуты"
 
 msgid "Level"
 msgstr "Уровень"
@@ -2198,14 +1643,8 @@ msgstr "Уровень"
 msgid "Level name"
 msgstr "Название уровня"
 
-msgid "List"
-msgstr "Список"
-
 msgid "List must be an HTTP(S) URL or a local .lst path"
 msgstr "Список должен быть HTTP(S) URL или локальным путём .lst"
-
-msgid "List of a rule"
-msgstr "Список из правила"
 
 msgid "List Update Frequency"
 msgstr "Частота обновления списков"
@@ -2228,9 +1667,6 @@ msgstr "Загрузка…"
 msgid "Log Level"
 msgstr "Уровень логов"
 
-msgid "low"
-msgstr "низкая"
-
 msgid "LuCI app"
 msgstr "Приложение LuCI"
 
@@ -2243,20 +1679,8 @@ msgstr "Основной DNS-сервер. Если выбрать нескол�
 msgid "Make sure devices use the router as DNS: turn off secure DNS (DoH, Private DNS) in browsers and phones."
 msgstr "Убедитесь, что устройства используют роутер как DNS: отключите защищённый DNS (DoH, «Частный DNS») в браузерах и телефонах."
 
-msgid "Make sure the provider is installed and the rule strategy is valid, then restart Forkop X."
-msgstr "Убедитесь, что провайдер установлен, а стратегия правила корректна, затем перезапустите Forkop X."
-
 msgid "Manual"
 msgstr "Вручную"
-
-msgid "Manual apply is available only in \"Recommendations only\" mode."
-msgstr "Ручное применение доступно только в режиме «Только рекомендации»."
-
-msgid "Manual checks only measure; changes are applied only on schedule."
-msgstr "Ручная проверка только измеряет; изменения применяются только по расписанию."
-
-msgid "manually"
-msgstr "вручную"
 
 msgid "Match destination IPs or subnets"
 msgstr "Совпадение по IP-адресам или подсетям назначения"
@@ -2266,15 +1690,6 @@ msgstr "Совпадение по портам назначения. Испол�
 
 msgid "Maximum time to wait for example.com to resolve during a DNS health check."
 msgstr "Максимальное время ожидания разрешения example.com при проверке доступности DNS."
-
-msgid "measured in isolation from production traffic"
-msgstr "измерено изолированно от рабочего трафика"
-
-msgid "medium"
-msgstr "средняя"
-
-msgid "Minimum confidence"
-msgstr "Минимальная уверенность"
 
 msgid "Minimum latency difference in milliseconds that triggers switching to a faster server."
 msgstr "Минимальная разница задержки в миллисекундах, при которой произойдет переключение на более быстрый сервер."
@@ -2288,14 +1703,8 @@ msgstr "Порт смешанного прокси"
 msgid "Mixed Proxy Username"
 msgstr "Логин смешанного прокси"
 
-msgid "Mode"
-msgstr "Режим"
-
 msgid "Mode 2 enabled"
 msgstr "Режим 2 включён"
-
-msgid "Mode and state"
-msgstr "Режим и состояние"
 
 msgid "Monitored Interfaces"
 msgstr "Наблюдаемые интерфейсы"
@@ -2339,29 +1748,8 @@ msgstr "Доступна новая версия %s для %s"
 msgid "News"
 msgstr "Новости"
 
-msgid "Next scheduled check"
-msgstr "Следующая плановая проверка"
-
 msgid "Next step"
 msgstr "Следующий шаг"
-
-msgid "NFQUEUE range is available"
-msgstr "Диапазон NFQUEUE свободен"
-
-msgid "NFQUEUE range overlaps with another rule"
-msgstr "Диапазон NFQUEUE пересекается с другим правилом"
-
-msgid "NFQWS Strategy"
-msgstr "Стратегия NFQWS"
-
-msgid "NFQWS strategy cannot be empty"
-msgstr "Стратегия NFQWS не может быть пустой"
-
-msgid "NFQWS2 Strategy"
-msgstr "Стратегия NFQWS2"
-
-msgid "NFQWS2 strategy cannot be empty"
-msgstr "Стратегия NFQWS2 не может быть пустой"
 
 msgid "nftables checks"
 msgstr "Проверки nftables"
@@ -2371,18 +1759,6 @@ msgstr "Нет"
 
 msgid "No active connections"
 msgstr "Нет активных соединений"
-
-msgid "No autotune events yet"
-msgstr "Событий автоподбора пока нет"
-
-msgid "No bypass (direct)"
-msgstr "Без обхода (direct)"
-
-msgid "No change needed"
-msgstr "Менять нечего"
-
-msgid "No change was needed"
-msgstr "Изменение не потребовалось"
 
 msgid "No check has been run yet"
 msgstr "Проверка ещё не запускалась"
@@ -2405,15 +1781,6 @@ msgstr "Нет данных"
 msgid "No DNS records for this name"
 msgstr "Для этого имени нет DNS-записей"
 
-msgid "No DNS server for measurements: set a plain IPv4 DNS server in Forkop X or on the target."
-msgstr "Нет DNS-сервера для измерений: укажите обычный IPv4 DNS-сервер в настройках Forkop X или у цели."
-
-msgid "No domain of the list has an address at the DNS server."
-msgstr "Ни один домен списка не получил адрес от DNS-сервера."
-
-msgid "No DPI rule has a downloaded list; only domains can be added."
-msgstr "Ни у одного DPI-правила нет загруженного списка; можно добавить только домены."
-
 msgid "No events of this kind"
 msgstr "Событий этого типа нет"
 
@@ -2422,9 +1789,6 @@ msgstr "Событий пока нет"
 
 msgid "no longer supported: the configuration cannot be applied while the rule is enabled"
 msgstr "больше не поддерживается: пока правило включено, конфигурацию применить не удастся"
-
-msgid "No measurements yet."
-msgstr "Измерений пока нет."
 
 msgid "No new connections yet. Open the site or app you want to check."
 msgstr "Новых соединений пока нет. Откройте сайт или приложение, которое хотите проверить."
@@ -2444,38 +1808,14 @@ msgstr "Ни одно правило его не обрабатывает — в
 msgid "No rule matched"
 msgstr "Ни одно правило не сработало"
 
-msgid "No rules use ByeDPI"
-msgstr "Нет правил, использующих ByeDPI"
-
-msgid "No rules use Zapret"
-msgstr "Нет правил, использующих Zapret"
-
-msgid "No rules use Zapret2"
-msgstr "Нет правил, использующих Zapret2"
-
 msgid "No saved changes since this snapshot"
 msgstr "После этого снимка изменений нет"
 
 msgid "No snapshots yet"
 msgstr "Снимки ещё не создавались"
 
-msgid "No strategies were measured"
-msgstr "Стратегии не измерялись"
-
-msgid "No strategy is stable. The current strategy is kept."
-msgstr "Ни одна стратегия не стабильна. Текущая стратегия оставлена."
-
-msgid "No target is routed through a Zapret DPI rule"
-msgstr "Ни одна цель не идёт через DPI-правило Zapret"
-
-msgid "No targets yet"
-msgstr "Целей пока нет"
-
 msgid "no transit rule is selected"
 msgstr "не выбрано транзитное правило"
-
-msgid "No usable result"
-msgstr "Нет пригодного результата"
 
 msgid "Node list is empty"
 msgstr "Список узлов пуст"
@@ -2489,9 +1829,6 @@ msgstr "Узлы и группы"
 msgid "Normal mode"
 msgstr "Обычный режим"
 
-msgid "Not applied"
-msgstr "Не применено"
-
 msgid "Not available"
 msgstr "Нет данных"
 
@@ -2501,14 +1838,8 @@ msgstr "Недоступно для проверки"
 msgid "Not checked"
 msgstr "Не проверено"
 
-msgid "Not checked yet"
-msgstr "Ещё не проверялось"
-
 msgid "Not determined"
 msgstr "Не определено"
-
-msgid "not in the list"
-msgstr "нет в списке"
 
 msgid "Not installed"
 msgstr "Не установлено"
@@ -2540,26 +1871,11 @@ msgstr "Не поддерживается"
 msgid "not used"
 msgstr "не используется"
 
-msgid "Nothing found"
-msgstr "Ничего не найдено"
-
-msgid "Nothing to check"
-msgstr "Нечего проверять"
-
-msgid "Nothing was rolled back"
-msgstr "Ничего не откачено"
-
-msgid "Nothing was rolled back: the router has uncommitted uci changes of Forkop X (made with \"uci set\" without a commit). Commit or revert them, then roll back again."
-msgstr "Ничего не откачено: на роутере есть незафиксированные изменения Forkop X в uci (внесённые «uci set» без commit). Зафиксируйте или отмените их и повторите откат."
-
 msgid "Now"
 msgstr "Сейчас"
 
 msgid "Observed"
 msgstr "Наблюдается"
-
-msgid "Off"
-msgstr "Выключен"
 
 msgid "Old snapshots deleted"
 msgstr "Старые снимки удалены"
@@ -2600,9 +1916,6 @@ msgstr "Только: %d"
 msgid "Open"
 msgstr "Открыть"
 
-msgid "Open History and recovery"
-msgstr "Открыть «История и восстановление»"
-
 msgid "Open LuCI"
 msgstr "Открыть LuCI"
 
@@ -2620,15 +1933,6 @@ msgstr "Время ожидания истекло"
 
 msgid "Option \"%s\" contains an invalid input value."
 msgstr "Параметр \"%s\" содержит некорректное значение."
-
-msgid "Optional IPv4 address. By default the first IPv4 DNS server of Forkop X is used."
-msgstr "Необязательный IPv4-адрес. По умолчанию используется первый IPv4 DNS-сервер Forkop X."
-
-msgid "Optional values must be attached with '=' here; a separate token would be ignored by nfqws."
-msgstr "Необязательное значение здесь нужно передавать только через '='; отдельный токен nfqws проигнорирует."
-
-msgid "Optional values must be attached with '=' here; a separate token would be ignored by nfqws2."
-msgstr "Необязательные значения здесь должны задаваться через '='; отдельный токен будет проигнорирован nfqws2."
 
 msgid "Original repositories could not be restored. Removal was cancelled before deleting packages."
 msgstr "Не удалось восстановить исходные репозитории. Удаление отменено до удаления пакетов."
@@ -2653,9 +1957,6 @@ msgstr "Для проверки outbound нужен доступ к конфиг
 
 msgid "outbounds must be a non-empty array of strings"
 msgstr "outbounds должен быть непустым массивом строк"
-
-msgid "Outcome unknown"
-msgstr "Результат неизвестен"
 
 msgid "Output Network Interface"
 msgstr "Выходной сетевой интерфейс"
@@ -2699,15 +2000,6 @@ msgstr "Путь должен заканчиваться на cache.db"
 msgid "Path type"
 msgstr "Тип пути"
 
-msgid "Pause"
-msgstr "Пауза"
-
-msgid "Pause after a rollback"
-msgstr "Пауза после отката"
-
-msgid "pause after a rollback %s"
-msgstr "пауза после отката %s"
-
 msgid "Pause updates"
 msgstr "Приостановить обновление"
 
@@ -2719,21 +2011,6 @@ msgstr "Периодически проверять текущий уровен�
 
 msgid "Pin on dashboard"
 msgstr "Закрепить в дашборде"
-
-msgid "Pinned domains must be domain names, at most 8."
-msgstr "Закреплённые домены — это доменные имена, не больше 8."
-
-msgid "Pinned domains: %d"
-msgstr "Закреплённых доменов: %d"
-
-msgid "Policy"
-msgstr "Политика"
-
-msgid "Policy saved"
-msgstr "Политика сохранена"
-
-msgid "Policy…"
-msgstr "Политика…"
 
 msgid "Port"
 msgstr "Порт"
@@ -2765,12 +2042,6 @@ msgstr "Предпочитать IPv6"
 msgid "Prefix text"
 msgstr "Текст префикса"
 
-msgid "Preparing the change"
-msgstr "Подготовка изменения"
-
-msgid "preparing the isolated check"
-msgstr "подготовка изолированной проверки"
-
 msgid "Priority"
 msgstr "Приоритет"
 
@@ -2792,20 +2063,8 @@ msgstr "Настройки приоритета"
 msgid "Probe tool is missing on the router"
 msgstr "На роутере нет инструмента для проверки"
 
-msgid "probes done, removing the temporary rules"
-msgstr "пробы завершены, удаление временных правил"
-
-msgid "Probes per strategy"
-msgstr "Проб на стратегию"
-
-msgid "probes: %d of %d"
-msgstr "пробы: %d из %d"
-
 msgid "Profile"
 msgstr "Профиль"
-
-msgid "Protected for recovery"
-msgstr "Нужен для восстановления"
 
 msgid "Protection and recovery"
 msgstr "Защита и восстановление"
@@ -2815,9 +2074,6 @@ msgstr "Защита активна"
 
 msgid "Protocol"
 msgstr "Протокол"
-
-msgid "Provider"
-msgstr "Провайдер"
 
 msgid "Proxy"
 msgstr "Прокси"
@@ -2830,15 +2086,6 @@ msgstr "ОЗУ"
 
 msgid "Reachable"
 msgstr "Доступно"
-
-msgid "Recommendation confirmed"
-msgstr "Рекомендация подтверждена"
-
-msgid "Recommendations only"
-msgstr "Только рекомендации"
-
-msgid "Recommended"
-msgstr "Рекомендовано"
 
 msgid "Recovered"
 msgstr "Восстановлено"
@@ -2894,9 +2141,6 @@ msgstr "Исключить из уровня серверы из указанн�
 msgid "Remove servers whose names match the expression from this level."
 msgstr "Исключить из уровня серверы, имена которых соответствуют выражению."
 
-msgid "Remove target?"
-msgstr "Удалить цель?"
-
 msgid "Remove the specified servers from this level."
 msgstr "Исключить из уровня указанные серверы."
 
@@ -2921,26 +2165,14 @@ msgstr "Разрешать доменные имена перед маршрут
 msgid "Resolve real IP for routing"
 msgstr "Разрешать реальный IP для маршрутизации"
 
-msgid "Resource selection by hostname inside nfqws is not supported here; sing-box selects resources before NFQUEUE."
-msgstr "Выбор ресурсов по hostname внутри nfqws здесь не поддерживается; ресурсы выбирает sing-box до NFQUEUE."
-
-msgid "Resource selection by hostname inside nfqws2 is not supported here; sing-box selects resources before NFQUEUE."
-msgstr "Выбор ресурсов по hostname внутри nfqws2 здесь не поддерживается; sing-box выбирает ресурсы до NFQUEUE."
-
-msgid "Resource selection by IP or CIDR inside nfqws is not supported here; sing-box selects resources before NFQUEUE."
-msgstr "Выбор ресурсов по IP или CIDR внутри nfqws здесь не поддерживается; ресурсы выбирает sing-box до NFQUEUE."
-
-msgid "Resource selection by IP or CIDR inside nfqws2 is not supported here; sing-box selects resources before NFQUEUE."
-msgstr "Выбор ресурсов по IP или CIDR внутри nfqws2 здесь не поддерживается; sing-box выбирает ресурсы до NFQUEUE."
-
 msgid "Restart Forkop X"
 msgstr "Перезапустить Forkop X"
 
-msgid "Restart Forkop X on the Overview. If it repeats, open the logs under Technical data."
-msgstr "Перезапустите Forkop X на «Обзоре». Если ошибка повторится, откройте логи в «Технических данных»."
+msgid "Restart Forkop X on the Overview. If it repeats, open the logs under Available actions."
+msgstr "Перезапустите Forkop X на «Обзоре». Если ошибка повторится, откройте логи в «Доступных действиях»."
 
-msgid "Restart Forkop X: the restart removes the DPI guard that a failed change left in place."
-msgstr "Перезапустите Forkop X: перезапуск снимет защиту DPI, оставленную неудавшимся изменением."
+msgid "Restart Forkop X: the restart removes the safety guard that a failed change left in place."
+msgstr "Перезапустите Forkop X: перезапуск снимет защитную блокировку, оставленную неудавшимся изменением."
 
 msgid "Restart Forkop X. If another add-on marks traffic, make sure it does not conflict."
 msgstr "Перезапустите Forkop X. Если трафик маркирует другое дополнение, убедитесь, что оно не конфликтует."
@@ -2954,8 +2186,8 @@ msgstr "Восстановить"
 msgid "Restore configuration snapshot?"
 msgstr "Восстановить снимок конфигурации?"
 
-msgid "Restore did not finish: a failed change left the DPI guard in place, and the DPI guard stays active. Restart Forkop X, then restore the snapshot again."
-msgstr "Восстановление не завершено: неудавшееся изменение оставило защиту DPI, и она остаётся активной. Перезапустите Forkop X, затем восстановите снимок ещё раз."
+msgid "Restore did not finish: a failed change left the safety guard in place, and the safety guard stays active. Restart Forkop X, then restore the snapshot again."
+msgstr "Восстановление не завершено: неудавшееся изменение оставило защитную блокировку, и она остаётся активной. Перезапустите Forkop X, затем восстановите снимок ещё раз."
 
 msgid "Restore did not finish: the configuration was changed while the snapshot was being applied."
 msgstr "Восстановление не завершено: конфигурацию изменили, пока применялся снимок."
@@ -2963,8 +2195,8 @@ msgstr "Восстановление не завершено: конфигура
 msgid "Restore did not finish: the configuration was changed while the snapshot was being applied. Forkop X was reloaded, but it is not known whether with the snapshot or with the change."
 msgstr "Восстановление не завершено: конфигурацию изменили, пока применялся снимок. Forkop X перезагружен, но неизвестно, со снимком или с изменением."
 
-msgid "Restore did not finish: the service was busy and only queued the reload. The DPI guard stays active; restore again when the service is idle."
-msgstr "Восстановление не завершено: служба была занята и лишь поставила перезагрузку в очередь. Защита DPI остаётся активной; повторите восстановление, когда служба освободится."
+msgid "Restore did not finish: the service was busy and only queued the reload. The safety guard stays active; restore again when the service is idle."
+msgstr "Восстановление не завершено: служба была занята и лишь поставила перезагрузку в очередь. Защитная блокировка остаётся активной; повторите восстановление, когда служба освободится."
 
 msgid "Restore failed; check the recovery state before retrying"
 msgstr "Восстановление не удалось; проверьте состояние восстановления перед повтором"
@@ -2978,8 +2210,8 @@ msgstr "Вернуть обычный режим"
 msgid "Restore required"
 msgstr "Нужно восстановление"
 
-msgid "Restore the last known good snapshot: the restore finishes and removes the DPI guard."
-msgstr "Восстановите снимок последней рабочей конфигурации: восстановление завершится и снимет защиту DPI."
+msgid "Restore the last known good snapshot: the restore finishes and removes the safety guard."
+msgstr "Восстановите снимок последней рабочей конфигурации: восстановление завершится и снимет защитную блокировку."
 
 msgid "Restore the snapshot you need to finish."
 msgstr "Чтобы завершить, восстановите нужный снимок."
@@ -2996,17 +2228,14 @@ msgstr "Восстановление не применено: служба бы�
 msgid "Restore was not applied: the snapshot configuration did not pass validation. The previous configuration is kept; Forkop X stays stopped."
 msgstr "Восстановление не применено: конфигурация снимка не прошла проверку. Прежняя конфигурация сохранена; Forkop X остаётся остановленным."
 
-msgid "Restore was not started: a failed change left the DPI guard in place, and nothing can be reloaded until Forkop X is restarted. Restart Forkop X, then restore the snapshot if it is still needed."
-msgstr "Восстановление не начато: неудавшееся изменение оставило защиту DPI, и до перезапуска Forkop X ничего нельзя перезагрузить. Перезапустите Forkop X, затем восстановите снимок, если он ещё нужен."
+msgid "Restore was not started: a failed change left the safety guard in place, and nothing can be reloaded until Forkop X is restarted. Restart Forkop X, then restore the snapshot if it is still needed."
+msgstr "Восстановление не начато: неудавшееся изменение оставило защитную блокировку, и до перезапуска Forkop X ничего нельзя перезагрузить. Перезапустите Forkop X, затем восстановите снимок, если он ещё нужен."
 
 msgid "Restore was not started: the router has uncommitted uci changes of Forkop X (made with \"uci set\" without a commit). Commit or revert them, then restore again."
 msgstr "Восстановление не запущено: на роутере есть незафиксированные изменения Forkop X в uci (внесённые «uci set» без commit). Зафиксируйте или отмените их и повторите восстановление."
 
 msgid "Restore…"
 msgstr "Восстановить…"
-
-msgid "Restoring the previous configuration"
-msgstr "Восстановление предыдущей конфигурации"
 
 msgid "Result"
 msgstr "Результат"
@@ -3020,38 +2249,14 @@ msgstr "Повторить"
 msgid "Retry the check when this device has internet access through the router."
 msgstr "Повторите проверку, когда у этого устройства будет доступ в интернет через роутер."
 
-msgid "Retry the check. If it repeats, open the logs under Technical data."
-msgstr "Повторите проверку. Если ошибка повторится, откройте логи в «Технических данных»."
+msgid "Retry the check. If it repeats, open the logs under Available actions."
+msgstr "Повторите проверку. Если ошибка повторится, откройте логи в «Доступных действиях»."
 
 msgid "Retry this check"
 msgstr "Повторить эту проверку"
 
-msgid "Roll back"
-msgstr "Откатить"
-
-msgid "Roll back %s?"
-msgstr "Откатить %s?"
-
-msgid "Roll back the last autotune change?"
-msgstr "Откатить последнее изменение автоподбора?"
-
-msgid "Roll back the last change…"
-msgstr "Откатить последнее изменение…"
-
-msgid "Rollback did not finish"
-msgstr "Откат не завершился"
-
 msgid "Rolled back"
 msgstr "Откачено"
-
-msgid "Rolled back by an administrator"
-msgstr "Откачена администратором"
-
-msgid "Rolling back the last change"
-msgstr "Откат последнего изменения"
-
-msgid "Rolling back…"
-msgstr "Откат…"
 
 msgid "Route"
 msgstr "Маршрут"
@@ -3065,9 +2270,6 @@ msgstr "Причина маршрута"
 msgid "Route requests to this DNS server through another section."
 msgstr "Направлять запросы к этому DNS-серверу через другую секцию."
 
-msgid "Router DNS"
-msgstr "DNS роутера"
-
 msgid "Router DNS is not pointed to Forkop X"
 msgstr "DNS роутера не направлен в Forkop X"
 
@@ -3077,11 +2279,11 @@ msgstr "Маршрут ядра роутера"
 msgid "Routing"
 msgstr "Маршрутизация"
 
+msgid "Routing and DNS rules stop applying"
+msgstr "Правила маршрутизации и DNS перестанут действовать"
+
 msgid "Routing is paused while Forkop X is stopped."
 msgstr "Маршрутизация приостановлена, пока Forkop X остановлен."
-
-msgid "Routing, DNS and DPI bypass rules stop applying"
-msgstr "Правила маршрутизации, DNS и обхода DPI перестанут действовать"
 
 msgid "rule"
 msgstr "правило"
@@ -3125,9 +2327,6 @@ msgstr "Счётчики правил proxy"
 msgid "Rules proxy exist"
 msgstr "Правила прокси существуют"
 
-msgid "Rules that use this provider stop bypassing DPI"
-msgstr "Правила с этим провайдером перестанут обходить DPI"
-
 msgid "Run full diagnostics"
 msgstr "Запустить полную диагностику"
 
@@ -3136,6 +2335,9 @@ msgstr "Россия: блокируют извне"
 
 msgid "Russia: blocked inside"
 msgstr "Россия: заблокировано внутри"
+
+msgid "Safety guard"
+msgstr "Защитная блокировка"
 
 msgid "Save"
 msgstr "Сохранить"
@@ -3146,14 +2348,8 @@ msgstr "Сохранено, служба остановлена"
 msgid "Saving URLTest settings…"
 msgstr "Сохранение настроек URLTest…"
 
-msgid "Scheduled measurements are off. An administrator can still check targets manually."
-msgstr "Плановые измерения выключены. Администратор может проверить цели вручную."
-
 msgid "Search"
 msgstr "Поиск"
-
-msgid "Search domains"
-msgstr "Поиск домена"
 
 msgid "Secret of the Clash API controller used by YACD and the Forkop pages. Required: it is generated on installation and protects the controller with or without WAN access."
 msgstr "Секрет контроллера Clash API, который используют YACD и страницы Forkop. Обязателен: создаётся при установке и защищает контроллер независимо от доступа через WAN."
@@ -3230,9 +2426,6 @@ msgstr "Выберите WAN интерфейсы для мониторинга"
 msgid "Selected"
 msgstr "Выбран"
 
-msgid "Selected %d of %d"
-msgstr "Выбрано %d из %d"
-
 msgid "Selector and URLTest outbounds must contain a non-empty outbounds array"
 msgstr "Selector и URLTest outbound должны содержать непустой массив outbounds"
 
@@ -3283,9 +2476,6 @@ msgstr "Параметр"
 
 msgid "Settings"
 msgstr "Настройки"
-
-msgid "Several strategies are stable with similar latency; the simplest one was chosen."
-msgstr "Несколько стратегий стабильны с близкой задержкой; выбрана самая простая."
 
 msgid "Show more events"
 msgstr "Показать ещё события"
@@ -3356,9 +2546,6 @@ msgstr "Снимок сохранён"
 msgid "Snapshots: %d"
 msgstr "Снимков: %d"
 
-msgid "Some autotune settings are invalid; safe defaults are used for them."
-msgstr "Часть настроек автоподбора некорректна; для них используются безопасные значения по умолчанию."
-
 msgid "Some connections or nodes do not respond, so sites of their rules may not open."
 msgstr "Часть подключений или узлов не отвечает — сайты из их правил могут не открываться."
 
@@ -3377,45 +2564,6 @@ msgstr "Источник"
 msgid "Source Network Interface"
 msgstr "Сетевой интерфейс источника"
 
-msgid "Stability"
-msgstr "Стабильность"
-
-msgid "Stable"
-msgstr "Стабильно"
-
-msgid "Standalone ByeDPI autostart is enabled"
-msgstr "Автозапуск отдельной службы ByeDPI включен"
-
-msgid "Standalone ByeDPI is active together with Forkop ByeDPI rules"
-msgstr "Отдельная служба ByeDPI активна вместе с правилами ByeDPI в Forkop"
-
-msgid "Standalone ByeDPI service is active"
-msgstr "Отдельная служба ByeDPI активна"
-
-msgid "Standalone ByeDPI service is inactive"
-msgstr "Отдельная служба ByeDPI неактивна"
-
-msgid "Standalone Zapret is active together with Forkop Zapret rules"
-msgstr "Отдельная служба Zapret активна вместе с правилами Zapret в Forkop"
-
-msgid "Standalone Zapret service is active"
-msgstr "Отдельная служба Zapret активна"
-
-msgid "Standalone Zapret service is inactive"
-msgstr "Отдельная служба Zapret неактивна"
-
-msgid "Standalone Zapret2 autostart is enabled"
-msgstr "Автозапуск отдельной службы Zapret2 включён"
-
-msgid "Standalone Zapret2 is active together with Forkop Zapret2 rules"
-msgstr "Отдельная служба Zapret2 активна вместе с правилами Zapret2 в Forkop"
-
-msgid "Standalone Zapret2 service is active"
-msgstr "Отдельная служба Zapret2 активна"
-
-msgid "Standalone Zapret2 service is inactive"
-msgstr "Отдельная служба Zapret2 неактивна"
-
 msgid "Start Forkop X"
 msgstr "Запустить Forkop X"
 
@@ -3424,9 +2572,6 @@ msgstr "Время начала"
 
 msgid "Started"
 msgstr "Начало"
-
-msgid "starting"
-msgstr "запуск"
 
 msgid "Starting…"
 msgstr "Запуск…"
@@ -3455,12 +2600,6 @@ msgstr "Остановить Forkop X…"
 msgid "Stopped by user"
 msgstr "Остановлено пользователем"
 
-msgid "Strategy"
-msgstr "Стратегия"
-
-msgid "Strategy %s applied and checked."
-msgstr "Стратегия %s применена и проверена."
-
 msgid "Subnets from the list will be extracted and added to nftables"
 msgstr "IP-адреса и подсети из списка будут извлечены и добавлены в nftables"
 
@@ -3488,9 +2627,6 @@ msgstr "Подписки обновлены"
 msgid "Succeeded"
 msgstr "Успешно"
 
-msgid "Successful"
-msgstr "Успешно"
-
 msgid "Support"
 msgstr "Поддержка"
 
@@ -3500,12 +2636,6 @@ msgstr "Отчёт содержит конфиденциальную инфор�
 msgid "Switching"
 msgstr "Переключается"
 
-msgid "Syntax check is unavailable"
-msgstr "Проверка синтаксиса недоступна"
-
-msgid "Syntax is correct"
-msgstr "Синтаксис корректен"
-
 msgid "System check"
 msgstr "Проверка системы"
 
@@ -3514,30 +2644,6 @@ msgstr "Системная информация"
 
 msgid "Table exist"
 msgstr "Таблица существует"
-
-msgid "Target %d of %d"
-msgstr "Цель %d из %d"
-
-msgid "Target actions"
-msgstr "Действия с целью"
-
-msgid "Target removed"
-msgstr "Цель удалена"
-
-msgid "Target saved"
-msgstr "Цель сохранена"
-
-msgid "Targets"
-msgstr "Цели"
-
-msgid "Targets of this rule need different strategies."
-msgstr "Целям этого правила нужны разные стратегии."
-
-msgid "Targets outside DPI rules (%d)"
-msgstr "Цели вне DPI-правил (%d)"
-
-msgid "Technical data"
-msgstr "Технические данные"
 
 msgid "Technical details"
 msgstr "Технические детали"
@@ -3572,23 +2678,8 @@ msgstr "URL проверки"
 msgid "The address is blocked by a rule"
 msgstr "Адрес блокируется правилом"
 
-msgid "The autotune state was damaged and has been reset; automatic changes wait for the pause after a rollback."
-msgstr "Состояние автоподбора было повреждено и сброшено; автоматические изменения ждут окончания паузы после отката."
-
-msgid "The autotune state was restored after damage; automatic apply waits for the cooldown."
-msgstr "Состояние автоподбора восстановлено после повреждения; автоматическое применение ждёт окончания паузы."
-
-msgid "The autotune state was restored after damage. Run the check again."
-msgstr "Состояние автоподбора восстановлено после повреждения. Запустите проверку ещё раз."
-
-msgid "The best strategy is not stable for every target of the rule."
-msgstr "Лучшая стратегия стабильна не для всех целей правила."
-
 msgid "The cascade setting is cleared. Save the rule to keep the change."
 msgstr "Настройка каскада очищена. Сохраните правило, чтобы сохранить изменение."
-
-msgid "The change affects the whole group:"
-msgstr "Изменение затронет всю группу:"
 
 msgid "The change is kept and saved as a snapshot (\"Concurrent edit\")."
 msgstr "Изменение сохранено и записано снимком («Параллельная правка»)."
@@ -3596,92 +2687,11 @@ msgstr "Изменение сохранено и записано снимком
 msgid "The change is kept in the configuration, but no snapshot of it could be saved."
 msgstr "Изменение осталось в конфигурации, но записать его снимком не удалось."
 
-msgid "The change was not saved."
-msgstr "Изменение не сохранено."
-
-msgid "The check did not complete"
-msgstr "Проверка не завершилась"
-
-msgid "The check gave no usable result."
-msgstr "Проверка не дала пригодного результата."
-
-msgid "The check stopped unexpectedly"
-msgstr "Проверка неожиданно остановилась"
-
-msgid "The check was postponed. See the state above."
-msgstr "Проверка отложена. Причина — в состоянии выше."
-
-msgid "The confidence of the recommendation is below the policy minimum."
-msgstr "Уверенность рекомендации ниже минимума политики."
-
-msgid "The configuration before the change is restored."
-msgstr "Конфигурация до изменения восстановлена."
-
-msgid "The configuration was changed after the apply, so nothing was rolled back. Restore a snapshot in History and recovery if needed."
-msgstr "После применения конфигурация менялась, поэтому ничего не откачено. При необходимости восстановите снимок в разделе «История и восстановление»."
-
-msgid "The current strategy is already the best."
-msgstr "Текущая стратегия уже лучшая."
-
-msgid "The current strategy is kept."
-msgstr "Текущая стратегия оставлена."
-
-msgid "The daily limit of automatic applies is reached."
-msgstr "Исчерпан суточный лимит автоматических изменений."
-
-msgid "The damaged record is kept aside for inspection."
-msgstr "Повреждённая запись будет сохранена отдельно для разбора."
-
-msgid "The damaged record is set aside; the configuration already was the last known working one."
-msgstr "Повреждённая запись отложена в сторону; конфигурация уже была последней рабочей."
-
-msgid "The desync fwmark is managed by Forkop for loop prevention and must not be overridden here."
-msgstr "Desync fwmark управляется Forkop для защиты от циклов и не должен переопределяться здесь."
-
-msgid "The DNS server must be an IPv4 address."
-msgstr "DNS-сервер должен быть IPv4-адресом."
-
-msgid "The DPI guard stays active. Restore the snapshot you need to finish."
-msgstr "Защита DPI остаётся активной. Чтобы завершить, восстановите нужный снимок."
-
-msgid "The DPI provider of the selected section is not installed. Install it in Components or choose another section."
-msgstr "DPI-провайдер выбранной секции не установлен. Установите его в разделе «Компоненты» или выберите другую секцию."
-
-msgid "The DPI rule that routes it could not be identified safely."
-msgstr "Не удалось надёжно определить DPI-правило, по которому она идёт."
-
 msgid "The editor has no field for downloaded lists: they cannot be converted and stay as they are."
 msgstr "Для загружаемых списков в редакторе нет поля: их нельзя конвертировать, они остаются как есть."
 
-msgid "The last autotune change is not resolved."
-msgstr "Последнее изменение автоподбора не завершено."
-
-msgid "The last change (%s) can be rolled back to the configuration before it."
-msgstr "Последнее изменение (%s) можно откатить к конфигурации до него."
-
-msgid "The last change (%s) failed its check, and the automatic rollback did not finish."
-msgstr "Последнее изменение (%s) не прошло проверку, а автоматический откат не завершился."
-
-msgid "The last change (%s) passed its check, but it could not be recorded as the last known working configuration."
-msgstr "Последнее изменение (%s) прошло проверку, но его не удалось записать как последнюю рабочую конфигурацию."
-
-msgid "The last change (%s) was not checked to the end."
-msgstr "Последнее изменение (%s) не было проверено до конца."
-
-msgid "The last change (%s) was not confirmed by its check, and the configuration was changed since; the rule still uses that strategy. Until you choose another strategy for the rule, turn the rule off or restore a snapshot in History and recovery, Forkop X does not record this configuration as the last known working one, and autotune applies nothing."
-msgstr "Последнее изменение (%s) не подтверждено проверкой, а конфигурацию с тех пор изменили; правило по-прежнему использует эту стратегию. Пока вы не выберете для правила другую стратегию, не отключите правило или не восстановите снимок в разделе «История и восстановление», Forkop X не записывает эту конфигурацию как последнюю рабочую, а автоподбор ничего не применяет."
-
 msgid "The last change was rolled back automatically."
 msgstr "Последнее изменение было автоматически откачено."
-
-msgid "The last check failed"
-msgstr "Последняя проверка завершилась ошибкой"
-
-msgid "The last check gave no usable result. The current strategy is kept."
-msgstr "Последняя проверка не дала пригодного результата. Текущая стратегия оставлена."
-
-msgid "The last check was interrupted"
-msgstr "Последняя проверка была прервана"
 
 msgid "The last configuration change failed"
 msgstr "Последнее изменение конфигурации не удалось"
@@ -3689,98 +2699,23 @@ msgstr "Последнее изменение конфигурации не уд
 msgid "The last known good snapshot cannot be deleted"
 msgstr "Последнюю рабочую конфигурацию удалить нельзя"
 
-msgid "The last known working configuration is missing; nothing was rolled back. Restore a snapshot in History and recovery first."
-msgstr "Последней рабочей конфигурации нет; ничего не откачено. Сначала восстановите снимок в разделе «История и восстановление»."
-
-msgid "The last known working configuration is restored; the damaged record is set aside."
-msgstr "Последняя рабочая конфигурация восстановлена; повреждённая запись отложена в сторону."
-
 msgid "The legacy conditions cannot be converted without changing what the rule matches:"
 msgstr "Устаревшие условия нельзя конвертировать, не изменив того, что сопоставляет правило:"
 
 msgid "The legacy settings are converted. Save the rule to keep the change."
 msgstr "Устаревшие настройки конвертированы. Сохраните правило, чтобы сохранить изменение."
 
-msgid "The list could not be read."
-msgstr "Список не удалось прочитать."
-
-msgid "The list has no domain names to check (only keywords, regular expressions or addresses)."
-msgstr "В списке нет доменных имён для проверки (только ключевые слова, регулярные выражения или адреса)."
-
-msgid "The list is long: only its first 2000 domains can be chosen."
-msgstr "Список длинный: выбрать можно только из первых 2000 доменов."
-
-msgid "The list is not downloaded on the router; update the lists or save the rule."
-msgstr "Список не загружен на роутер; обновите списки или сохраните правило."
-
-msgid "The maximum number of targets is reached."
-msgstr "Достигнуто максимальное число целей."
-
 msgid "The name does not resolve on the router, so no rule can open it. Check the DNS results above."
 msgstr "Имя не разрешается на роутере, поэтому ни одно правило его не откроет. Посмотрите результат DNS выше."
 
-msgid "The new strategy did not pass the check, but the configuration was changed during the check, so Forkop X kept that change and did not roll back. The rule may still use the new strategy: check it, or restore the \"Before autotune\" snapshot in History and recovery."
-msgstr "Новая стратегия не прошла проверку, но во время проверки конфигурацию изменили, поэтому Forkop X сохранил это изменение и не выполнил откат. Правило может по-прежнему использовать новую стратегию: проверьте его или восстановите снимок «Перед автоподбором» в разделе «История и восстановление»."
-
-msgid "The new strategy did not pass the check. Forkop X began to restore the \"Before autotune\" snapshot, but the configuration was changed meanwhile, and Forkop X kept that change. It is not known whether Forkop X now runs the snapshot or the change: check the rule, or restore the snapshot you need in History and recovery."
-msgstr "Новая стратегия не прошла проверку. Forkop X начал восстанавливать снимок «Перед автоподбором», но конфигурацию тем временем изменили, и Forkop X сохранил это изменение. Неизвестно, работает ли Forkop X сейчас со снимком или с изменением: проверьте правило или восстановите нужный снимок в разделе «История и восстановление»."
-
-msgid "The new strategy did not pass the check. Forkop X restored the previous configuration automatically."
-msgstr "Новая стратегия не прошла проверку. Forkop X автоматически восстановил предыдущую конфигурацию."
-
-msgid "The new strategy was not applied: the service reload failed and the previous configuration was restored automatically."
-msgstr "Новая стратегия не применена: перезагрузка сервиса не удалась, предыдущая конфигурация восстановлена автоматически."
-
-msgid "The new strategy was not applied: the service was busy and only queued the reload. The previous configuration is kept."
-msgstr "Новая стратегия не применена: служба была занята и лишь поставила перезагрузку в очередь. Прежняя конфигурация сохранена."
-
-msgid "The NFQUEUE number is assigned by Forkop for each rule and must not be overridden here."
-msgstr "Номер NFQUEUE назначается Forkop для каждого правила и не должен переопределяться здесь."
-
 msgid "The package is removed from the router."
 msgstr "Пакет будет удалён с роутера."
-
-msgid "The recommendation is not confirmed yet."
-msgstr "Рекомендация ещё не подтверждена."
-
-msgid "The recommendation is outdated: the configuration changed after the check. Run the check again."
-msgstr "Рекомендация устарела: конфигурация изменилась после проверки. Запустите проверку ещё раз."
-
-msgid "The recommended strategy is not an HTTPS (TCP/443) strategy."
-msgstr "Рекомендованная стратегия не является стратегией для HTTPS (TCP/443)."
-
-msgid "The record of the last autotune change is damaged, and the last known working configuration is missing. Restore a snapshot in History and recovery: it becomes the last known working one, and the change can then be rolled back here."
-msgstr "Запись о последнем изменении автоподбора повреждена, а последней рабочей конфигурации нет. Восстановите снимок в разделе «История и восстановление»: он станет последней рабочей конфигурацией, и тогда изменение можно будет откатить здесь."
-
-msgid "The record of the last autotune change is damaged."
-msgstr "Запись о последнем изменении автоподбора повреждена."
-
-msgid "The record of the last autotune change is damaged. Checks and changes wait until an administrator rolls it back: Forkop X then makes sure the last known working configuration is active."
-msgstr "Запись о последнем изменении автоподбора повреждена. Проверки и изменения ждут, пока администратор не выполнит откат: Forkop X убедится, что активна последняя рабочая конфигурация."
-
-msgid "The rollback did not finish: the configuration was changed while the \"Before autotune\" snapshot was being restored, and Forkop X kept that change. It is not known whether Forkop X now runs the snapshot or the change: check the rule, or restore the snapshot you need in History and recovery."
-msgstr "Откат не завершился: конфигурацию изменили, пока восстанавливался снимок «Перед автоподбором», и Forkop X сохранил это изменение. Неизвестно, работает ли Forkop X сейчас со снимком или с изменением: проверьте правило или восстановите нужный снимок в разделе «История и восстановление»."
-
-msgid "The rollback did not finish. Open History and recovery."
-msgstr "Откат не завершился. Откройте «История и восстановление»."
-
-msgid "The rollback failed."
-msgstr "Откат не удался."
-
-msgid "The rollback of the last change (%s) did not finish."
-msgstr "Откат последнего изменения (%s) не завершился."
 
 msgid "The route check did not complete. Try again."
 msgstr "Проверка маршрута не завершилась. Повторите попытку."
 
 msgid "The route is calculated from the configuration; DNS and the HTTPS request are made by the router itself."
 msgstr "Маршрут рассчитывается по конфигурации; DNS-запрос и HTTPS-запрос выполняет сам роутер."
-
-msgid "The router could not resolve the address."
-msgstr "Роутер не смог определить адрес."
-
-msgid "The router did not report the outcome of the rollback; it may still be running. This page shows it once the rollback ends."
-msgstr "Роутер не сообщил, чем закончился откат; возможно, он ещё выполняется. Эта страница покажет исход, когда откат закончится."
 
 msgid "The router did not respond"
 msgstr "Роутер не ответил"
@@ -3791,9 +2726,6 @@ msgstr "Роутер не ответил за %d с"
 msgid "The router DNS returned no address"
 msgstr "DNS роутера не вернул адрес"
 
-msgid "The router does not route this address through FakeIP, so Forkop X cannot check a strategy change for it."
-msgstr "Роутер направляет этот адрес не через FakeIP, поэтому Forkop X не может проверить для него смену стратегии."
-
 msgid "The router rejected this check"
 msgstr "Роутер отклонил эту проверку"
 
@@ -3803,29 +2735,8 @@ msgstr "Правило применяется к домену и всем его
 msgid "the rule cannot use itself"
 msgstr "правило не может использовать само себя"
 
-msgid "The rule has a custom strategy; Forkop X keeps it."
-msgstr "У правила своя стратегия; Forkop X её не меняет."
-
-msgid "The rule has no strategy."
-msgstr "У правила нет стратегии."
-
-msgid "The rule is limited to devices: the result holds for them. Forkop X checks a change with router requests sent through the queue of this rule."
-msgstr "Правило ограничено устройствами: результат относится к ним. Изменение Forkop X проверяет запросами роутера, отправленными через очередь этого правила."
-
 msgid "The rule matches the same traffic as before. Closing the window without saving discards the conversion."
 msgstr "Правило сопоставляет тот же трафик, что и раньше. Закрытие окна без сохранения отменяет конвертацию."
-
-msgid "The rule strategy handles HTTPS together with other traffic in one profile; Forkop X does not split it. Give HTTPS (--filter-tcp=443) its own profile."
-msgstr "Стратегия правила обрабатывает HTTPS вместе с другим трафиком в одном профиле; Forkop X не разделяет его. Выделите для HTTPS (--filter-tcp=443) отдельный профиль."
-
-msgid "The rule strategy has no HTTPS (TCP/443) profile."
-msgstr "В стратегии правила нет профиля для HTTPS (TCP/443)."
-
-msgid "The rule strategy writes a filter as two words (--filter-tcp 443); write it as --filter-tcp=443."
-msgstr "В стратегии правила фильтр записан двумя словами (--filter-tcp 443); запишите его как --filter-tcp=443."
-
-msgid "The rule that routes it cannot be determined unambiguously (for example, a remote list comes first)."
-msgstr "Правило, по которому она идёт, нельзя определить однозначно (например, выше стоит удалённый список)."
 
 msgid "The rule was not removed because the page could not be saved: %s"
 msgstr "Правило не удалено, потому что страницу не удалось сохранить: %s"
@@ -3836,8 +2747,8 @@ msgstr "Окно правила закрыто до завершения сох�
 msgid "the rules connect through each other in a loop"
 msgstr "правила подключаются друг через друга по кругу"
 
-msgid "The same result this many checks in a row (2–10)."
-msgstr "Столько проверок подряд с одинаковым результатом (2–10)."
+msgid "The safety guard stays active. Restore the snapshot you need to finish."
+msgstr "Защитная блокировка остаётся активной. Чтобы завершить, восстановите нужный снимок."
 
 msgid "The selected section cannot be used here. Choose another section."
 msgstr "Выбранную секцию нельзя использовать здесь. Выберите другую секцию."
@@ -3847,9 +2758,6 @@ msgstr "Выбранная секция отключена. Включите е�
 
 msgid "The selected section no longer exists. Choose another section."
 msgstr "Выбранной секции больше нет. Выберите другую секцию."
-
-msgid "the service is busy"
-msgstr "служба занята"
 
 msgid "The service is busy with another operation (list or subscription update, reload or start). Nothing was changed; try again when it finishes."
 msgstr "Служба занята другой операцией (обновление списков или подписки, перезагрузка или запуск). Ничего не изменено; повторите, когда она завершится."
@@ -3863,60 +2771,6 @@ msgstr "С роутера сайт не открылся. Роутер може�
 msgid "The site opens from the router. If it does not open on a device, look at its real connections."
 msgstr "С роутера сайт открывается. Если на устройстве он не открывается — посмотрите его реальные соединения."
 
-msgid "The snapshot to return to is missing; nothing was rolled back."
-msgstr "Снимка, к которому нужно вернуться, нет; ничего не откачено."
-
-msgid "The snapshot to return to is missing: restore a snapshot in History and recovery. Checks and changes wait until then."
-msgstr "Снимка, к которому нужно вернуться, нет: восстановите снимок в разделе «История и восстановление». До этого проверки и изменения ждут."
-
-msgid "The state of the last autotune change could not be read."
-msgstr "Не удалось прочитать состояние последнего изменения автоподбора."
-
-msgid "The strategy contains an error"
-msgstr "В стратегии есть ошибка"
-
-msgid "The strategy could not be applied. The previous configuration is kept."
-msgstr "Стратегию не удалось применить. Предыдущая конфигурация сохранена."
-
-msgid "The strategy is changed only after %d checks in a row with the same result."
-msgstr "Стратегия меняется только после %d проверок подряд с одинаковым результатом."
-
-msgid "The strategy is more reliable than no bypass."
-msgstr "Стратегия надёжнее, чем работа без обхода."
-
-msgid "The strategy is noticeably faster."
-msgstr "Стратегия заметно быстрее."
-
-msgid "The strategy of the DPI rule \"%s\" returns to the one before autotune."
-msgstr "Стратегия DPI-правила «%s» вернётся к той, что была до автоподбора."
-
-msgid "The strategy of the DPI rule \"%s\" will be changed."
-msgstr "Будет изменена стратегия DPI-правила «%s»."
-
-msgid "The strategy returns to the one before autotune."
-msgstr "Стратегия вернётся к той, что была до автоподбора."
-
-msgid "The strategy was not applied"
-msgstr "Стратегия не применена"
-
-msgid "The strategy was not applied: the current configuration is not yet the last known working one. Forkop X records it once it starts or reloads with it; while a rule still uses a strategy that did not pass its check, it is not recorded."
-msgstr "Стратегия не применена: текущая конфигурация ещё не записана как последняя рабочая. Forkop X записывает её, когда успешно запускается или перезагружается с ней; пока правило использует стратегию, не прошедшую проверку, она не записывается."
-
-msgid "The target address could not be determined reliably during the check."
-msgstr "Во время проверки не удалось надёжно определить адрес цели."
-
-msgid "The target is disabled."
-msgstr "Цель выключена."
-
-msgid "The target is reachable only through a bypass strategy."
-msgstr "Цель доступна только со стратегией обхода."
-
-msgid "The target is unreachable in every way; the problem may not be DPI."
-msgstr "Цель недоступна ни одним способом; возможно, проблема не в DPI."
-
-msgid "The targets work without bypass."
-msgstr "Цели работают без обхода."
-
 msgid "the transit rule “%s” is disabled"
 msgstr "транзитное правило «%s» отключено"
 
@@ -3929,53 +2783,11 @@ msgstr "транзитного правила «%s» больше нет"
 msgid "The unsupported settings are removed. Save the rule to keep the change."
 msgstr "Неподдерживаемые настройки удалены. Сохраните правило, чтобы сохранить изменение."
 
-msgid "The value is outside the allowed range."
-msgstr "Значение вне допустимого диапазона."
-
-msgid "There are rules using ByeDPI"
-msgstr "Есть правила, использующие ByeDPI"
-
-msgid "There are rules using Zapret"
-msgstr "Есть правила использующие Zapret"
-
-msgid "There are rules using Zapret2"
-msgstr "Есть правила, использующие Zapret2"
-
 msgid "There are unsaved changes of Forkop X in this session. Save & Apply or revert them, then restore the snapshot."
 msgstr "В этом сеансе есть несохранённые изменения Forkop X. Сохраните и примените их или отмените, затем восстановите снимок."
 
-msgid "There are unsaved configuration changes. Save or reset them in Settings first."
-msgstr "Есть несохранённые изменения конфигурации. Сначала сохраните или сбросьте их в «Настройках»."
-
-msgid "There is no recommendation to apply."
-msgstr "Нет рекомендации для применения."
-
-msgid "There is nothing to roll back."
-msgstr "Откатывать нечего."
-
 msgid "This browser could not reach the check service, so FakeIP for devices is not proven either way."
 msgstr "Этот браузер не смог обратиться к сервису проверки, поэтому работа FakeIP для устройств не доказана ни в одну сторону."
-
-msgid "This field must start a working ciadpi strategy; help/version options exit immediately and are not allowed here."
-msgstr "Это поле должно запускать рабочую стратегию ciadpi; параметры help/version сразу завершают процесс и здесь запрещены."
-
-msgid "This field must start a working nfqws strategy; --dry-run exits immediately and is not allowed here."
-msgstr "Это поле должно запускать рабочую стратегию nfqws; --dry-run сразу завершает процесс и здесь запрещён."
-
-msgid "This field must start a working nfqws strategy; --version exits immediately and is not allowed here."
-msgstr "Это поле должно запускать рабочую стратегию nfqws; --version сразу завершает процесс и здесь запрещён."
-
-msgid "This field must start a working nfqws2 strategy; --dry-run exits immediately and is not allowed here."
-msgstr "Это поле должно запускать рабочую стратегию nfqws2; --dry-run сразу завершает работу и здесь запрещён."
-
-msgid "This field must start a working nfqws2 strategy; --version exits immediately and is not allowed here."
-msgstr "Это поле должно запускать рабочую стратегию nfqws2; --version сразу завершает работу и здесь запрещён."
-
-msgid "This flag does not accept a value."
-msgstr "Этот флаг не принимает значение."
-
-msgid "This option requires a value."
-msgstr "Этой опции требуется значение."
 
 msgid "This permanently deletes saved sections and subscriptions. Other components remain installed."
 msgstr "Сохранённые секции и подписки будут удалены безвозвратно. Остальные компоненты останутся установленными."
@@ -4001,21 +2813,6 @@ msgstr "Это правило хранит настройки в устарев�
 msgid "This rule keeps settings in a legacy form, from an earlier version, the podkop migration or the command line. The fields show what the rule matches; the legacy options stay as they are until you convert or remove them."
 msgstr "Это правило хранит настройки в устаревшем виде — из прежней версии, после миграции из podkop или из командной строки. Поля показывают, что сопоставляет правило; устаревшие опции остаются как есть, пока вы их не конвертируете или не удалите."
 
-msgid "This snapshot is needed for recovery"
-msgstr "Этот снимок нужен для восстановления"
-
-msgid "This strategy is already active; nothing was changed."
-msgstr "Эта стратегия уже активна; ничего не изменено."
-
-msgid "This strategy is not applied again during the pause after a rollback."
-msgstr "Во время паузы после отката эта стратегия не будет применена снова."
-
-msgid "This strategy is not supported by the installed Zapret."
-msgstr "Эта стратегия не поддерживается установленным Zapret."
-
-msgid "This strategy was rolled back recently; it waits for the cooldown."
-msgstr "Эту стратегию недавно откатывали; она ждёт окончания паузы."
-
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr "Время в секундах для кэширования DNS записей (по умолчанию: 60)"
 
@@ -4027,9 +2824,6 @@ msgstr "tiny"
 
 msgid "TLS or certificate error"
 msgstr "Ошибка TLS или сертификата"
-
-msgid "TLS, median"
-msgstr "TLS, медиана"
 
 msgid "Tolerance"
 msgstr "Допуск"
@@ -4061,9 +2855,6 @@ msgstr "Трафик идёт через роутер без Forkop X."
 msgid "Traffic of the rules does not reach sing-box, so connections through rules fail."
 msgstr "Трафик правил не доходит до sing-box, поэтому соединения через правила не работают."
 
-msgid "Transparent proxy mode is incompatible with action=byedpi because Forkop connects to ciadpi through SOCKS."
-msgstr "Режим прозрачного прокси несовместим с action=byedpi, потому что Forkop подключается к ciadpi через SOCKS."
-
 msgid "Transport"
 msgstr "Транспорт"
 
@@ -4075,12 +2866,6 @@ msgstr "TTL должно быть положительным числом"
 
 msgid "TTL value cannot be empty"
 msgstr "Значение TTL не может быть пустым"
-
-msgid "Turn on"
-msgstr "Включить"
-
-msgid "Turn on automatic mode?"
-msgstr "Включить автоматический режим?"
 
 msgid "turns text mode on"
 msgstr "включает текстовый режим"
@@ -4097,32 +2882,8 @@ msgstr "UDP (Незащищённый DNS)"
 msgid "Ukraine"
 msgstr "Украина"
 
-msgid "Unable to validate the ByeDPI strategy through the backend parser."
-msgstr "Не удалось проверить стратегию ByeDPI через backend-парсер."
-
-msgid "Unable to validate the NFQWS strategy through the backend parser."
-msgstr "Не удалось проверить стратегию NFQWS через backend-парсер."
-
-msgid "Unable to validate the NFQWS2 strategy through the backend parser."
-msgstr "Не удалось проверить стратегию NFQWS2 через backend-парсер."
-
 msgid "Unavailability timeout"
 msgstr "Таймаут недоступности"
-
-msgid "Unexpected ByeDPI strategy argument: %s"
-msgstr "Неожиданный аргумент стратегии ByeDPI: %s"
-
-msgid "Unexpected Forkop-managed ciadpi runtime is running"
-msgstr "Обнаружен лишний ciadpi Forkop"
-
-msgid "Unexpected Forkop-managed nfqws runtime is running"
-msgstr "Обнаружен лишний NFQWS Forkop"
-
-msgid "Unexpected Forkop-managed nfqws2 runtime is running"
-msgstr "Обнаружен лишний NFQWS2 Forkop"
-
-msgid "Unexpected standalone token. Use explicit flags such as --name or --name=value."
-msgstr "Неожиданный отдельный токен. Используйте явные флаги вида --имя или --имя=значение."
 
 msgid "unique UCI identifier"
 msgstr "уникальный идентификатор UCI"
@@ -4133,38 +2894,14 @@ msgstr "неизвестно"
 msgid "Unknown"
 msgstr "Неизвестно"
 
-msgid "Unknown ByeDPI option: %s"
-msgstr "Неизвестная опция ByeDPI: %s"
-
 msgid "Unknown country"
 msgstr "Неизвестная страна"
 
 msgid "Unknown error"
 msgstr "Неизвестная ошибка"
 
-msgid "Unknown NFQWS flag."
-msgstr "Неизвестный флаг NFQWS."
-
-msgid "Unknown NFQWS2 flag."
-msgstr "Неизвестный флаг NFQWS2."
-
-msgid "unknown reason"
-msgstr "причина неизвестна"
-
 msgid "Unspecified IP address is not allowed"
 msgstr "Неуказанный IP-адрес не разрешён"
-
-msgid "Unstable"
-msgstr "Нестабильно"
-
-msgid "Unstable without bypass; a stable strategy was found."
-msgstr "Без обхода нестабильно; найдена стабильная стратегия."
-
-msgid "up to %d automatic change(s) per day"
-msgstr "до %d автоизменений в сутки"
-
-msgid "Up to 8 domains; exactly these are checked."
-msgstr "До 8 доменов; проверяются именно они."
 
 msgid "Update"
 msgstr "Обновить"
@@ -4265,12 +3002,6 @@ msgstr "Видимое имя этой секции"
 msgid "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links"
 msgstr "ссылки vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2://"
 
-msgid "Waiting"
-msgstr "В очереди"
-
-msgid "waiting for probe connections to close: %d s (up to %d s)"
-msgstr "ожидание закрытия соединений проб: %d с (до %d с)"
-
 msgid "Waiting for the service action to finish."
 msgstr "Ожидание завершения действия со службой."
 
@@ -4295,9 +3026,6 @@ msgstr "Что Forkop должен делать при совпадении эт
 msgid "What it means"
 msgstr "Что это значит"
 
-msgid "What to check"
-msgstr "Что проверять"
-
 msgid "What to do"
 msgstr "Что сделать"
 
@@ -4310,20 +3038,11 @@ msgstr "При переходе на другой уровень тестиро�
 msgid "Where to"
 msgstr "Куда"
 
-msgid "Which domains to check"
-msgstr "Какие домены проверять"
-
-msgid "Will be"
-msgstr "Будет"
-
 msgid "With another action the rule cannot use its cascade setting: saving the rule removes it, and its servers no longer connect through the rule “%s”."
 msgstr "С другим действием правило не может использовать настройку каскада: при сохранении правила она будет удалена, и его серверы перестанут подключаться через правило «%s»."
 
 msgid "With another action the rule cannot use its cascade setting: saving the rule removes the switched-off cascade setting."
 msgstr "С другим действием правило не может использовать настройку каскада: при сохранении правила выключенная настройка каскада будет удалена."
-
-msgid "Works without bypass."
-msgstr "Работает без обхода."
 
 msgid "YACD Secret Key"
 msgstr "Секретный ключ YACD"
@@ -4342,54 +3061,3 @@ msgstr "Да"
 
 msgid "You can select Output Network Interface, by default autodetect"
 msgstr "Вы можете выбрать выходной сетевой интерфейс, по умолчанию он определяется автоматически."
-
-msgid "Zapret checks"
-msgstr "Проверки Zapret"
-
-msgid "Zapret hostlist templates are not supported here because Forkop does not expand them for per-rule NFQWS strategies."
-msgstr "Шаблоны hostlist zapret здесь не поддерживаются, потому что Forkop не разворачивает их для per-rule стратегий NFQWS."
-
-msgid "Zapret package is installed"
-msgstr "Пакет Zapret установлен"
-
-msgid "Zapret package is not installed"
-msgstr "Пакет Zapret не установлен"
-
-msgid "Zapret provider binary is available"
-msgstr "Бинарник провайдера Zapret доступен"
-
-msgid "Zapret provider binary is not available"
-msgstr "Бинарник провайдера Zapret недоступен"
-
-msgid "Zapret rule"
-msgstr "правило Zapret"
-
-msgid "Zapret sing-box outbound is configured"
-msgstr "sing-box outbound для Zapret настроен"
-
-msgid "Zapret sing-box outbound is not configured"
-msgstr "sing-box outbound для Zapret не настроен"
-
-msgid "Zapret2 checks"
-msgstr "Проверки Zapret2"
-
-msgid "Zapret2 hostlist templates are not supported here because Forkop does not expand them for per-rule NFQWS2 strategies."
-msgstr "Шаблоны hostlist Zapret2 здесь не поддерживаются, потому что Forkop не разворачивает их для per-rule стратегий NFQWS2."
-
-msgid "Zapret2 package is installed"
-msgstr "Пакет Zapret2 установлен"
-
-msgid "Zapret2 package is not installed"
-msgstr "Пакет Zapret2 не установлен"
-
-msgid "Zapret2 provider binary is available"
-msgstr "Бинарник провайдера Zapret2 доступен"
-
-msgid "Zapret2 provider binary is not available"
-msgstr "Бинарник провайдера Zapret2 недоступен"
-
-msgid "Zapret2 sing-box outbound is configured"
-msgstr "sing-box outbound для Zapret2 настроен"
-
-msgid "Zapret2 sing-box outbound is not configured"
-msgstr "sing-box outbound для Zapret2 не настроен"

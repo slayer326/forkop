@@ -57,7 +57,6 @@ function health(patch: Partial<Forkop.HealthStatus> = {}): Forkop.HealthStatus {
     overall: 'ok',
     service: { forkop: 'ok', sing_box: 'ok' },
     dns: { status: 'unknown', configured: true },
-    dpi: { status: 'unknown' },
     lists: { status: 'unknown' },
     guard: { active: false },
     recovery: { pending: false, last_event: null },
@@ -117,7 +116,7 @@ describe('overview warning', () => {
     expect(overviewWarning(health())).toBeNull();
   });
 
-  it('puts the DPI guard first, then package recovery, then a failed change', () => {
+  it('puts the safety guard first, then package recovery, then a failed change', () => {
     expect(
       overviewWarning(
         health({
@@ -125,7 +124,7 @@ describe('overview warning', () => {
           package_recovery: { pending: true },
         }),
       )?.title,
-    ).toBe('DPI protection is holding traffic');
+    ).toBe('A safety guard is active');
     expect(
       overviewWarning(health({ package_recovery: { pending: true } }))?.title,
     ).toBe('Package recovery has not finished');
@@ -322,9 +321,7 @@ describe('overview state', () => {
     expect(
       overviewState(input({ health: guarded, healthStale: true })).status,
     ).toBe('error');
-    expect(overviewWarning(guarded)?.title).toBe(
-      'DPI protection is holding traffic',
-    );
+    expect(overviewWarning(guarded)?.title).toBe('A safety guard is active');
   });
 
   it('says when diagnostics has never run', () => {
@@ -422,8 +419,8 @@ describe('overview recovery states', () => {
     expect(recovery.title).toBe('Restart required');
     expect(texts(recovery.lines)).toContain('restart Forkop X');
     const warning = overviewWarning(value);
-    expect(warning?.title).toBe('DPI protection is holding traffic');
-    expect(warning?.text).toContain('until you restart Forkop X');
+    expect(warning?.title).toBe('A safety guard is active');
+    expect(warning?.text).toContain('Restart Forkop X to remove it');
     expect(warning?.text).not.toContain('until recovery completes');
   });
 
@@ -434,7 +431,7 @@ describe('overview recovery states', () => {
     expect(recovery.title).toBe('Restore required');
     expect(texts(recovery.lines)).toContain('last known good snapshot');
     expect(overviewWarning(value)?.text).toContain(
-      'until you restore the last known good snapshot',
+      'Restore the last known good snapshot to finish it',
     );
   });
 
@@ -552,7 +549,7 @@ describe('overview cards', () => {
     expect(text(node)).not.toContain('Restart Forkop X');
   });
 
-  it('offers the restart that removes a kept DPI guard, to administrators only', () => {
+  it('offers the restart that removes a kept safety guard, to administrators only', () => {
     const kept = health({
       overall: 'error',
       guard: { active: true, runtime: true, restore: false },
@@ -573,8 +570,8 @@ describe('overview cards', () => {
     expect(text(recoveryCard(true))).not.toContain('Restart Forkop X');
   });
 
-  it('offers a stopped Forkop X with a kept DPI guard a restart, not a start', () => {
-    // A start is refused while a failed change keeps its DPI guard (UC-019):
+  it('offers a stopped Forkop X with a kept safety guard a restart, not a start', () => {
+    // A start is refused while a failed change keeps its safety guard (UC-019):
     // only the restart removes it.
     const kept = health({
       overall: 'error',

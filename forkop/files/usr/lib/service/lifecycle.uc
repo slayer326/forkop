@@ -105,18 +105,6 @@ const SRS_FALLBACK_ADS_HAGEZI_PRO_URL = constant_value("SRS_FALLBACK_ADS_HAGEZI_
 const SRS_FALLBACK_SUPERCELL_URL = constant_value("SRS_FALLBACK_SUPERCELL_URL", "https://raw.githubusercontent.com/ushan0v/sing-box-supercell-ruleset/main/supercell.srs");
 const SRS_FALLBACK_GITHUB_URL = constant_value("SRS_FALLBACK_GITHUB_URL", "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/github.srs");
 
-const ZAPRET_PROVIDER_NFQWS_BIN = constant_value("ZAPRET_PROVIDER_NFQWS_BIN", "/opt/zapret/nfq/nfqws");
-const ZAPRET_ROUTE_MARK_BASE = constant_value("ZAPRET_ROUTE_MARK_BASE", "0x01000000");
-const ZAPRET_QUEUE_BASE = constant_value("ZAPRET_QUEUE_BASE", "4000");
-const ZAPRET_DESYNC_MARK = constant_value("ZAPRET_DESYNC_MARK", "0x40000000");
-const ZAPRET_DESYNC_MARK_POSTNAT = constant_value("ZAPRET_DESYNC_MARK_POSTNAT", "0x20000000");
-const ZAPRET2_PROVIDER_NFQWS2_BIN = constant_value("ZAPRET2_PROVIDER_NFQWS2_BIN", "/opt/zapret2/nfq2/nfqws2");
-const ZAPRET2_ROUTE_MARK_BASE = constant_value("ZAPRET2_ROUTE_MARK_BASE", "0x02000000");
-const ZAPRET2_QUEUE_BASE = constant_value("ZAPRET2_QUEUE_BASE", "4300");
-const ZAPRET2_DESYNC_MARK = constant_value("ZAPRET2_DESYNC_MARK", "0x40000000");
-const ZAPRET2_DESYNC_MARK_POSTNAT = constant_value("ZAPRET2_DESYNC_MARK_POSTNAT", "0x20000000");
-const BYEDPI_BIN = constant_value("BYEDPI_BIN", "/usr/bin/ciadpi");
-
 const DNS_APPLY_UC = LIB_DIR + "/dns/apply.uc";
 const VALIDATOR_UC = LIB_DIR + "/config/validator.uc";
 const NFT_UC = LIB_DIR + "/nft/apply.uc";
@@ -126,14 +114,10 @@ const DNS_FAILOVER_UC = LIB_DIR + "/singbox/dns_failover.uc";
 const SUBSCRIPTION_CACHE_UC = LIB_DIR + "/subscription/cache.uc";
 const RULESET_CACHE_UC = LIB_DIR + "/singbox/ruleset_cache.uc";
 const UPDATES_UC = LIB_DIR + "/components/updates.uc";
-const AUTOTUNE_MANAGER_UC = LIB_DIR + "/autotune/manager.uc";
 const STATE_UC = LIB_DIR + "/service/state.uc";
 const RELOAD_UC = LIB_DIR + "/service/reload.uc";
 const UI_UC = LIB_DIR + "/service/ui.uc";
 const DIAGNOSTICS_UC = LIB_DIR + "/diagnostics/runtime.uc";
-const ZAPRET_UC = LIB_DIR + "/providers/zapret/runtime.uc";
-const ZAPRET2_UC = LIB_DIR + "/providers/zapret2/runtime.uc";
-const BYEDPI_UC = LIB_DIR + "/providers/byedpi/runtime.uc";
 const PACKAGES_UC = LIB_DIR + "/core/packages.uc";
 
 let start_subscription_update_lock_held = false;
@@ -148,16 +132,9 @@ let nft_populate_enabled = NFT_POPULATE_ENABLED_DEFAULT;
 let nft_candidate_batch_file = "";
 let rule_condition_cache_enabled = 0;
 let startup_config_fingerprint = "";
-let dpi_snapshot_dir = "";
-let dpi_switch_started = false;
-let dpi_restart_plan = null;
-let dpi_nft_rollback_file = "";
-let dpi_nft_committed = false;
-let dpi_singbox_backup = "";
 let reload_singbox_transaction_dir = "";
 let dns_reload_backup = "";
 const DNSMASQ_CONFIG_FILE = getenv("FORKOP_DNSMASQ_CONFIG_FILE") || "/etc/config/dhcp";
-let dpi_guard_active = false;
 // Set once the reload in progress has given way to a stop request
 // (reload_gives_way_to_stop).
 let reload_stop_abandoned = false;
@@ -341,9 +318,6 @@ function lifecycle_env() {
         SB_SERVICE_MIXED_INBOUND_PORT: SB_SERVICE_MIXED_INBOUND_PORT,
         SB_VARIANT_STATE_FILE: SB_VARIANT_STATE_FILE,
         SB_VERSION_STATE_FILE: SB_VERSION_STATE_FILE,
-        ZAPRET_PROVIDER_NFQWS_BIN: ZAPRET_PROVIDER_NFQWS_BIN,
-        ZAPRET2_PROVIDER_NFQWS2_BIN: ZAPRET2_PROVIDER_NFQWS2_BIN,
-        BYEDPI_BIN: BYEDPI_BIN,
         FORKOP_RULE_CONDITION_CACHE_ENABLED: as_string(rule_condition_cache_enabled)
     };
 
@@ -442,13 +416,11 @@ function runtime_guard_kept() {
 
 // Last-known-working names only a configuration that this start or reload
 // proved (UC-019, UC-020): the file is still the one it began with (an edit
-// made meanwhile waits for the reload queued for it), and no DPI transition
-// guard, neither of a restore or autotune apply nor of a failed lifecycle
-// transition, protects a runtime that no reload has proved yet.
-// config/snapshots.uc also refuses while an autotune apply is unfinished or
-// has not settled on the candidate that is now the configuration.
-// Every restore and autotune apply reloads under its own guard and moves
-// last-known-working itself: that refusal is routine and not logged.
+// made meanwhile waits for the reload queued for it), and no transition
+// guard, neither of a restore nor of a failed lifecycle transition, protects
+// a runtime that no reload has proved yet.
+// Every restore reloads under its own guard and moves last-known-working
+// itself: that refusal is routine and not logged.
 function confirm_working_config(initial_fingerprint) {
     if (external_config_fingerprint() != as_string(initial_fingerprint))
         return false;
@@ -796,16 +768,6 @@ function nft_rebuild_runtime() {
         NFT_OUTBOUND_MARK,
         SB_FAKEIP_INET4_RANGE,
         SB_TPROXY_INBOUND_PORT,
-        ZAPRET_PROVIDER_NFQWS_BIN,
-        ZAPRET_ROUTE_MARK_BASE,
-        ZAPRET_QUEUE_BASE,
-        ZAPRET_DESYNC_MARK,
-        ZAPRET_DESYNC_MARK_POSTNAT,
-        ZAPRET2_PROVIDER_NFQWS2_BIN,
-        ZAPRET2_ROUTE_MARK_BASE,
-        ZAPRET2_QUEUE_BASE,
-        ZAPRET2_DESYNC_MARK,
-        ZAPRET2_DESYNC_MARK_POSTNAT,
         NFT_LOCALV6_SET_NAME,
         NFT_COMMON6_SET_NAME,
         NFT_IP_PORT6_SET_NAME,
@@ -957,14 +919,6 @@ function restore_guarded_singbox_runtime(backup_path, guard_active) {
     ]);
 }
 
-// Autotune keeps its own cron line; it never blocks the service. It reports by
-// printing a JSON result, which must not reach the output of an init.d action:
-// an operator who runs restart would read autotune's "enabled": false as a
-// verdict on the service. Capture discards it; module_success would not.
-function sync_autotune_cron(mode) {
-    module_capture(AUTOTUNE_MANAGER_UC, [ mode ]);
-}
-
 function refresh_cron() {
     let status = module_status(UPDATES_UC, [
         "refresh-cron-from-uci",
@@ -973,7 +927,6 @@ function refresh_cron() {
         SUBSCRIPTION_UPDATE_CRON_MARKER,
         COMPONENT_UPDATE_CHECK_CRON_MARKER
     ]);
-    sync_autotune_cron("cron-sync");
     return status;
 }
 
@@ -984,7 +937,6 @@ function remove_cron_jobs() {
         SUBSCRIPTION_UPDATE_CRON_MARKER,
         COMPONENT_UPDATE_CHECK_CRON_MARKER
     ]);
-    sync_autotune_cron("cron-remove");
     return status;
 }
 
@@ -1407,8 +1359,6 @@ function start_main() {
     if (start_abandoned_for_stop("sing-box"))
         return 1;
 
-    module_success(BYEDPI_UC, [ "start-runtime" ]);
-
     status = start_sing_box_and_wait();
     if (status != 0) {
         log_message("sing-box did not reach a stable running state after start. Aborted.", "fatal");
@@ -1421,20 +1371,6 @@ function start_main() {
         return status;
     }
 
-    // Provider outbounds need their userspace processes before a deferred
-    // subscription can download through the final sing-box service proxy.
-    // Treat a configured provider failure as a failed start instead of
-    // silently letting the protected request time out or fall back direct.
-    if (start_abandoned_for_stop("the DPI providers"))
-        return 1;
-    status = module_status(ZAPRET_UC, [ "start-runtime" ]);
-    if (status != 0)
-        return status;
-    if (start_abandoned_for_stop("the DPI providers"))
-        return 1;
-    status = module_status(ZAPRET2_UC, [ "start-runtime" ]);
-    if (status != 0)
-        return status;
     if (start_abandoned_for_stop("the deferred subscription download"))
         return 1;
 
@@ -1570,9 +1506,6 @@ function stop_main(allow_process_conflict) {
     if (!module_success(UPDATES_UC, [ "runtime-list-cache-active" ]))
         command_success_from_args([ "find", TMP_RULESET_FOLDER, "-mindepth", "1", "-maxdepth", "1", "-type", "f", "-delete" ]);
 
-    module_success(ZAPRET_UC, [ "stop-runtime" ]);
-    module_success(ZAPRET2_UC, [ "stop-runtime" ]);
-    module_success(BYEDPI_UC, [ "stop-runtime" ]);
     module_success(NFT_UC, [ "remove-dpi-transition-guard", NFT_TABLE_NAME ]);
 
     if (command_success_from_args([ "nft", "list", "table", "inet", NFT_TABLE_NAME ]))
@@ -1621,125 +1554,6 @@ function cleanup_failed_runtime() {
     return status;
 }
 
-function discard_dpi_snapshot() {
-    if (dpi_snapshot_dir != "")
-        command_success_from_args([ "rm", "-rf", dpi_snapshot_dir ]);
-    dpi_snapshot_dir = "";
-    dpi_switch_started = false;
-    dpi_restart_plan = null;
-    dpi_nft_rollback_file = "";
-    dpi_nft_committed = false;
-    dpi_singbox_backup = "";
-}
-
-function snapshot_dpi_runtime(plan) {
-    if (plan.needs_zapret_restart != 1 && plan.needs_zapret2_restart != 1 && plan.needs_byedpi_restart != 1)
-        return true;
-    dpi_snapshot_dir = trim(command_output_from_args([ "mktemp", "-d" ]));
-    if (dpi_snapshot_dir == "")
-        return false;
-    dpi_restart_plan = plan;
-    let providers = [
-        [ plan.needs_zapret_restart, ZAPRET_UC, "zapret" ],
-        [ plan.needs_zapret2_restart, ZAPRET2_UC, "zapret2" ],
-        [ plan.needs_byedpi_restart, BYEDPI_UC, "byedpi" ]
-    ];
-    for (let provider in providers) {
-        if (provider[0] == 1 && module_status(provider[1], [ "snapshot-runtime", dpi_snapshot_dir + "/" + provider[2] + ".json" ]) != 0) {
-            log_message("Could not snapshot the previous " + provider[2] + " runtime; preserving the live DPI processes", "fatal");
-            discard_dpi_snapshot();
-            return false;
-        }
-    }
-    if (plan.needs_nft_rebuild == 1 && !(plan.changed_list == 1 && plan.needs_list_update == 1)) {
-        let table_file = dpi_snapshot_dir + "/nft.table";
-        dpi_nft_rollback_file = dpi_snapshot_dir + "/nft.rollback";
-        if (system(command_from_args([ "nft", "list", "table", "inet", NFT_TABLE_NAME ]) + " >" + shell_quote(table_file)) != 0 ||
-            !write_file(dpi_nft_rollback_file, "delete table inet " + NFT_TABLE_NAME + "\n") ||
-            system("cat " + shell_quote(table_file) + " >>" + shell_quote(dpi_nft_rollback_file)) != 0 ||
-            !module_success(NFT_UC, [ "nft-validate-candidate-batch", dpi_nft_rollback_file ])) {
-            log_message("Could not prepare an atomic rollback of the previous nft table; preserving the live DPI processes", "fatal");
-            discard_dpi_snapshot();
-            return false;
-        }
-        remove_file(table_file);
-    }
-    return true;
-}
-
-function restore_dpi_runtime() {
-    if (!dpi_switch_started || dpi_restart_plan == null)
-        return true;
-    let providers = [
-        [ dpi_restart_plan.needs_zapret_restart, ZAPRET_UC, "zapret" ],
-        [ dpi_restart_plan.needs_zapret2_restart, ZAPRET2_UC, "zapret2" ],
-        [ dpi_restart_plan.needs_byedpi_restart, BYEDPI_UC, "byedpi" ]
-    ];
-    for (let provider in providers) {
-        if (provider[0] == 1 && module_status(provider[1], [ "preflight-runtime", dpi_snapshot_dir + "/" + provider[2] + ".json" ]) != 0) {
-            log_message("Previous " + provider[2] + " runtime cannot be restored; preserving the current runtime under the DPI guard", "fatal");
-            return false;
-        }
-    }
-    if (reload_gives_way_to_stop("the DPI rollback"))
-        return false;
-    if (dpi_nft_committed && dpi_nft_rollback_file != "") {
-        if (system(command_from_args([ "nft", "-f", dpi_nft_rollback_file ])) != 0) {
-            log_message("Failed to restore the previous nft table during DPI rollback", "fatal");
-            return false;
-        }
-    }
-    for (let provider in providers) {
-        if (provider[0] == 1 && module_status(provider[1], [ "stop-owned-runtime" ]) != 0) {
-            log_message("Could not safely stop the current " + provider[2] + " runtime; old runtime was not started", "fatal");
-            return false;
-        }
-    }
-    let restored = [];
-    for (let provider in providers) {
-        if (provider[0] != 1)
-            continue;
-        if (module_status(provider[1], [ "restore-runtime", dpi_snapshot_dir + "/" + provider[2] + ".json" ]) != 0) {
-            log_message("Failed to restore the previous " + provider[2] + " runtime", "fatal");
-            for (let previous in restored)
-                if (module_status(previous[1], [ "stop-owned-runtime" ]) != 0)
-                    log_message("Could not clean up partially restored " + previous[2] + " runtime", "fatal");
-            return false;
-        }
-        push(restored, provider);
-    }
-    return true;
-}
-
-function switch_dpi_runtime(plan) {
-    if (dpi_snapshot_dir == "")
-        return 0;
-    if (!module_success(NFT_UC, [ "install-dpi-transition-guard", NFT_TABLE_NAME ])) {
-        log_message("Could not install the fail-closed DPI transition guard; preserving the previous runtime", "fatal");
-        return 1;
-    }
-    dpi_guard_active = true;
-    dpi_switch_started = true;
-    let providers = [
-        [ plan.needs_zapret_restart, ZAPRET_UC, "Zapret" ],
-        [ plan.needs_zapret2_restart, ZAPRET2_UC, "Zapret2" ],
-        [ plan.needs_byedpi_restart, BYEDPI_UC, "ByeDPI" ]
-    ];
-    for (let provider in providers) {
-        if (provider[0] != 1)
-            continue;
-        let status = module_status(provider[1], [ "stop-runtime" ]);
-        if (status != 0)
-            return status;
-        status = module_status(provider[1], [ "start-runtime" ]);
-        if (status != 0) {
-            log_message("Failed to start " + provider[2] + " runtime during reload", "fatal");
-            return status;
-        }
-    }
-    return 0;
-}
-
 // The reload gives way to a stop (reload_gives_way_to_stop): sing-box stays
 // stopped, the fail-closed guards and the rest of the teardown are left to
 // the stop, and nothing this reload prepared is kept. Not a failure: the next
@@ -1749,13 +1563,9 @@ function abandon_reload_for_stop(stage_path, backup_path) {
     discard_singbox_config_stage(stage_path);
     if (as_string(backup_path) != "")
         discard_singbox_config_stage(backup_path);
-    if (dpi_singbox_backup != "" && dpi_singbox_backup != as_string(backup_path))
-        discard_singbox_config_stage(dpi_singbox_backup);
     finish_reload_singbox_transaction(false);
-    discard_dpi_snapshot();
     discard_dnsmasq_reload_config();
     remove_file(RELOAD_STATE_SNAPSHOT_FILE);
-    dpi_guard_active = false;
     module_status(STATE_UC, [
         "stop-managed-sing-box-runtime",
         as_string(getenv("FORKOP_SING_BOX_RELOAD_PID_TIMEOUT") || "15")
@@ -1770,74 +1580,19 @@ function abort_reload(status, runtime_changed) {
     if (status == 0)
         status = 1;
 
-    // Before commit there is no recovery backup to retain.  All failures in
-    // that preparation window can discard the private transaction immediately.
-    if (reload_singbox_transaction_dir != "" && dpi_singbox_backup == "")
+    // There is no recovery backup to retain: the private transaction is
+    // discarded immediately.
+    if (reload_singbox_transaction_dir != "")
         finish_reload_singbox_transaction(false);
 
-    if (dpi_switch_started && !dpi_guard_active) {
-        if (!module_success(NFT_UC, [ "install-dpi-transition-guard", NFT_TABLE_NAME ])) {
-            log_message("Could not re-install the DPI guard for post-commit rollback; keeping the current runtime", "fatal");
-            finish_reload_singbox_transaction(true);
-            remove_file(RELOAD_STATE_SNAPSHOT_FILE);
-            return status;
-        }
-        dpi_guard_active = true;
-    }
-
     if (!restore_dnsmasq_reload_config()) {
-        if (dpi_switch_started) {
-            log_message("Could not restore the previous dnsmasq configuration; preserving the DPI guard and rollback snapshot " + dpi_snapshot_dir, "fatal");
-            finish_reload_singbox_transaction(true);
-            remove_file(RELOAD_STATE_SNAPSHOT_FILE);
-            return status;
-        }
         log_message("Could not restore the previous dnsmasq configuration; stopping the partial runtime", "fatal");
-        if (dpi_singbox_backup != "")
-            finish_reload_singbox_transaction(false);
-        discard_dpi_snapshot();
         cleanup_failed_runtime();
         remove_file(RELOAD_STATE_SNAPSHOT_FILE);
         return status;
     }
 
-    if (dpi_singbox_backup != "") {
-        if (!module_success(NFT_UC, [ "install-transition-guard", NFT_TABLE_NAME, NFT_FAKEIP_MARK ]) ||
-            !restore_guarded_singbox_runtime(dpi_singbox_backup, false)) {
-            if (reload_stop_abandoned)
-                return abandon_reload_for_stop("", "");
-            log_message("Post-commit sing-box rollback failed; retaining the fail-closed transition guard", "fatal");
-            finish_reload_singbox_transaction(true);
-            remove_file(RELOAD_STATE_SNAPSHOT_FILE);
-            return status;
-        }
-        finish_reload_singbox_transaction(false);
-    }
-
-    let dpi_rollback_attempted = dpi_switch_started;
-    let dpi_restored = restore_dpi_runtime();
-    if (!dpi_restored) {
-        if (reload_stop_abandoned)
-            return abandon_reload_for_stop("", "");
-        log_message("DPI reload rollback failed; preserving the fail-closed guards and rollback snapshot " + dpi_snapshot_dir, "fatal");
-        remove_file(RELOAD_STATE_SNAPSHOT_FILE);
-        return status;
-    }
-    if (dpi_singbox_backup != "" && dpi_nft_rollback_file == "" &&
-        !module_success(NFT_UC, [ "remove-transition-guard", NFT_TABLE_NAME, NFT_FAKEIP_MARK ])) {
-        log_message("Could not remove the sing-box transition guard after rollback", "fatal");
-        remove_file(RELOAD_STATE_SNAPSHOT_FILE);
-        return status;
-    }
-    if (dpi_guard_active && !module_success(NFT_UC, [ "remove-dpi-transition-guard", NFT_TABLE_NAME ])) {
-        log_message("Could not remove the DPI transition guard after rollback", "fatal");
-        remove_file(RELOAD_STATE_SNAPSHOT_FILE);
-        return status;
-    }
-    dpi_guard_active = false;
-    discard_dpi_snapshot();
-
-    if (runtime_changed && !(dpi_rollback_attempted && dpi_restored))
+    if (runtime_changed)
         cleanup_failed_runtime();
     else
         remove_file(RELOAD_STATE_SNAPSHOT_FILE);
@@ -1951,8 +1706,8 @@ function start_inner() {
             release_start_subscription_update_lock();
             return 1;
         }
-        // Nor while the guard of a restore or an autotune apply that ended
-        // needs_attention drops DPI traffic: this start starts nothing, and
+        // Nor while the guard of a restore that ended needs_attention is
+        // active: this start starts nothing, and
         // only a restore of a snapshot releases that guard
         // (config/snapshots.uc). A cold start builds the runtime under it.
         if (command_success_from_args([ "nft", "list", "table", "inet", "ForkopConfigRestoreDpiGuard" ])) {
@@ -2165,18 +1920,10 @@ function parse_reload_plan(output) {
         changed_dnsmasq: 0,
         changed_sing_box: 0,
         changed_nft: 0,
-        changed_zapret_queue: 0,
-        changed_zapret_runtime: 0,
-        changed_zapret2_queue: 0,
-        changed_zapret2_runtime: 0,
-        changed_byedpi_runtime: 0,
         changed_cron: 0,
         changed_list: 0,
         needs_sing_box_reload: 0,
         needs_nft_rebuild: 0,
-        needs_zapret_restart: 0,
-        needs_zapret2_restart: 0,
-        needs_byedpi_restart: 0,
         needs_dnsmasq_configure: 0,
         needs_dnsmasq_restore: 0,
         needs_cron_refresh: 0,
@@ -2209,9 +1956,6 @@ function reload_actions_summary(plan) {
     let actions = "";
     actions = append_reload_action(actions, plan.needs_sing_box_reload, "sing-box");
     actions = append_reload_action(actions, plan.needs_nft_rebuild, "nftables");
-    actions = append_reload_action(actions, plan.needs_zapret_restart, "Zapret");
-    actions = append_reload_action(actions, plan.needs_zapret2_restart, "Zapret2");
-    actions = append_reload_action(actions, plan.needs_byedpi_restart, "ByeDPI");
     actions = append_reload_action(actions, plan.needs_dnsmasq_configure || plan.needs_dnsmasq_restore, "dnsmasq");
     actions = append_reload_action(actions, plan.needs_cron_refresh, "scheduled jobs");
     actions = append_reload_action(actions, plan.needs_list_update, "remote lists");
@@ -2330,7 +2074,7 @@ function dns_failover_apply(candidate_state_path) {
 
 // A reload never starts a runtime that an explicit stop took down, whoever
 // requests it: background work that began before the stop (UC-012), a manual
-// reload, a snapshot restore, an autotune apply. Only an explicit start
+// reload, a snapshot restore. Only an explicit start
 // brings it back (D-15, UC-056). Nor does it start a runtime that nobody
 // started since boot (no EXPLICIT_START_FILE; D-15(a)). A runtime that went
 // down after an explicit start (it crashed, its start failed) is still
@@ -2493,9 +2237,6 @@ function reload(reason) {
     if (actions != "")
         log_message("Applying reload changes: " + actions, "info");
 
-    if (!snapshot_dpi_runtime(plan))
-        return abort_reload(1, false);
-
     // A staged config and a checked nft batch must both exist before the
     // first live transition. The old sing-box process keeps its in-memory
     // config while this preparation runs.
@@ -2563,7 +2304,7 @@ function reload(reason) {
         }
         // When sing-box also changes, retain this checked candidate until the
         // new process is ready behind the temporary fail-closed guard.
-        if ((needs_singbox_transition || dpi_snapshot_dir != "") && !nft_candidate_validate()) {
+        if (needs_singbox_transition && !nft_candidate_validate()) {
             nft_candidate_finish(false);
             discard_singbox_config_stage(staged_singbox_config);
             log_message("Candidate nftables policy failed validation; active policy was left unchanged", "fatal");
@@ -2572,22 +2313,12 @@ function reload(reason) {
     }
 
     if (!needs_singbox_transition) {
-        if (reload_gives_way_to_stop("the DPI providers and the nft table"))
+        if (reload_gives_way_to_stop("the nft table"))
             return abandon_reload_for_stop("", "");
-        status = switch_dpi_runtime(plan);
-        if (status != 0) {
-            nft_candidate_finish(false);
-            return abort_reload(status, false);
-        }
         if (nft_candidate_batch_file != "" && !nft_candidate_finish(true, false)) {
-            log_message("Candidate nftables policy failed validation or apply; restoring the previous DPI runtime", "fatal");
+            log_message("Candidate nftables policy failed validation or apply", "fatal");
             return abort_reload(1, false);
         }
-        if (dpi_nft_rollback_file != "")
-            dpi_nft_committed = true;
-        if (dpi_guard_active && !module_success(NFT_UC, [ "remove-dpi-transition-guard", NFT_TABLE_NAME ]))
-            return abort_reload(1, runtime_changed);
-        dpi_guard_active = false;
         if (plan.needs_nft_rebuild == 1 && !(plan.changed_list == 1 && plan.needs_list_update == 1))
             runtime_changed = true;
     }
@@ -2646,25 +2377,14 @@ function reload(reason) {
             log_message("Failed to restart DNS failover runtime after sing-box reload", "fatal");
             return abort_guarded_transition(status, staged_singbox_config, staged_singbox_backup, transition_guard_active);
         }
-        if (reload_gives_way_to_stop("the DPI providers and the nft table"))
+        if (reload_gives_way_to_stop("the nft table"))
             return abandon_reload_for_stop(staged_singbox_config, staged_singbox_backup);
-        status = switch_dpi_runtime(plan);
-        if (status != 0)
-            return abort_guarded_transition(status, staged_singbox_config, staged_singbox_backup, transition_guard_active);
         if (nft_candidate_batch_file != "" && !nft_candidate_finish(true, true))
             return abort_guarded_transition(1, staged_singbox_config, staged_singbox_backup, transition_guard_active);
-        if (dpi_nft_rollback_file != "")
-            dpi_nft_committed = true;
         if (nft_candidate_batch_file == "" && !module_success(NFT_UC, [ "remove-transition-guard", NFT_TABLE_NAME, NFT_FAKEIP_MARK ]))
             return abort_guarded_transition(1, staged_singbox_config, staged_singbox_backup, transition_guard_active);
-        if (dpi_guard_active && !module_success(NFT_UC, [ "remove-dpi-transition-guard", NFT_TABLE_NAME ]))
-            return abort_guarded_transition(1, staged_singbox_config, staged_singbox_backup, transition_guard_active);
-        dpi_guard_active = false;
         transition_guard_active = false;
-        if (dpi_snapshot_dir != "")
-            dpi_singbox_backup = staged_singbox_backup;
-        else
-            finish_reload_singbox_transaction(false);
+        finish_reload_singbox_transaction(false);
         runtime_changed = true;
     }
 
@@ -2705,9 +2425,6 @@ function reload(reason) {
     ]), reload_config_fingerprint);
     if (status != 0)
         return abort_reload(status, runtime_changed);
-    if (dpi_singbox_backup != "")
-        finish_reload_singbox_transaction(false);
-    discard_dpi_snapshot();
     discard_dnsmasq_reload_config();
 
     // Clear the durable retry request only after the complete local apply

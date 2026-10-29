@@ -3,8 +3,8 @@
 // The one read layer for rule conditions stored in the Forkop UCI config.
 // Every accepted shape — legacy lists, legacy *_text options, the combined
 // domain text — reads into one canonical form, so old configs keep working
-// without a migration rewriting them. The sing-box generator and autotune
-// read rules through it.
+// without a migration rewriting them. The sing-box generator reads rules
+// through it.
 //
 // Domains: `list domain` is the legacy exact form; `option domain` is the
 // combined text (suffix by default, full:/keyword:/regex: prefixes).

@@ -25,7 +25,6 @@ const health = (
   overall: 'ok',
   service: { forkop: 'ok', sing_box: 'ok' },
   dns: { status: 'unknown' },
-  dpi: { status: 'unknown' },
   lists: { status: 'unknown' },
   guard: { active: false },
   recovery: {
@@ -62,7 +61,7 @@ describe('recovery state', () => {
     ]);
 
     expect(rows.map((row) => row.label)).toEqual([
-      'DPI guard',
+      'Safety guard',
       'Last recovery',
       'Package recovery',
       'Last reload',
@@ -110,7 +109,7 @@ describe('recovery state', () => {
     );
 
     expect(rows[0]).toMatchObject({
-      value: 'Active: DPI switch not confirmed',
+      value: 'Active: change not confirmed',
       tone: 'error',
     });
     expect(rows[2].value).toBe('Waiting to finish');
@@ -135,7 +134,7 @@ describe('recovery state that needs an action', () => {
 
   it('asks for a restart while a failed transition keeps its guard', () => {
     const rows = recoveryRows(guarded('restart', { runtime: true }), []);
-    expect(row(rows, 'DPI guard')).toMatchObject({
+    expect(row(rows, 'Safety guard')).toMatchObject({
       value: 'Active: kept by a failed change',
       tone: 'error',
     });
@@ -148,7 +147,7 @@ describe('recovery state that needs an action', () => {
 
   it('asks for a snapshot restore while an unfinished restore keeps its guard', () => {
     const rows = recoveryRows(guarded('restore', { restore: true }), []);
-    expect(row(rows, 'DPI guard')).toMatchObject({
+    expect(row(rows, 'Safety guard')).toMatchObject({
       value: 'Active: restore not finished',
       tone: 'error',
     });
@@ -160,7 +159,7 @@ describe('recovery state that needs an action', () => {
 
   it('shows a guard that a running change holds as in progress', () => {
     const rows = recoveryRows(guarded('wait', { restore: true }), []);
-    expect(row(rows, 'DPI guard')?.tone).toBe('loading');
+    expect(row(rows, 'Safety guard')?.tone).toBe('loading');
     expect(row(rows, 'Last recovery')).toMatchObject({
       value: 'In progress',
       tone: 'loading',
@@ -232,55 +231,30 @@ describe('history list', () => {
     });
   });
 
-  it('names manual and automatic autotune applies', () => {
+  it('still names the autotune events of older journals', () => {
     const titles = historyItems(
       [
-        {
-          kind: 'autotune_apply',
-          status: 'success',
-          timestamp: 4,
-          trigger: 'manual',
-          candidate: 'multisplit',
-        },
-        {
-          kind: 'autotune_apply',
-          status: 'recovered',
-          timestamp: 3,
-          trigger: 'automatic',
-          candidate: 'fake',
-        },
-        { kind: 'autotune_apply', status: 'success', timestamp: 2 },
+        { kind: 'autotune_apply', status: 'success', timestamp: 4 },
+        { kind: 'autotune_mode', status: 'success', timestamp: 3 },
+        { kind: 'autotune_run', status: 'failure', timestamp: 2 },
+        { kind: 'autotune_recommendation', status: 'success', timestamp: 1 },
       ],
-      'autotune',
+      'config',
     ).map((item) => item.title);
     expect(titles).toEqual([
-      'Autotune: multisplit applied manually',
-      'Autotune: automatic apply of fake',
       'Autotune apply',
+      'Autotune mode changed',
+      'Autotune run',
+      'Autotune recommendation confirmed',
     ]);
   });
 
   it('filters by category', () => {
     expect(historyItems(events, 'config').map((item) => item.title)).toEqual([
       'Snapshot deleted',
+      'Autotune apply',
       'Configuration reload',
     ]);
-    expect(historyItems(events, 'autotune')).toHaveLength(1);
-    expect(
-      historyItems(
-        [{ kind: 'autotune_mode', status: 'success', timestamp: 1 }],
-        'autotune',
-      ).map((item) => item.title),
-    ).toEqual(['Autotune mode changed']);
-    expect(
-      historyItems(
-        [
-          { kind: 'autotune_run', status: 'failure', timestamp: 2 },
-          { kind: 'autotune_recommendation', status: 'success', timestamp: 1 },
-        ],
-        'autotune',
-      ).map((item) => item.title),
-    ).toEqual(['Autotune run', 'Autotune recommendation confirmed']);
     expect(historyItems(events, 'service').map((item) => item.title)).toEqual([
       'Service start',
     ]);
@@ -294,9 +268,6 @@ describe('snapshots', () => {
     const recent = snapshot('3_c', 30, 'before-reload');
 
     expect(snapshotCleanupIds([old, working, recent])).toEqual(['1_a', '3_c']);
-    expect(
-      snapshotCleanupIds([old, working, { ...recent, is_protected: true }]),
-    ).toEqual(['1_a']);
     expect(snapshotCleanupIds([old, recent])).toEqual([]);
     expect(
       snapshotCleanupIds([old, working, { ...recent, is_lkg: true }]),
@@ -320,11 +291,6 @@ describe('snapshots', () => {
     ]);
     expect(rows[1].reason).toBe('Manual');
     expect(rows[0].reason).toBe('');
-    const protectedRow = snapshotRows([
-      { ...snapshot('3_c', 30, 'before-autotune'), is_protected: true },
-    ])[0];
-    expect(protectedRow.protected).toBe(true);
-    expect(protectedRow.canDelete).toBe(false);
   });
 
   it('shows list changes readably', () => {
@@ -499,7 +465,7 @@ describe('restore result', () => {
     });
     expect(unfinished.type).toBe('error');
     expect(unfinished.text).toContain('did not finish');
-    expect(unfinished.text).toContain('DPI guard stays active');
+    expect(unfinished.text).toContain('safety guard stays active');
     expect(unfinished.text).not.toContain('restored');
 
     expect(
@@ -575,7 +541,7 @@ describe('restore result', () => {
     expect(edited.text).toContain('did not finish');
     expect(edited.text).toContain('The change is kept');
     expect(edited.text).toContain('Concurrent edit');
-    expect(edited.text).toContain('DPI guard stays active');
+    expect(edited.text).toContain('safety guard stays active');
     // UC-023: the reload ran, but it may have read the change: no success,
     // and no guard is left.
     const reloaded = restoreResultToast({
@@ -589,7 +555,7 @@ describe('restore result', () => {
     expect(reloaded.text).toContain('not known whether with the snapshot');
     expect(reloaded.text).toContain('The change is kept');
     expect(reloaded.text).toContain('Concurrent edit');
-    expect(reloaded.text).not.toContain('DPI guard');
+    expect(reloaded.text).not.toContain('Safety guard');
     // Forkop X stopped during the restore: nothing reloaded, no guard left.
     const stopped = restoreResultToast({
       status: 'needs_attention',
@@ -600,7 +566,7 @@ describe('restore result', () => {
     expect(stopped.text).toContain('was not applied');
     expect(stopped.text).toContain('The change is kept');
     expect(stopped.text).toContain('Concurrent edit');
-    expect(stopped.text).not.toContain('DPI guard');
+    expect(stopped.text).not.toContain('Safety guard');
   });
 
   it('names a snapshot of the kept edit only when one was saved', () => {

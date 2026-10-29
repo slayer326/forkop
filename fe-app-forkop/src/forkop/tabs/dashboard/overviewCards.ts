@@ -127,7 +127,7 @@ function renderStateCard(
         ),
       );
     }
-    // A start is refused while a failed change keeps its DPI guard: only a
+    // A start is refused while a failed change keeps its safety guard: only a
     // restart removes it (UC-019).
     else if (state.stopped && restartRequired && restartOffered) {
       footer.push(
@@ -261,7 +261,7 @@ function renderRecoveryCard(
   recovery: OverviewRecovery,
   actions: OverviewActions,
 ) {
-  // The restart that removes a DPI guard a failed change kept (UC-019),
+  // The restart that removes a safety guard a failed change kept (UC-019),
   // whether the runtime runs or not.
   const restart =
     !actions.readonly && recovery.step === 'restart'

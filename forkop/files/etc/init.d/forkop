@@ -93,7 +93,7 @@ reload_service() {
             sync_service_triggers
             ;;
         # Keep the queue acknowledgement visible to its callers (list worker,
-        # snapshot restore, autotune apply).  The status stays 0: they tell an
+        # snapshot restore).  The status stays 0: they tell an
         # accepted-but-not-applied request from a completed lifecycle by this
         # token, so the list worker retains its durable apply marker and a
         # restore never confirms a configuration the runtime has not loaded.
@@ -101,7 +101,7 @@ reload_service() {
             printf '%s\n' queued
             ;;
         # An explicit stop holds the runtime down: the reload was skipped
-        # (snapshot restore, autotune apply; D-15, UC-056).
+        # (snapshot restore; D-15, UC-056).
         stopped)
             printf '%s\n' stopped
             ;;

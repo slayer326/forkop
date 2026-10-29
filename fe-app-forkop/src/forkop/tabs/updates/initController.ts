@@ -1,5 +1,4 @@
 import { onMount, preserveScrollForPage } from '../../../helpers';
-import { FORKOP_ACTION_PROVIDERS_AVAILABILITY_EVENT } from '../../../constants';
 import { normalizeCompiledVersion } from '../../../helpers/normalizeCompiledVersion';
 import { showToast } from '../../../helpers/showToast';
 import { copyToClipboard } from '../../../helpers/copyToClipboard';
@@ -302,24 +301,6 @@ async function refreshSystemInfoAfterMutation() {
   await ensureSystemInfo({ force: true, silent: true });
 }
 
-function notifyActionProvidersAvailabilityChanged(
-  systemInfo: StoreType['diagnosticsSystemInfo'],
-) {
-  if (typeof window === 'undefined' || typeof CustomEvent === 'undefined') {
-    return;
-  }
-
-  window.dispatchEvent(
-    new CustomEvent(FORKOP_ACTION_PROVIDERS_AVAILABILITY_EVENT, {
-      detail: {
-        zapretInstalled: Boolean(systemInfo.zapret_installed),
-        zapret2Installed: Boolean(systemInfo.zapret2_installed),
-        byedpiInstalled: Boolean(systemInfo.byedpi_installed),
-      },
-    }),
-  );
-}
-
 function reloadPageAfterForkopUpdate() {
   window.setTimeout(() => {
     window.location.reload();
@@ -384,42 +365,6 @@ function patchSystemInfoAfterMutation(result: Forkop.ComponentActionResult) {
     }
   }
 
-  if (result.component === 'zapret') {
-    nextSystemInfo.providerInfoLoaded = true;
-
-    if (result.action === 'remove') {
-      nextSystemInfo.zapret_installed = 0;
-      nextSystemInfo.zapret_version = 'not installed';
-    } else {
-      nextSystemInfo.zapret_installed = 1;
-      nextSystemInfo.zapret_version = version;
-    }
-  }
-
-  if (result.component === 'zapret2') {
-    nextSystemInfo.providerInfoLoaded = true;
-
-    if (result.action === 'remove') {
-      nextSystemInfo.zapret2_installed = 0;
-      nextSystemInfo.zapret2_version = 'not installed';
-    } else {
-      nextSystemInfo.zapret2_installed = 1;
-      nextSystemInfo.zapret2_version = version;
-    }
-  }
-
-  if (result.component === 'byedpi') {
-    nextSystemInfo.providerInfoLoaded = true;
-
-    if (result.action === 'remove') {
-      nextSystemInfo.byedpi_installed = 0;
-      nextSystemInfo.byedpi_version = 'not installed';
-    } else {
-      nextSystemInfo.byedpi_installed = 1;
-      nextSystemInfo.byedpi_version = version;
-    }
-  }
-
   if (result.component === 'zapret_manager') {
     nextSystemInfo.zapret_manager_installed =
       result.action === 'remove' ? 0 : 1;
@@ -435,19 +380,9 @@ function patchSystemInfoAfterMutation(result: Forkop.ComponentActionResult) {
       result.action === 'enable' ? 1 : 0;
   }
 
-  const normalizedSystemInfo = normalizeSingBoxVariantFields(nextSystemInfo);
-
   store.set({
-    diagnosticsSystemInfo: normalizedSystemInfo,
+    diagnosticsSystemInfo: normalizeSingBoxVariantFields(nextSystemInfo),
   });
-
-  if (
-    result.component === 'zapret' ||
-    result.component === 'zapret2' ||
-    result.component === 'byedpi'
-  ) {
-    notifyActionProvidersAvailabilityChanged(normalizedSystemInfo);
-  }
 }
 
 async function applyCompletedComponentAction({
@@ -714,25 +649,15 @@ function stopComponentActionStateWatcher() {
 const REMOVABLE_COMPONENT_TITLES: Partial<
   Record<Forkop.ComponentName, string>
 > = {
-  zapret: 'Zapret',
-  zapret2: 'Zapret2',
-  byedpi: 'ByeDPI',
   zapret_manager: 'Zapret-Manager-Stressozz',
 };
 
 function confirmComponentRemoval(button: ComponentActionButton) {
   const title =
     REMOVABLE_COMPONENT_TITLES[button.component] || button.component;
-  const isDpiProvider = ['zapret', 'zapret2', 'byedpi'].includes(
-    button.component,
-  );
-
   return confirmAction({
     title: _('Remove %s?').replace('%s', title),
     message: _('The package is removed from the router.'),
-    consequences: isDpiProvider
-      ? [_('Rules that use this provider stop bypassing DPI')]
-      : undefined,
     confirmLabel: _('Remove'),
     danger: true,
   });
@@ -856,43 +781,11 @@ function getInstalledUpdateActions(
   return actions;
 }
 
-function getOptionalComponentActions({
-  component,
-  installed,
-  checkKey,
-  installKey,
-  removeKey,
-}: {
-  component: 'zapret' | 'zapret2' | 'byedpi';
-  installed: boolean;
-  checkKey: UpdatesActionKey;
-  installKey: UpdatesActionKey;
-  removeKey: UpdatesActionKey;
-}) {
-  if (!installed) {
-    return [getInstallAction(component, installKey, false)];
-  }
-
-  return [
-    ...getInstalledUpdateActions(component, checkKey, installKey),
-    {
-      key: removeKey,
-      text: _('Remove'),
-      icon: renderXIcon24,
-      component,
-      action: 'remove' as const,
-    },
-  ];
-}
-
 function getComponentCards(): ComponentCard[] {
   const systemInfo = normalizeSingBoxVariantFields(
     store.get().diagnosticsSystemInfo,
   );
   const systemInfoLoading = isSystemInfoLoading();
-  const zapretInstalled = Boolean(systemInfo.zapret_installed);
-  const zapret2Installed = Boolean(systemInfo.zapret2_installed);
-  const byedpiInstalled = Boolean(systemInfo.byedpi_installed);
   const zapretManagerInstalled = Boolean(systemInfo.zapret_manager_installed);
   const packetSteeringEnabled = systemInfo.packet_steering_mode === '2';
   const directProxyEnabled = Boolean(systemInfo.direct_proxy_enabled);
@@ -963,27 +856,6 @@ function getComponentCards(): ComponentCard[] {
     });
   }
 
-  const zapretActions = getOptionalComponentActions({
-    component: 'zapret',
-    installed: zapretInstalled,
-    checkKey: 'zapretCheck',
-    installKey: 'zapretInstall',
-    removeKey: 'zapretRemove',
-  });
-  const zapret2Actions = getOptionalComponentActions({
-    component: 'zapret2',
-    installed: zapret2Installed,
-    checkKey: 'zapret2Check',
-    installKey: 'zapret2Install',
-    removeKey: 'zapret2Remove',
-  });
-  const byedpiActions = getOptionalComponentActions({
-    component: 'byedpi',
-    installed: byedpiInstalled,
-    checkKey: 'byedpiCheck',
-    installKey: 'byedpiInstall',
-    removeKey: 'byedpiRemove',
-  });
   const zapretManagerActions: ComponentActionButton[] = zapretManagerInstalled
     ? [
         {
@@ -1026,45 +898,6 @@ function getComponentCards(): ComponentCard[] {
       latestVersion: getLatestVersion('sing_box'),
       releaseUrl: getGitHubReleaseUrl('sing_box'),
       actions: singBoxActions,
-    },
-    {
-      component: 'zapret',
-      column: 1,
-      title: 'Zapret',
-      version: systemInfoLoading
-        ? _('Loading...')
-        : zapretInstalled
-          ? systemInfo.zapret_version
-          : _('Not installed'),
-      latestVersion: getLatestVersion('zapret'),
-      releaseUrl: getGitHubReleaseUrl('zapret'),
-      actions: zapretActions,
-    },
-    {
-      component: 'zapret2',
-      column: 1,
-      title: 'Zapret2',
-      version: systemInfoLoading
-        ? _('Loading...')
-        : zapret2Installed
-          ? systemInfo.zapret2_version
-          : _('Not installed'),
-      latestVersion: getLatestVersion('zapret2'),
-      releaseUrl: getGitHubReleaseUrl('zapret2'),
-      actions: zapret2Actions,
-    },
-    {
-      component: 'byedpi',
-      column: 1,
-      title: 'ByeDPI',
-      version: systemInfoLoading
-        ? _('Loading...')
-        : byedpiInstalled
-          ? systemInfo.byedpi_version
-          : _('Not installed'),
-      latestVersion: getLatestVersion('byedpi'),
-      releaseUrl: getGitHubReleaseUrl('byedpi'),
-      actions: byedpiActions,
     },
     {
       component: 'zapret_manager',

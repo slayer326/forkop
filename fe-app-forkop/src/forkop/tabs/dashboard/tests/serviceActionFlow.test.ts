@@ -32,7 +32,7 @@ describe('overview service action flow', () => {
   };
 
   it('reads the health again before the buttons are enabled', async () => {
-    // After the restart that removes a kept DPI guard (UC-019) the Recovery
+    // After the restart that removes a kept safety guard (UC-019) the Recovery
     // card must not offer that restart again until the next poll.
     const { calls, value } = steps();
     await runOverviewServiceAction(value);

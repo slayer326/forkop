@@ -4,15 +4,11 @@ import { runDnsCheck } from './checks/runDnsCheck';
 import { runSingBoxCheck } from './checks/runSingBoxCheck';
 import { runNftCheck } from './checks/runNftCheck';
 import { runFakeIPCheck } from './checks/runFakeIPCheck';
-import { runZapretCheck } from './checks/runZapretCheck';
-import { runZapret2Check } from './checks/runZapret2Check';
-import { runByedpiCheck } from './checks/runByedpiCheck';
 import {
   DIAGNOSTICS_CHECKS,
   DIAGNOSTICS_CHECKS_MAP,
 } from './checks/contstants';
 import {
-  DiagnosticsProviderOptions,
   getDiagnosticsChecks,
   getLoadingDiagnosticsChecks,
 } from './diagnostic.store';
@@ -49,7 +45,6 @@ import {
   setForkopAutostart,
 } from '../shared/serviceControl';
 import { initConnectivityMatrix } from './connectivityMatrix';
-import { initDpiPlayground } from './dpiPlayground';
 import {
   getAvailableActionsDisabledState,
   hasComponentActionLoading,
@@ -97,24 +92,8 @@ type DiagnosticRunner = {
   run: () => Promise<void>;
 };
 
-function getDiagnosticsProviderOptions(
-  systemInfo: Pick<
-    StoreType['diagnosticsSystemInfo'],
-    'zapret_installed' | 'zapret2_installed' | 'byedpi_installed'
-  > = store.get().diagnosticsSystemInfo,
-): DiagnosticsProviderOptions {
-  return {
-    includeZapret: Boolean(systemInfo.zapret_installed),
-    includeZapret2: Boolean(systemInfo.zapret2_installed),
-    includeByedpi: Boolean(systemInfo.byedpi_installed),
-  };
-}
-
 function getNotRunningDiagnosticsChecks() {
-  return getDiagnosticsChecks(
-    _('Not running'),
-    getDiagnosticsProviderOptions(),
-  );
+  return getDiagnosticsChecks(_('Not running'));
 }
 
 function resetDiagnosticsChecks() {
@@ -328,17 +307,14 @@ function followServiceActionsFromUiState(uiState?: Forkop.UiState) {
 }
 
 async function fetchSystemInfo() {
-  const systemInfo = await ensureSystemInfo();
+  await ensureSystemInfo();
 
   if (store.get().diagnosticsRunAction.loading) {
     return;
   }
 
   store.set({
-    diagnosticsChecks: getDiagnosticsChecks(
-      _('Not running'),
-      getDiagnosticsProviderOptions(systemInfo),
-    ),
+    diagnosticsChecks: getNotRunningDiagnosticsChecks(),
   });
 }
 
@@ -354,108 +330,21 @@ async function fetchDiagnosticsProviderInfo({
       return;
     }
 
-    if (uiState) {
-      const currentSystemInfo = store.get().diagnosticsSystemInfo;
-      const nextSystemInfo = normalizeSingBoxVariantFields({
-        ...currentSystemInfo,
-        providerInfoLoaded: true,
-        sing_box_extended: uiState.capabilities.sing_box_extended,
-        sing_box_tiny: uiState.capabilities.sing_box_tiny,
-        sing_box_compressed: uiState.capabilities.sing_box_compressed,
-        sing_box_tailscale: uiState.capabilities.sing_box_tailscale,
-        sing_box_podkop_engine:
-          uiState.capabilities.sing_box_podkop_engine ?? 0,
-        sing_box_podkop_engine_full:
-          uiState.capabilities.sing_box_podkop_engine_full ?? 0,
-        zapret_installed: uiState.capabilities.zapret_installed,
-        zapret2_installed: uiState.capabilities.zapret2_installed,
-        byedpi_installed: uiState.capabilities.byedpi_installed,
-      });
-
-      if (!nextSystemInfo.zapret_installed) {
-        nextSystemInfo.zapret_version = 'not installed';
-      }
-
-      if (!nextSystemInfo.zapret2_installed) {
-        nextSystemInfo.zapret2_version = 'not installed';
-      }
-
-      if (!nextSystemInfo.byedpi_installed) {
-        nextSystemInfo.byedpi_version = 'not installed';
-      }
-
-      const nextState: Partial<StoreType> = {
-        diagnosticsSystemInfo: nextSystemInfo,
-      };
-
-      if (
-        shouldResetDiagnosticsChecks({
-          resetChecks,
-          diagnosticsRunLoading: store.get().diagnosticsRunAction.loading,
-        })
-      ) {
-        nextState.diagnosticsChecks = getDiagnosticsChecks(
-          _('Not running'),
-          getDiagnosticsProviderOptions(nextSystemInfo),
-        );
-      }
-
-      store.set(nextState);
-      return;
-    }
-
-    const [zapretRuntime, zapret2Runtime, byedpiRuntime] = await Promise.all([
-      ForkopShellMethods.checkZapretRuntime(),
-      ForkopShellMethods.checkZapret2Runtime(),
-      ForkopShellMethods.checkByedpiRuntime(),
-    ]);
-
-    if (requestId !== latestProviderInfoRequestId) {
-      return;
-    }
-
     const currentSystemInfo = store.get().diagnosticsSystemInfo;
-    const nextSystemInfo = {
-      ...currentSystemInfo,
-      providerInfoLoaded: true,
-      zapret_installed: zapretRuntime.success
-        ? zapretRuntime.data.zapret_installed
-        : currentSystemInfo.zapret_installed,
-      zapret2_installed: zapret2Runtime.success
-        ? zapret2Runtime.data.zapret2_installed
-        : currentSystemInfo.zapret2_installed,
-      byedpi_installed: byedpiRuntime.success
-        ? byedpiRuntime.data.byedpi_installed
-        : currentSystemInfo.byedpi_installed,
-    };
-
-    if (!zapretRuntime.success) {
-      logger.error('[DIAGNOSTIC]', 'fetchZapretRuntime failed', zapretRuntime);
-    }
-
-    if (!zapret2Runtime.success) {
-      logger.error(
-        '[DIAGNOSTIC]',
-        'fetchZapret2Runtime failed',
-        zapret2Runtime,
-      );
-    }
-
-    if (!byedpiRuntime.success) {
-      logger.error('[DIAGNOSTIC]', 'fetchByedpiRuntime failed', byedpiRuntime);
-    }
-
-    if (!nextSystemInfo.zapret_installed) {
-      nextSystemInfo.zapret_version = 'not installed';
-    }
-
-    if (!nextSystemInfo.zapret2_installed) {
-      nextSystemInfo.zapret2_version = 'not installed';
-    }
-
-    if (!nextSystemInfo.byedpi_installed) {
-      nextSystemInfo.byedpi_version = 'not installed';
-    }
+    const nextSystemInfo = uiState
+      ? normalizeSingBoxVariantFields({
+          ...currentSystemInfo,
+          providerInfoLoaded: true,
+          sing_box_extended: uiState.capabilities.sing_box_extended,
+          sing_box_tiny: uiState.capabilities.sing_box_tiny,
+          sing_box_compressed: uiState.capabilities.sing_box_compressed,
+          sing_box_podkop_engine:
+            uiState.capabilities.sing_box_podkop_engine ?? 0,
+          sing_box_podkop_engine_full:
+            uiState.capabilities.sing_box_podkop_engine_full ?? 0,
+          sing_box_tailscale: uiState.capabilities.sing_box_tailscale,
+        })
+      : { ...currentSystemInfo, providerInfoLoaded: true };
 
     const nextState: Partial<StoreType> = {
       diagnosticsSystemInfo: nextSystemInfo,
@@ -467,10 +356,7 @@ async function fetchDiagnosticsProviderInfo({
         diagnosticsRunLoading: store.get().diagnosticsRunAction.loading,
       })
     ) {
-      nextState.diagnosticsChecks = getDiagnosticsChecks(
-        _('Not running'),
-        getDiagnosticsProviderOptions(nextSystemInfo),
-      );
+      nextState.diagnosticsChecks = getNotRunningDiagnosticsChecks();
     }
 
     store.set(nextState);
@@ -510,9 +396,7 @@ function renderDiagnosticsChecks() {
 // Re-runs one check instead of the whole diagnostics.
 async function retryCheck(code: DIAGNOSTICS_CHECKS) {
   if (store.get().diagnosticsRunAction.loading || retryingCheck) return;
-  const runner = getDiagnosticRunners(getDiagnosticsProviderOptions()).find(
-    (item) => item.code === code,
-  );
+  const runner = getDiagnosticRunners().find((item) => item.code === code);
   if (!runner) return;
 
   retryingCheck = code;
@@ -894,27 +778,6 @@ function renderDiagnosticSystemInfoWidget() {
     },
   ];
 
-  if (diagnosticsSystemInfo.zapret_installed) {
-    items.push({
-      key: 'Zapret',
-      value: diagnosticsSystemInfo.zapret_version,
-    });
-  }
-
-  if (diagnosticsSystemInfo.zapret2_installed) {
-    items.push({
-      key: 'Zapret2',
-      value: diagnosticsSystemInfo.zapret2_version,
-    });
-  }
-
-  if (diagnosticsSystemInfo.byedpi_installed) {
-    items.push({
-      key: 'ByeDPI',
-      value: diagnosticsSystemInfo.byedpi_version,
-    });
-  }
-
   items.push(
     {
       key: _('OS'),
@@ -967,15 +830,8 @@ async function onStoreUpdate(
   }
 }
 
-function persistDiagnosticRunProgress({
-  providerOptions,
-  nextRunnerIndex,
-}: {
-  providerOptions: DiagnosticsProviderOptions;
-  nextRunnerIndex: number;
-}) {
+function persistDiagnosticRunProgress(nextRunnerIndex: number) {
   savePersistedDiagnosticRun({
-    providerOptions,
     nextRunnerIndex,
     diagnosticsChecks: store.get().diagnosticsChecks,
   });
@@ -1001,22 +857,11 @@ function setDiagnosticCheckLoading(code: DIAGNOSTICS_CHECKS) {
   });
 }
 
-function getDiagnosticRunners(
-  providerOptions: DiagnosticsProviderOptions,
-): DiagnosticRunner[] {
+function getDiagnosticRunners(): DiagnosticRunner[] {
   return [
     { code: DIAGNOSTICS_CHECKS.DNS, run: runDnsCheck },
     { code: DIAGNOSTICS_CHECKS.SINGBOX, run: runSingBoxCheck },
     { code: DIAGNOSTICS_CHECKS.NFT, run: runNftCheck },
-    ...(providerOptions.includeZapret
-      ? [{ code: DIAGNOSTICS_CHECKS.ZAPRET, run: runZapretCheck }]
-      : []),
-    ...(providerOptions.includeZapret2
-      ? [{ code: DIAGNOSTICS_CHECKS.ZAPRET2, run: runZapret2Check }]
-      : []),
-    ...(providerOptions.includeByedpi
-      ? [{ code: DIAGNOSTICS_CHECKS.BYEDPI, run: runByedpiCheck }]
-      : []),
     { code: DIAGNOSTICS_CHECKS.OUTBOUNDS, run: runSectionsCheck },
     { code: DIAGNOSTICS_CHECKS.FAKEIP, run: runFakeIPCheck },
   ];
@@ -1027,48 +872,35 @@ async function runChecks({ resume }: { resume?: PersistedDiagnosticRun } = {}) {
     return;
   }
 
-  let providerOptions =
-    resume?.providerOptions ?? getDiagnosticsProviderOptions();
   let nextRunnerIndex = resume?.nextRunnerIndex ?? 0;
 
   store.set({
     diagnosticsRunAction: { loading: true },
     diagnosticsChecks:
       resume?.diagnosticsChecks ??
-      getLoadingDiagnosticsChecks(providerOptions).diagnosticsChecks,
+      getLoadingDiagnosticsChecks().diagnosticsChecks,
   });
-  persistDiagnosticRunProgress({
-    providerOptions,
-    nextRunnerIndex,
-  });
+  persistDiagnosticRunProgress(nextRunnerIndex);
 
   try {
     if (!resume) {
       await fetchDiagnosticsProviderInfo({ resetChecks: false });
 
-      providerOptions = getDiagnosticsProviderOptions();
       nextRunnerIndex = 0;
 
       store.set({
-        diagnosticsChecks:
-          getLoadingDiagnosticsChecks(providerOptions).diagnosticsChecks,
+        diagnosticsChecks: getLoadingDiagnosticsChecks().diagnosticsChecks,
       });
-      persistDiagnosticRunProgress({
-        providerOptions,
-        nextRunnerIndex,
-      });
+      persistDiagnosticRunProgress(nextRunnerIndex);
     }
 
-    const runners = getDiagnosticRunners(providerOptions);
+    const runners = getDiagnosticRunners();
 
     for (let index = nextRunnerIndex; index < runners.length; index += 1) {
       const runner = runners[index];
 
       setDiagnosticCheckLoading(runner.code);
-      persistDiagnosticRunProgress({
-        providerOptions,
-        nextRunnerIndex: index,
-      });
+      persistDiagnosticRunProgress(index);
 
       try {
         await runner.run();
@@ -1080,10 +912,7 @@ async function runChecks({ resume }: { resume?: PersistedDiagnosticRun } = {}) {
         );
       }
 
-      persistDiagnosticRunProgress({
-        providerOptions,
-        nextRunnerIndex: index + 1,
-      });
+      persistDiagnosticRunProgress(index + 1);
     }
     saveLastRun(localStorage);
   } catch (e) {
@@ -1267,7 +1096,6 @@ export async function initController(
   onMount('diagnostic-status').then(() => {
     initSiteCheck(dependencies.loadLocalDeviceChoices);
     initConnectivityMatrix();
-    initDpiPlayground();
     logger.debug('[DIAGNOSTIC]', 'initController', 'onMount');
     registerLifecycleListeners();
     if (

@@ -84,7 +84,6 @@ import {
   routeTraceFailureText,
   siteConclusion,
 } from '../siteCheck';
-import { validationView } from '../dpiPlayground';
 import { checkStatus, eventStatus, healthStatus } from '../statusLabels';
 import {
   diagnosticActionSummary,
@@ -277,7 +276,6 @@ describe('route check', () => {
     rule: unknown,
     action: unknown,
     outbound: unknown,
-    dpi: unknown,
     interface: {
       value: 'pppoe-wan',
       provenance: 'observed',
@@ -287,22 +285,16 @@ describe('route check', () => {
     ...overrides,
   });
 
-  it('names the calculated route with the rule and DPI strategy', () => {
+  it('names the calculated route with its rule', () => {
     const row = routeRow(
       trace({
         rule: { value: 'YouTube', section: 'youtube', provenance: 'simulated' },
-        action: { value: 'zapret', provenance: 'simulated' },
+        action: { value: 'connection', provenance: 'simulated' },
         outbound: { value: 'youtube-out', provenance: 'simulated' },
-        dpi: {
-          value: 'zapret',
-          strategy: 'multisplit',
-          strategy_custom: false,
-          provenance: 'configured',
-        },
       }),
     );
     expect(row).toMatchObject({
-      value: 'DPI · rule «YouTube» · Zapret · multisplit',
+      value: 'Connection · rule «YouTube»',
       provenance: 'simulated',
     });
     expect(
@@ -373,9 +365,11 @@ describe('route check', () => {
     };
     expect(probeRow(ok).provenance).toBe('observed');
     expect(siteConclusion(trace(), ok)).toContain('opens from the router');
-    const dpi = trace({ action: { value: 'zapret', provenance: 'simulated' } });
-    expect(siteConclusion(dpi, failed)).toContain('strategy does not work');
-    expect(siteConclusion(dpi, failed)).toContain(
+    const routed = trace({
+      action: { value: 'connection', provenance: 'simulated' },
+    });
+    expect(siteConclusion(routed, failed)).toContain('Monitoring');
+    expect(siteConclusion(routed, failed)).toContain(
       'different path than devices',
     );
     expect(
@@ -421,29 +415,6 @@ describe('statuses', () => {
     expect(checkStatus('skipped').text).toBe('Not checked');
     expect(checkStatus('loading').text).toBe('Checking…');
     expect(checkStatus('warning').text).toBe('Needs attention');
-  });
-});
-
-describe('DPI syntax check', () => {
-  it('reports a human-readable verdict', () => {
-    expect(
-      validationView({ success: true, data: { valid: true, message: '' } }),
-    ).toEqual({
-      text: '✓ Syntax is correct',
-      tone: 'success',
-    });
-    expect(
-      validationView({
-        success: true,
-        data: { valid: false, message: "Unknown NFQWS flag '--x'." },
-      }).text,
-    ).toBe("✕ Unknown NFQWS flag '--x'.");
-    expect(validationView({ success: false }).text).toBe(
-      'Syntax check is unavailable',
-    );
-    expect(validationView({ success: true, data: 'garbage' }).tone).toBe(
-      'error',
-    );
   });
 });
 
@@ -562,29 +533,23 @@ describe('page layout', () => {
       'site-check-target',
       'site-check-device',
       'connectivity-rows',
-      'technical-data',
-      'dpi-strategy',
     ])
       expect(found).toContain(id);
     for (const id of [
       'trace-target',
       'route-debugger',
       'fkp_diagnostic-page-wiki',
-      'dpi-strategy-a',
-      'dpi-strategy-b',
+      'technical-data',
+      'dpi-strategy',
     ])
       expect(found).not.toContain(id);
-    expect(text(page)).toContain('DPI strategy syntax check');
-    expect(text(page)).not.toMatch(/Playground|compare/i);
+    expect(text(page)).not.toMatch(/Playground|compare|DPI/i);
   });
 
-  it('replaces the DPI validator with an explanation for read-only sessions', () => {
+  it('leaves service actions out of read-only sessions', () => {
     setReadonlyMode(true);
     const page = render();
     expect(ids(page)).not.toContain('fkp_diagnostic-page-service-actions');
-    expect(ids(page)).not.toContain('dpi-strategy');
-    expect(ids(page)).not.toContain('dpi-validate');
-    expect(text(page)).toContain('Available to administrators only.');
     setReadonlyMode(false);
   });
 });

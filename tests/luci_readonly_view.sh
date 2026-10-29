@@ -83,13 +83,12 @@ function stubs(canReadUci, calls) {
     setReadonlyMode(value) { calls.push(`readonly:${value}`); },
     setForkopPage(page) { calls.push(`page:${page}`); },
     store: { get: () => ({ diagnosticsSystemInfo: {} }), set() {} },
-    FORKOP_ACTION_PROVIDERS_AVAILABILITY_EVENT: 'x',
     ForkopShellMethods: {
       getUiCapabilities: async () => ({ success: true, data: {} }),
       snapshotCreate: async () => ({ success: true, data: { status: 'created' } }),
     },
   };
-  for (const tab of ['DashboardTab', 'MonitoringTab', 'DiagnosticTab', 'AutotuneTab', 'HistoryTab', 'UpdatesTab']) {
+  for (const tab of ['DashboardTab', 'MonitoringTab', 'DiagnosticTab', 'HistoryTab', 'UpdatesTab']) {
     main[tab] = {
       initController() { calls.push(`init:${tab}`); },
       render() {
@@ -106,7 +105,7 @@ function stubs(canReadUci, calls) {
   const localDevices = { loadLocalDeviceChoices: async () => ({}) };
   const mountModules = {
     dashboard: 'dashboard.js', diagnostic: 'diagnostic.js', monitoring: 'monitoring.js',
-    history: 'history.js', autotune: 'autotune.js', updates: 'updates.js',
+    history: 'history.js', updates: 'updates.js',
   };
   const mounts = {};
   for (const [name, file] of Object.entries(mountModules))
@@ -150,7 +149,7 @@ const tabsOf = record => record.sections.map(section => section.type);
     assert.equal(calls.filter(call => call === 'readonly:true').length, 1,
       'read-only mode must be set exactly once');
     assert.deepEqual(tabsOf(context.record),
-      ['dashboard', 'diagnostic', 'monitoring', 'history', 'autotune'],
+      ['dashboard', 'diagnostic', 'monitoring', 'history'],
       'the read-only role must be offered every reading tab and no other');
     assert.equal(context.record.maps.length, 1);
     assert.equal(context.record.maps[0].readonly, true, 'the read-only map must be read-only');
@@ -176,7 +175,7 @@ const tabsOf = record => record.sections.map(section => section.type);
       ['snapshot', 'save', 'apply'], 'LuCI must snapshot before its real Save & Apply action');
     assert(!calls.some(call => call.startsWith('readonly:')), 'an administrator must not be read-only');
     assert.deepEqual(tabsOf(context.record),
-      ['section', 'settings', 'diagnostic', 'dashboard', 'monitoring', 'history', 'autotune', 'updates'],
+      ['section', 'settings', 'diagnostic', 'dashboard', 'monitoring', 'history', 'updates'],
       'the administrator tab set changed');
     assert.equal(context.record.maps[0].tabbed, true, 'the view is tabbed');
     assert(calls.includes('rules-content'), 'the rules form is missing');
@@ -188,7 +187,7 @@ const tabsOf = record => record.sections.map(section => section.type);
     const settingsSection = context.record.sections.find(s => s.type === 'settings');
     for (const [name, given] of Object.entries(groups))
       assert.equal(given, settingsSection, `the ${name} group is not on the Settings tab`);
-    for (const tab of ['DashboardTab', 'MonitoringTab', 'DiagnosticTab', 'AutotuneTab', 'HistoryTab', 'UpdatesTab'])
+    for (const tab of ['DashboardTab', 'MonitoringTab', 'DiagnosticTab', 'HistoryTab', 'UpdatesTab'])
       assert(calls.includes(`init:${tab}`), `${tab} controller was not started`);
   }
 

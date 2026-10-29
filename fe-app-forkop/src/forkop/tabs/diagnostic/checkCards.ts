@@ -35,7 +35,7 @@ export function checkAdvice(
           'Traffic of the rules does not reach sing-box, so connections through rules fail.',
         ),
         action: _(
-          'Restart Forkop X on the Overview. If it repeats, open the logs under Technical data.',
+          'Restart Forkop X on the Overview. If it repeats, open the logs under Available actions.',
         ),
         link: 'overview',
       } satisfies CheckAdvice;
@@ -48,16 +48,6 @@ export function checkAdvice(
           'Restart Forkop X. If another add-on marks traffic, make sure it does not conflict.',
         ),
         link: 'overview',
-      } satisfies CheckAdvice;
-    case DIAGNOSTICS_CHECKS.ZAPRET:
-    case DIAGNOSTICS_CHECKS.ZAPRET2:
-    case DIAGNOSTICS_CHECKS.BYEDPI:
-      return {
-        meaning: _('DPI bypass of the rules using this provider may not work.'),
-        action: _(
-          'Make sure the provider is installed and the rule strategy is valid, then restart Forkop X.',
-        ),
-        link: 'rules',
       } satisfies CheckAdvice;
     case DIAGNOSTICS_CHECKS.OUTBOUNDS:
       return {
@@ -104,7 +94,7 @@ export function checkAdvice(
       return {
         meaning: _('Part of Forkop X does not work as expected.'),
         action: _(
-          'Retry the check. If it repeats, open the logs under Technical data.',
+          'Retry the check. If it repeats, open the logs under Available actions.',
         ),
       } satisfies CheckAdvice;
   }

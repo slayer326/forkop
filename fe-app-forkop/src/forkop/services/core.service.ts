@@ -25,9 +25,6 @@ function componentDisplayName(component: string) {
   const names: Record<string, string> = {
     forkop: 'Forkop',
     sing_box: 'sing-box',
-    zapret: 'Zapret',
-    zapret2: 'Zapret2',
-    byedpi: 'ByeDPI',
   };
 
   return names[component] || component;

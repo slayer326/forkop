@@ -30,7 +30,7 @@ const visible = (name, state) => options[name].dependencies.some(dependency =>
 const names = ['mixed_proxy_enabled', 'mixed_proxy_port', 'mixed_proxy_auth_enabled',
   'mixed_proxy_username', 'mixed_proxy_password'];
 assert.deepEqual(Object.keys(options), names);
-for (const action of ['connection', 'proxy', 'vpn', 'outbound', 'byedpi', 'zapret', 'zapret2']) {
+for (const action of ['connection', 'proxy', 'vpn', 'outbound']) {
   for (const enabled of ['0', '1']) {
     for (const auth of ['0', '1']) {
       const state = { action, mixed_proxy_enabled: enabled, mixed_proxy_auth_enabled: auth };
@@ -42,7 +42,7 @@ for (const action of ['connection', 'proxy', 'vpn', 'outbound', 'byedpi', 'zapre
     }
   }
 }
-for (const action of ['block', 'bypass', 'dns']) {
+for (const action of ['block', 'bypass', 'dns', 'byedpi', 'zapret', 'zapret2']) {
   for (const name of names)
     assert.equal(visible(name, { action, mixed_proxy_enabled: '1', mixed_proxy_auth_enabled: '1' }), false);
 }

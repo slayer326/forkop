@@ -264,8 +264,8 @@ function network_wireguard_route_allowed_peers() {
 const UCI_MASKED_VALUE = "MASKED";
 
 // Flags, enums, intervals, section references, display names and paths of
-// Forkop's own files. Links, credentials, DNS servers, user domains/IPs and
-// raw DPI strategies are deliberately absent.
+// Forkop's own files. Links, credentials, DNS servers and user domains/IPs
+// are deliberately absent.
 let uci_safe_options = {
     action: true, active_check_interval: true, applied_migrations: true, auto_hwid: true,
     auto_user_agent: true, badwan_monitored_interfaces: true, badwan_reload_delay: true,
@@ -1032,18 +1032,6 @@ function render_proxy_response_ip_mask() {
     exit(1);
 }
 
-function write_ui_capabilities_json(sing_box_extended, sing_box_tiny, sing_box_compressed, sing_box_tailscale, zapret_installed, zapret2_installed, byedpi_installed) {
-    write_json({
-        sing_box_extended: arg_number(sing_box_extended),
-        sing_box_tiny: arg_number(sing_box_tiny),
-        sing_box_compressed: arg_number(sing_box_compressed),
-        sing_box_tailscale: arg_number(sing_box_tailscale),
-        zapret_installed: arg_number(zapret_installed),
-        zapret2_installed: arg_number(zapret2_installed),
-        byedpi_installed: arg_number(byedpi_installed)
-    });
-}
-
 function service_status_label(running, enabled) {
     running = arg_number(running);
     enabled = arg_number(enabled);
@@ -1234,9 +1222,6 @@ function render_global_system_info() {
     let forkop_version = object_value(value, "forkop_version") || "unknown";
     let luci_app_version = object_value(value, "luci_app_version") || "unknown";
     let sing_box_version = object_value(value, "sing_box_version") || "unknown";
-    let zapret_version = object_value(value, "zapret_version") || "unknown";
-    let zapret2_version = object_value(value, "zapret2_version") || "unknown";
-    let byedpi_version = object_value(value, "byedpi_version") || "unknown";
     let openwrt_version = object_value(value, "openwrt_version") || "unknown";
     let device_model = object_value(value, "device_model") || "unknown";
 
@@ -1246,12 +1231,6 @@ function render_global_system_info() {
     print_line("\ud83d\udd73\ufe0f Forkop:   " + forkop_version);
     print_line("\ud83d\udd73\ufe0f LuCI App:      " + luci_app_version);
     print_line("\ud83d\udce6 Sing-box:      " + format_sing_box_version(value, sing_box_version));
-    if (flag_is_one(value.zapret_installed))
-        print_line("\ud83e\uddf5 Zapret:        " + zapret_version);
-    if (flag_is_one(value.zapret2_installed))
-        print_line("\ud83e\uddf5 Zapret2:       " + zapret2_version);
-    if (flag_is_one(value.byedpi_installed))
-        print_line("\ud83e\uddf5 ByeDPI:        " + byedpi_version);
     print_line("\ud83d\udedc OpenWrt:       " + openwrt_version);
     print_line("\ud83d\udedc Device:        " + device_model);
 }
@@ -1509,43 +1488,6 @@ function system_info_cache_valid(path, forkop_version, luci_app_version, ttl, no
         return false;
 
     return cache.forkop_version == forkop_version && cache.luci_app_version == luci_app_version;
-}
-
-function system_info_json() {
-    write_json({
-        forkop_version: as_string(ARGV[1]),
-        forkop_latest_version: as_string(ARGV[2]),
-        luci_app_version: as_string(ARGV[3]),
-        sing_box_version: as_string(ARGV[4]),
-        sing_box_extended: arg_number(ARGV[5]),
-        sing_box_tiny: arg_number(ARGV[6]),
-        sing_box_compressed: arg_number(ARGV[7]),
-        sing_box_tailscale: arg_number(ARGV[8]),
-        zapret_version: as_string(ARGV[9]),
-        zapret_installed: arg_number(ARGV[10]),
-        zapret2_version: as_string(ARGV[11]),
-        zapret2_installed: arg_number(ARGV[12]),
-        byedpi_version: as_string(ARGV[13]),
-        byedpi_installed: arg_number(ARGV[14]),
-        openwrt_version: as_string(ARGV[15]),
-        device_model: as_string(ARGV[16]),
-        generated_at: arg_number(ARGV[17])
-    });
-}
-
-function nfqws_strategy_validation(valid, message, needle, needles) {
-    let result = [];
-    for (let item in split(as_string(needles), "\n")) {
-        if (item != "")
-            push(result, item);
-    }
-
-    write_json({
-        valid: arg_bool(valid),
-        message: as_string(message),
-        needle: as_string(needle),
-        needles: result
-    });
 }
 
 // Keys whose values are masked in the masked sing-box config (read-only
@@ -1835,8 +1777,6 @@ else if (mode == "server-required-port-conflict-owners")
     server_required_port_conflict_owners(ARGV[1], ARGV[2], ARGV[3]);
 else if (mode == "json-error")
     json_error(ARGV[1]);
-else if (mode == "ui-capabilities-json")
-    write_ui_capabilities_json(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6], ARGV[7]);
 else if (mode == "service-status-json")
     write_service_status_json(ARGV[1], ARGV[2], ARGV[3], ARGV[4]);
 else if (mode == "service-status-running")
@@ -1887,10 +1827,6 @@ else if (mode == "key-value-file-value")
     key_value_file_value(ARGV[1], ARGV[2]);
 else if (mode == "system-info-cache-valid")
     exit(system_info_cache_valid(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5]) ? 0 : 1);
-else if (mode == "system-info-json")
-    system_info_json();
-else if (mode == "nfqws-strategy-validation")
-    nfqws_strategy_validation(ARGV[1], ARGV[2], ARGV[3], ARGV[4]);
 else if (mode == "mask-sing-box-config")
     mask_sing_box_config(ARGV[1]);
 else if (mode == "proxy-response-is-retryable-error")

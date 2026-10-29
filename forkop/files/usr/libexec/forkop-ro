@@ -3,7 +3,7 @@
 #
 # rpcd file.exec applies the caller's "env" table to the child process, and
 # the backend honours environment overrides meant for tests and packaging
-# (FORKOP_*, UCI_*, TMP_*, SB_*, NFT_*, ZAPRET_*, PATH, ...). The read ACL
+# (FORKOP_*, UCI_*, TMP_*, SB_*, NFT_*, PATH, ...). The read ACL
 # group may only execute this wrapper: it drops the whole inherited
 # environment and runs the CLI with a fixed PATH. The arguments pass through
 # unchanged and are never evaluated; rpcd already limits them per command.

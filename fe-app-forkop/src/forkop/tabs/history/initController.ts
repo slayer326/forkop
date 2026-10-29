@@ -38,7 +38,7 @@ import { FORKOP_UCI_PACKAGE } from '../../../constants';
 import { cleanupOldSnapshots } from './cleanupSnapshots';
 
 const REFRESH_INTERVAL_MS = 15000;
-const FILTERS: HistoryFilter[] = ['all', 'config', 'service', 'autotune'];
+const FILTERS: HistoryFilter[] = ['all', 'config', 'service'];
 const MAX_RESTORE_PREVIEW = 8;
 
 let mounted = false;
@@ -468,16 +468,6 @@ function renderSnapshots() {
                       ),
                     ]
                   : []),
-                ...(row.protected
-                  ? [
-                      ' ',
-                      E(
-                        'span',
-                        { class: 'fkp-history__lkg' },
-                        _('Protected for recovery'),
-                      ),
-                    ]
-                  : []),
               ]),
               E('span', { class: 'fkp-actions' }, [
                 E(
@@ -502,11 +492,9 @@ function renderSnapshots() {
                         {
                           label: row.canDelete
                             ? _('Delete…')
-                            : row.protected
-                              ? _('This snapshot is needed for recovery')
-                              : _(
-                                  'The last known good snapshot cannot be deleted',
-                                ),
+                            : _(
+                                'The last known good snapshot cannot be deleted',
+                              ),
                           onClick: () => void deleteSnapshot(row.id, label),
                           disabled: snapshotBusy || !row.canDelete,
                           danger: row.canDelete,

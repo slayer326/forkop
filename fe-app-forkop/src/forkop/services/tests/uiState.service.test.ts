@@ -33,9 +33,6 @@ function createUiState(
       sing_box_tiny: 0,
       sing_box_compressed: 0,
       sing_box_tailscale: 1,
-      zapret_installed: 1,
-      zapret2_installed: 0,
-      byedpi_installed: 1,
       ...capabilities,
     },
     actions: {
@@ -154,7 +151,7 @@ describe('applyUiStateToStore', () => {
             success: true,
             running: true,
             job_id: 'component-1',
-            component: 'zapret',
+            component: 'sing_box',
             action: 'install',
             message: 'Install is running',
             current_version: '',
@@ -179,9 +176,6 @@ describe('applyUiStateToStore', () => {
     expect(state.diagnosticsSystemInfo).toMatchObject({
       providerInfoLoaded: true,
       sing_box_extended: 1,
-      zapret_installed: 1,
-      zapret2_installed: 0,
-      byedpi_installed: 1,
     });
     expect(state.diagnosticsActions.start.loading).toBe(true);
     expect(state.sectionsWidget.subscriptionUpdatingSections).toEqual({
@@ -197,7 +191,7 @@ describe('applyUiStateToStore', () => {
         failed: 1,
       },
     });
-    expect(state.updatesActions.zapretInstall.loading).toBe(true);
+    expect(state.updatesActions.singBoxInstall.loading).toBe(true);
   });
 
   it('clears finished persisted action flags while preserving local enable actions', () => {
@@ -221,7 +215,7 @@ describe('applyUiStateToStore', () => {
       },
       updatesActions: {
         ...store.get().updatesActions,
-        zapretInstall: { loading: true },
+        singBoxInstall: { loading: true },
       },
     });
 
@@ -234,18 +228,18 @@ describe('applyUiStateToStore', () => {
     expect(state.sectionsWidget.subscriptionUpdatingSections).toEqual({});
     expect(state.sectionsWidget.latencyFetchingSections).toEqual({});
     expect(state.sectionsWidget.latencyProgressSections).toEqual({});
-    expect(state.updatesActions.zapretInstall.loading).toBe(false);
+    expect(state.updatesActions.singBoxInstall.loading).toBe(false);
   });
 
   it('keeps locally started actions loading until their owner clears them', () => {
-    setLocalComponentAction('zapretInstall', true);
+    setLocalComponentAction('singBoxInstall', true);
     setLocalSubscriptionAction('proxy', true);
     setLocalLatencyAction('gemini', true);
     setLocalServiceAction('restart', true);
 
     applyUiStateToStore(createUiState());
 
-    expect(store.get().updatesActions.zapretInstall.loading).toBe(true);
+    expect(store.get().updatesActions.singBoxInstall.loading).toBe(true);
     expect(store.get().sectionsWidget.subscriptionUpdatingSections).toEqual({
       proxy: true,
     });
@@ -257,7 +251,7 @@ describe('applyUiStateToStore', () => {
     clearLocalActionOverlay();
     applyUiStateToStore(createUiState());
 
-    expect(store.get().updatesActions.zapretInstall.loading).toBe(false);
+    expect(store.get().updatesActions.singBoxInstall.loading).toBe(false);
     expect(store.get().sectionsWidget.subscriptionUpdatingSections).toEqual({});
     expect(store.get().sectionsWidget.latencyFetchingSections).toEqual({});
     expect(store.get().diagnosticsActions.restart.loading).toBe(false);
@@ -391,9 +385,6 @@ describe('applyUiStateToStore', () => {
         sing_box_tiny: 1,
         sing_box_compressed: 0,
         sing_box_tailscale: 1,
-        zapret_installed: 0,
-        zapret2_installed: 0,
-        byedpi_installed: 1,
       },
     });
 
@@ -419,9 +410,6 @@ describe('applyUiStateToStore', () => {
           sing_box_tiny: 1,
           sing_box_compressed: 0,
           sing_box_tailscale: 0,
-          zapret_installed: 1,
-          zapret2_installed: 1,
-          byedpi_installed: 0,
         },
       ),
     );
@@ -433,9 +421,6 @@ describe('applyUiStateToStore', () => {
       sing_box_tiny: 1,
       sing_box_compressed: 0,
       sing_box_tailscale: 0,
-      zapret_installed: 1,
-      zapret2_installed: 1,
-      byedpi_installed: 0,
     });
     expect(
       store.get().updatesActions.singBoxInstallExtendedCompressed.loading,

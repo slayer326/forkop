@@ -32,7 +32,7 @@ export function confirmStopForkop() {
     title: _('Stop Forkop X?'),
     message: _('Forkop X stops handling traffic until it is started again.'),
     consequences: [
-      _('Routing, DNS and DPI bypass rules stop applying'),
+      _('Routing and DNS rules stop applying'),
       _('Devices keep using the router without Forkop X'),
     ],
     confirmLabel: _('Stop'),

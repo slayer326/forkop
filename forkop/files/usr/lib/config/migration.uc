@@ -28,6 +28,7 @@ const FORKOP_SUBSCRIPTION_METADATA_DIR = getenv("FORKOP_SUBSCRIPTION_METADATA_DI
 const FORKOP_OUTBOUND_METADATA_DIR = getenv("FORKOP_OUTBOUND_METADATA_DIR") || FORKOP_RUNTIME_STATE_DIR + "/outbound-metadata";
 const FORKOP_SECTION_CACHE_DIR = getenv("FORKOP_SECTION_CACHE_DIR") || FORKOP_RUNTIME_STATE_DIR + "/section-cache";
 const FORKOP_RUNTIME_CACHE_FORMAT_FILE = getenv("FORKOP_RUNTIME_CACHE_FORMAT_FILE") || FORKOP_RUNTIME_STATE_DIR + "/cache-format";
+const FORKOP_AUTOTUNE_APPLY_STATE = getenv("FORKOP_AUTOTUNE_APPLY_STATE") || "/etc/forkop/autotune-apply.json";
 const FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_DIR = getenv("FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_DIR") || "/etc/forkop/subscription-cache";
 const FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_FORMAT_FILE = getenv("FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_FORMAT_FILE") || FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_DIR + "/cache-format";
 const FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_FORMAT = getenv("FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_FORMAT") || "9";
@@ -92,8 +93,6 @@ function run(command) {
 function constants_context() {
     let constants = object_or_empty(constants_module);
     return {
-        zapret_legacy_default_nfqws_opt: as_string(constants.ZAPRET_LEGACY_DEFAULT_NFQWS_OPT),
-        zapret_default_nfqws_opt: as_string(constants.ZAPRET_DEFAULT_NFQWS_OPT),
         urltest_default_idle_timeout: as_string(object_or_empty(singbox_constants_module).URLTEST_DEFAULT_IDLE_TIMEOUT || "30m")
     };
 }
@@ -672,27 +671,6 @@ function legacy_rule_connection_kind(section) {
     return "proxy";
 }
 
-function migrate_byedpi_cmd_opts(ctx, section) {
-    let cmd_opts = option(section, "cmd_opts", "");
-    if (cmd_opts == "")
-        return;
-
-    if (option(section, "byedpi_cmd_opts", "") == "")
-        set_option(ctx, section, "byedpi_cmd_opts", cmd_opts);
-    delete_option(ctx, section, "cmd_opts");
-}
-
-function migrate_zapret_nfqws_default(ctx, section, constants) {
-    if (migrated_rule_action(section) != "zapret")
-        return;
-
-    let nfqws_opt = option(section, "nfqws_opt", "");
-    if (nfqws_opt == "" || nfqws_opt != constants.zapret_legacy_default_nfqws_opt)
-        return;
-
-    set_option(ctx, section, "nfqws_opt", constants.zapret_default_nfqws_opt);
-}
-
 function migrate_subscription_url_item_settings(ctx, section) {
     let values = whitespace_list_values(section, "subscription_urls");
     let seen_values = {};
@@ -1070,8 +1048,7 @@ function migrate_rule(ctx, section, converted_from_rule, constants) {
         if (converted_from_rule && subscription_urls != "")
             delete_subscription_cache(ctx, section_name(section));
     }
-    else if (action == "block" ||
-        action == "bypass" || action == "zapret" || action == "zapret2" || action == "byedpi") {
+    else if (action == "block" || action == "bypass") {
         delete_option(ctx, section, "proxy_config_type");
         delete_option(ctx, section, "proxy_string");
         delete_option(ctx, section, "urltest_proxy_links");
@@ -1083,9 +1060,6 @@ function migrate_rule(ctx, section, converted_from_rule, constants) {
 
     if (action != "connection")
         delete_legacy_urltest_options(ctx, section);
-
-    migrate_byedpi_cmd_opts(ctx, section);
-    migrate_zapret_nfqws_default(ctx, section, constants);
 }
 
 function migrate_rule_section(ctx, section, constants) {
@@ -1499,6 +1473,104 @@ function migrate_urltest_section_names(ctx) {
     }
 }
 
+// ByeDPI support was removed. An enabled ByeDPI rule now fails validation
+// ("unsupported action") and keeps Forkop from starting after an upgrade.
+// Keep such rules with their lists, disabled, as direct rules without the
+// strategy; the user picks a new action in LuCI. Download-through-section
+// settings that pointed at one are switched off: a disabled rule cannot
+// provide an outbound. This runs on every migration (it is idempotent), so a
+// configuration restored from an older backup is cleaned up as well.
+function migrate_retired_byedpi(ctx) {
+    let settings = ctx.model.settings;
+    let retired = {};
+    for (let section in ctx.model.sections || []) {
+        if (option(section, "action", "") == "byedpi") {
+            retired[section_name(section)] = true;
+            set_option(ctx, section, "enabled", "0");
+            set_option(ctx, section, "action", "bypass");
+        }
+        delete_option(ctx, section, "byedpi_cmd_opts");
+    }
+
+    // Components fall back to the lists section when they have none.
+    let lists_section = option(settings, "download_lists_via_proxy_section", "");
+    for (let purpose in [ "lists", "components" ]) {
+        let flag = "download_" + purpose + "_via_proxy";
+        let own_section = option(settings, flag + "_section", "");
+        let target = own_section != "" ? own_section : (purpose == "components" ? lists_section : "");
+        if (target == "" || !retired[target])
+            continue;
+        set_option(ctx, settings, flag, "0");
+        delete_option(ctx, settings, flag + "_section");
+    }
+    for (let child in ctx.model.subscription_url || []) {
+        if (!retired[option(child, "download_via_proxy_section", "")])
+            continue;
+        set_option(ctx, child, "download_via_proxy_enabled", "0");
+        delete_option(ctx, child, "download_via_proxy_section");
+    }
+}
+
+// Zapret and Zapret2 rules were removed; the Zapret Manager component now
+// owns DPI bypass. An enabled rule with such an action fails validation
+// ("unsupported action") and keeps Forkop from starting after an upgrade.
+// Keep these rules with their lists, disabled, as direct rules without the
+// NFQWS strategy; the user picks a new action in LuCI. Settings that routed
+// downloads or DNS through one are switched off: a disabled direct rule
+// cannot provide an outbound. This runs on every migration (it is
+// idempotent), so a configuration restored from an older backup is cleaned
+// up as well.
+function migrate_retired_zapret(ctx) {
+    let settings = ctx.model.settings;
+    let retired = {};
+    for (let section in ctx.model.sections || []) {
+        let action = option(section, "action", "");
+        if (action == "zapret" || action == "zapret2") {
+            retired[section_name(section)] = true;
+            set_option(ctx, section, "enabled", "0");
+            set_option(ctx, section, "action", "bypass");
+            // A direct rule has no outbound to expose, and generation refuses
+            // a mixed proxy inbound for it. Drop the local proxy with the
+            // action that backed it.
+            for (let key in [ "mixed_proxy_enabled", "mixed_proxy_port", "mixed_proxy_auth_enabled",
+                    "mixed_proxy_username", "mixed_proxy_password" ])
+                delete_option(ctx, section, key);
+        }
+        delete_option(ctx, section, "nfqws_opt");
+        delete_option(ctx, section, "nfqws2_opt");
+    }
+
+    // Components fall back to the lists section when they have none.
+    let lists_section = option(settings, "download_lists_via_proxy_section", "");
+    for (let purpose in [ "lists", "components" ]) {
+        let flag = "download_" + purpose + "_via_proxy";
+        let own_section = option(settings, flag + "_section", "");
+        let target = own_section != "" ? own_section : (purpose == "components" ? lists_section : "");
+        if (target == "" || !retired[target])
+            continue;
+        set_option(ctx, settings, flag, "0");
+        delete_option(ctx, settings, flag + "_section");
+    }
+    for (let child in ctx.model.subscription_url || []) {
+        if (!retired[option(child, "download_via_proxy_section", "")])
+            continue;
+        set_option(ctx, child, "download_via_proxy_enabled", "0");
+        delete_option(ctx, child, "download_via_proxy_section");
+    }
+
+    // DNS through a section needs an outbound as well, both globally and per
+    // DNS rule.
+    let dns_holders = [ settings ];
+    for (let section in ctx.model.sections || [])
+        push(dns_holders, section);
+    for (let holder in dns_holders) {
+        if (!retired[option(holder, "dns_detour_section", "")])
+            continue;
+        set_option(ctx, holder, "dns_detour_enabled", "0");
+        delete_option(ctx, holder, "dns_detour_section");
+    }
+}
+
 const MIGRATIONS = [
     { id: "interface_sections", run: migrate_interface_sections },
     { id: "enable_component_checks", run: migrate_enable_component_checks },
@@ -1514,6 +1586,8 @@ const MIGRATIONS = [
 
 function apply_migrations(ctx) {
     ctx.source_release = option(ctx.model.settings, CONFIG_VERSION_OPTION, "");
+    migrate_retired_byedpi(ctx);
+    migrate_retired_zapret(ctx);
 
     let applied = [];
     let seen = {};
@@ -1636,6 +1710,40 @@ function remove_legacy_server_country_cache() {
     fs.unlink(FORKOP_RUNTIME_STATE_DIR + "/server-country-cache.json");
 }
 
+// PID, log and state files of the removed ByeDPI provider.
+function remove_retired_byedpi_state() {
+    if (fs.stat(FORKOP_RUNTIME_STATE_DIR + "/byedpi") != null)
+        run("rm -rf " + shell_quote(FORKOP_RUNTIME_STATE_DIR + "/byedpi"));
+}
+
+// PID, log, hostlist and state files of the removed Zapret providers.
+function remove_retired_zapret_state() {
+    for (let name in [ "zapret", "zapret2", "zapret-runtime" ])
+        if (fs.stat(FORKOP_RUNTIME_STATE_DIR + "/" + name) != null)
+            run("rm -rf " + shell_quote(FORKOP_RUNTIME_STATE_DIR + "/" + name));
+}
+
+// The DPI autotune was removed with the Zapret providers it tuned: its apply
+// record and its runtime state (job results, probes, locks).
+function remove_retired_autotune_state() {
+    fs.unlink(FORKOP_AUTOTUNE_APPLY_STATE);
+    if (fs.stat(FORKOP_RUNTIME_STATE_DIR + "/autotune") != null)
+        run("rm -rf " + shell_quote(FORKOP_RUNTIME_STATE_DIR + "/autotune"));
+}
+
+// Its policy and targets: "autotune" and "autotune_target" sections, which
+// the migration model does not read.
+function remove_retired_autotune_sections(cursor) {
+    let names = [];
+    for (let type_name in [ "autotune", "autotune_target" ])
+        cursor.foreach(CONFIG_NAME, type_name, function(section) {
+            push(names, as_string(section[".name"]));
+        });
+    for (let name in names)
+        uci_core.delete(CONFIG_NAME + "." + name);
+    return length(names) > 0;
+}
+
 function remove_cache_path(path) {
     path = as_string(path);
     if (index(path, "*") >= 0)
@@ -1748,12 +1856,16 @@ function migrate_model(model, source) {
 function migrate_runtime(source) {
     ensure_runtime_cache_format();
     remove_legacy_server_country_cache();
+    remove_retired_byedpi_state();
+    remove_retired_zapret_state();
+    remove_retired_autotune_state();
 
     let cursor = runtime_cursor();
     cursor.load(CONFIG_NAME);
+    let autotune_removed = remove_retired_autotune_sections(cursor);
     let ctx = migrate_model(model_from_uci(cursor), source);
     if (!ctx.changed)
-        return true;
+        return autotune_removed ? commit_cursor(cursor) : true;
 
     apply_operations(cursor, ctx.operations);
     for (let path in ctx.removed_caches)

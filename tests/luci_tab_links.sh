@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Forkop X is one LuCI view whose features are tabs, so a link from one feature
-# to another (the Overview cards, the autotune hints, a diagnostic check, the
+# to another (the Overview cards, a diagnostic check, the
 # per-connection actions) switches to the sibling tab. It must not navigate:
 # there is one view and no page per feature to navigate to.
 #
@@ -41,7 +41,7 @@ assert(
 const mapping = [
   ...navigation.matchAll(/^\s{2}(\w+): '([\w-]+)',$/gm),
 ].map(([, page, tab]) => ({ page, tab }));
-assert(mapping.length >= 7, 'the page-to-tab map was not found');
+assert(mapping.length >= 6, 'the page-to-tab map was not found');
 for (const { page, tab } of mapping)
   assert(
     mounted.has(tab),
@@ -52,9 +52,6 @@ for (const { page, tab } of mapping)
 const pages = new Set(
   [
     ...read('fe-app-forkop/src/forkop/tabs/dashboard/overviewCards.ts').matchAll(
-      /openForkopPage\('([\w-]+)'/g,
-    ),
-    ...read('fe-app-forkop/src/forkop/tabs/autotune/initController.ts').matchAll(
       /openForkopPage\('([\w-]+)'/g,
     ),
     ...read(

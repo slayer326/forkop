@@ -22,33 +22,27 @@ function validateLatencyTestUrl(value) {
   return validation.valid ? true : validation.message;
 }
 
-function isDownloadSectionAction(action, capabilities) {
+function isDownloadSectionAction(action) {
   switch (action) {
     case "connection":
     case "proxy":
     case "outbound":
     case "vpn":
       return true;
-    case "zapret":
-      return !capabilities?.loaded || Boolean(capabilities.zapretInstalled);
-    case "zapret2":
-      return !capabilities?.loaded || Boolean(capabilities.zapret2Installed);
-    case "byedpi":
-      return !capabilities?.loaded || Boolean(capabilities.byedpiInstalled);
     default:
       return false;
   }
 }
 
-function isDownloadSection(sec, capabilities) {
+function isDownloadSection(sec) {
   return (
     sec?.[".type"] === "section" &&
     sec.enabled !== "0" &&
-    isDownloadSectionAction(sec.action, capabilities)
+    isDownloadSectionAction(sec.action)
   );
 }
 
-function refreshDownloadSectionChoices(option, capabilities) {
+function refreshDownloadSectionChoices(option) {
   const sections = option.map?.data?.state?.values?.[UCI_PACKAGE] ?? {};
 
   option.keylist = [];
@@ -56,14 +50,13 @@ function refreshDownloadSectionChoices(option, capabilities) {
 
   for (const secName in sections) {
     const sec = sections[secName];
-    if (isDownloadSection(sec, capabilities)) {
+    if (isDownloadSection(sec)) {
       option.value(secName, sec.label || secName);
     }
   }
 }
 
-// The saved section stays selected when it is disabled, its DPI provider is
-// not installed or it no longer exists: LuCI would otherwise show the first
+// The saved section stays selected when it is disabled or no longer exists: LuCI would otherwise show the first
 // eligible rule and the next Save would re-point DNS or downloads to it. The
 // kept choice is labelled and refused until the user picks another section
 // (UC-008).
@@ -83,16 +76,6 @@ function describeUnavailableSection(sec, name) {
       label: _("%s (disabled)").format(label),
       message: _(
         "The selected section is disabled. Enable it or choose another section.",
-      ),
-    };
-  }
-
-  // An enabled DPI section is left out only while its provider is missing.
-  if (["zapret", "zapret2", "byedpi"].includes(sec.action)) {
-    return {
-      label: _("%s (provider not installed)").format(label),
-      message: _(
-        "The DPI provider of the selected section is not installed. Install it in Components or choose another section.",
       ),
     };
   }
@@ -139,7 +122,7 @@ function currentSection(option, name) {
   };
 }
 
-function configureDownloadSectionOption(option, sectionOption, capabilities) {
+function configureDownloadSectionOption(option, sectionOption) {
   option.default = "";
   option.rmempty = false;
   option.cfgvalue = function (section_id) {
@@ -147,7 +130,7 @@ function configureDownloadSectionOption(option, sectionOption, capabilities) {
   };
   option.load = function (section_id) {
     const value = this.cfgvalue(section_id);
-    refreshDownloadSectionChoices(this, capabilities);
+    refreshDownloadSectionChoices(this);
     keepUnavailableSectionChoice(this, value);
     return value;
   };
@@ -168,11 +151,10 @@ function configureDownloadSectionOption(option, sectionOption, capabilities) {
       return _("Select a section");
     }
     // Every choice is checked as the page is now, not as it was when the
-    // choices were built: Components, a tab of the same page, can install or
-    // remove the provider (capabilities follow it, UC-152), and the rules
-    // grid can enable, disable or remove the section (UC-008).
+    // choices were built: the rules grid can enable, disable or remove the
+    // section (UC-008).
     const sec = currentSection(this, value);
-    return isDownloadSection(sec, capabilities)
+    return isDownloadSection(sec)
       ? true
       : describeUnavailableSection(sec, value).message;
   };
@@ -256,7 +238,7 @@ function configureDnsDuration(
 // Service. sections: { dns, network, lists, service } - four sections to put a
 // group on a tab of its own, or the same section four times to lay every group
 // out on one tab, which is what the Forkop X view does.
-function createSettingsContent(sections, capabilities) {
+function createSettingsContent(sections) {
   const renderSettings = sections.dns.render;
   // Rarely changed DNS options fold under "Advanced settings".
   sections.dns.render = function () {
@@ -426,7 +408,7 @@ function createSettingsContent(sections, capabilities) {
     _("DNS requests through section"),
   );
   o.depends("dns_detour_enabled", "1");
-  configureDownloadSectionOption(o, "dns_detour_section", capabilities);
+  configureDownloadSectionOption(o, "dns_detour_section");
 
   o = sections.network.option(
     widgets.DeviceSelect,
@@ -744,11 +726,7 @@ function createSettingsContent(sections, capabilities) {
     _("Download lists through"),
   );
   o.depends("download_lists_via_proxy", "1");
-  configureDownloadSectionOption(
-    o,
-    "download_lists_via_proxy_section",
-    capabilities,
-  );
+  configureDownloadSectionOption(o, "download_lists_via_proxy_section");
 
   o = sections.lists.option(
     form.Flag,
@@ -764,11 +742,7 @@ function createSettingsContent(sections, capabilities) {
     _("Download components through"),
   );
   o.depends("download_components_via_proxy", "1");
-  configureDownloadSectionOption(
-    o,
-    "download_components_via_proxy_section",
-    capabilities,
-  );
+  configureDownloadSectionOption(o, "download_components_via_proxy_section");
 
   o = sections.network.option(
     form.Flag,

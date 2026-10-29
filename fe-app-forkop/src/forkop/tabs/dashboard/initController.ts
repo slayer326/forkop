@@ -86,7 +86,7 @@ let clashUpdatesStarted = false;
 async function refreshHealth(mountId: number) {
   const response = await ForkopShellMethods.getHealthStatus();
   if (!dashboardMounted || mountId !== dashboardMountId) return;
-  // A failed poll keeps the last known health, so a DPI guard it showed
+  // A failed poll keeps the last known health, so a safety guard it showed
   // stays visible, and marks it stale: it proves nothing healthy (UC-021).
   if (response.success && response.data) {
     overviewHealth = response.data;

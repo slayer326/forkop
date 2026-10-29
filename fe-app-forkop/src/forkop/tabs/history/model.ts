@@ -42,7 +42,7 @@ function eventText(event: { kind: string; status: string; timestamp: number }) {
   };
 }
 
-// The DPI guard by what ends it (diagnostics/health.uc recovery.action):
+// The safety guard by what ends it (diagnostics/health.uc recovery.action):
 // only one that a change still holds is transient (UC-019, UC-066).
 function guardRow(health: Forkop.HealthStatus) {
   if (!health.guard.active)
@@ -65,7 +65,7 @@ function guardRow(health: Forkop.HealthStatus) {
       };
     default:
       return {
-        value: _('Active: DPI switch not confirmed'),
+        value: _('Active: change not confirmed'),
         tone: 'error' as const,
       };
   }
@@ -84,7 +84,7 @@ function lastRecoveryRow(health: Forkop.HealthStatus) {
   return { value: _('Needs attention'), tone: 'error' as const };
 }
 
-// The step that ends a DPI guard that is left; none while a change holds it.
+// The step that ends a safety guard that is left; none while a change holds it.
 function nextStepRow(health: Forkop.HealthStatus): RecoveryRow[] {
   if (!health.guard.active) return [];
   switch (health.recovery.action) {
@@ -93,7 +93,7 @@ function nextStepRow(health: Forkop.HealthStatus): RecoveryRow[] {
         {
           label: _('Next step'),
           value: _(
-            'Restart Forkop X: the restart removes the DPI guard that a failed change left in place.',
+            'Restart Forkop X: the restart removes the safety guard that a failed change left in place.',
           ),
           tone: 'warning',
         },
@@ -103,7 +103,7 @@ function nextStepRow(health: Forkop.HealthStatus): RecoveryRow[] {
         {
           label: _('Next step'),
           value: _(
-            'Restore the last known good snapshot: the restore finishes and removes the DPI guard.',
+            'Restore the last known good snapshot: the restore finishes and removes the safety guard.',
           ),
           tone: 'warning',
         },
@@ -126,7 +126,7 @@ export function recoveryRows(
 
   return [
     {
-      label: _('DPI guard'),
+      label: _('Safety guard'),
       ...guardRow(health),
     },
     {
@@ -164,7 +164,7 @@ export function recoveryRows(
   ];
 }
 
-export type HistoryFilter = 'all' | 'config' | 'service' | 'autotune';
+export type HistoryFilter = 'all' | 'config' | 'service';
 
 const CATEGORY: Record<string, Exclude<HistoryFilter, 'all'>> = {
   reload: 'config',
@@ -173,10 +173,11 @@ const CATEGORY: Record<string, Exclude<HistoryFilter, 'all'>> = {
   snapshot_delete: 'config',
   start: 'service',
   recovery: 'service',
-  autotune_apply: 'autotune',
-  autotune_mode: 'autotune',
-  autotune_recommendation: 'autotune',
-  autotune_run: 'autotune',
+  // Kept in journals written before automatic DPI selection was removed.
+  autotune_apply: 'config',
+  autotune_mode: 'config',
+  autotune_recommendation: 'config',
+  autotune_run: 'config',
 };
 
 export function historyFilterLabel(filter: HistoryFilter) {
@@ -185,8 +186,6 @@ export function historyFilterLabel(filter: HistoryFilter) {
       return _('Configuration');
     case 'service':
       return _('Service');
-    case 'autotune':
-      return _('Autotune');
     default:
       return _('All');
   }
@@ -217,28 +216,8 @@ export function historyPage(
   };
 }
 
-// An autotune apply names its strategy and whether a person or the
-// schedule started it; other events are named by their kind.
 export function eventTitle(event: Forkop.HistoryEvent) {
-  if (event.kind !== 'autotune_apply' || !event.trigger)
-    return eventKindLabel(event.kind);
-  const candidate = event.candidate ?? '';
-  const manual = event.trigger === 'manual';
-  if (!candidate)
-    return manual
-      ? _('Autotune: manual apply')
-      : _('Autotune: automatic apply');
-  if (event.status === 'success')
-    return (
-      manual
-        ? _('Autotune: %s applied manually')
-        : _('Autotune: %s applied automatically')
-    ).replace('%s', candidate);
-  return (
-    manual
-      ? _('Autotune: manual apply of %s')
-      : _('Autotune: automatic apply of %s')
-  ).replace('%s', candidate);
+  return eventKindLabel(event.kind);
 }
 
 // Newest first.
@@ -271,7 +250,7 @@ export function snapshotReasonLabel(reason: string) {
       return _('Last known good');
     case 'before-autotune':
       return _('Before autotune');
-    // A configuration edited while a restore or an autotune change owned it:
+    // A configuration edited while a restore owned it:
     // kept, never rolled back or taken for the restored one
     // (config/snapshots.uc).
     case 'concurrent-change':
@@ -295,8 +274,7 @@ export function snapshotRows(snapshots: Forkop.SnapshotMetadata[]) {
           ? ''
           : snapshotReasonLabel(snapshot.reason),
       lkg: Boolean(snapshot.is_lkg),
-      protected: Boolean(snapshot.is_protected),
-      canDelete: !snapshot.is_lkg && !snapshot.is_protected,
+      canDelete: !snapshot.is_lkg,
     }));
 }
 
@@ -307,7 +285,7 @@ export function snapshotCleanupIds(
 ): string[] {
   if (snapshots.filter((snapshot) => snapshot.is_lkg).length !== 1) return [];
   return snapshots
-    .filter((snapshot) => !snapshot.is_lkg && !snapshot.is_protected)
+    .filter((snapshot) => !snapshot.is_lkg)
     .map((snapshot) => snapshot.id);
 }
 
@@ -463,12 +441,12 @@ export function restoreResultToast(
         duration: 8000,
       };
     case 'failed':
-      // A failed lifecycle transition kept its DPI guard: no reload runs
+      // A failed lifecycle transition kept its safety guard: no reload runs
       // until a restart removes it, so nothing was changed (UC-019).
       if (result.reason === 'runtime_guard_active')
         return {
           text: _(
-            'Restore was not started: a failed change left the DPI guard in place, and nothing can be reloaded until Forkop X is restarted. Restart Forkop X, then restore the snapshot if it is still needed.',
+            'Restore was not started: a failed change left the safety guard in place, and nothing can be reloaded until Forkop X is restarted. Restart Forkop X, then restore the snapshot if it is still needed.',
           ),
           type: 'warning',
           duration: 12000,
@@ -517,17 +495,17 @@ export function restoreResultToast(
               : // The reload ran, but it may have read the change.
                 result.guard === 'inactive'
                 ? `${_('Restore did not finish: the configuration was changed while the snapshot was being applied. Forkop X was reloaded, but it is not known whether with the snapshot or with the change.')} ${kept} ${_('Restore the snapshot you need to finish.')}`
-                : `${_('Restore did not finish: the configuration was changed while the snapshot was being applied.')} ${kept} ${_('The DPI guard stays active. Restore the snapshot you need to finish.')}`,
+                : `${_('Restore did not finish: the configuration was changed while the snapshot was being applied.')} ${kept} ${_('The safety guard stays active. Restore the snapshot you need to finish.')}`,
           type: 'error',
           duration: 12000,
         };
       }
-      // The reload left, or met, a DPI guard that a failed transition kept:
+      // The reload left, or met, a safety guard that a failed transition kept:
       // the restore's own guard stays until a restore after the restart.
       if (result.reason === 'runtime_guard_active')
         return {
           text: _(
-            'Restore did not finish: a failed change left the DPI guard in place, and the DPI guard stays active. Restart Forkop X, then restore the snapshot again.',
+            'Restore did not finish: a failed change left the safety guard in place, and the safety guard stays active. Restart Forkop X, then restore the snapshot again.',
           ),
           type: 'error',
           duration: 12000,
@@ -535,7 +513,7 @@ export function restoreResultToast(
       if (result.reason === 'rollback_reload_queued')
         return {
           text: _(
-            'Restore did not finish: the service was busy and only queued the reload. The DPI guard stays active; restore again when the service is idle.',
+            'Restore did not finish: the service was busy and only queued the reload. The safety guard stays active; restore again when the service is idle.',
           ),
           type: 'error',
           duration: 10000,

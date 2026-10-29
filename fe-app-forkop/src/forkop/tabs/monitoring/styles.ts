@@ -621,10 +621,6 @@ export const styles = `
     color: var(--text-color-high);
 }
 
-.fkp_monitoring-page__path-kind--dpi {
-    background: rgba(156, 39, 176, 0.16);
-}
-
 .fkp_monitoring-page__path-kind--connection {
     background: rgba(33, 150, 243, 0.16);
 }

@@ -1541,8 +1541,7 @@ function apply_section_detour_to_connection_outbounds(config, start_index, detou
 }
 
 function mixed_proxy_enabled_action(action) {
-    return action == "connection" || action == "proxy" || action == "outbound" || action == "vpn" ||
-        action == "byedpi" || action == "zapret" || action == "zapret2";
+    return action == "connection" || action == "proxy" || action == "outbound" || action == "vpn";
 }
 
 function add_mixed_proxy_for_section(config, section, service_address) {
@@ -2369,53 +2368,6 @@ function add_connections_outbound(config, section, taken) {
         runtime_generate_unsupported("failed to write section cache for " + section_name);
 }
 
-function enabled_action_index(sections, target_section, action_name) {
-    let index = 0;
-    for (let section in sections) {
-        if (option(section, "action", "") != action_name)
-            continue;
-        index++;
-        if (section[".name"] == target_section[".name"])
-            return index;
-    }
-    return 0;
-}
-
-function add_zapret_outbound(config, section, sections) {
-    let index = enabled_action_index(sections, section, "zapret");
-    if (index <= 0)
-        runtime_generate_unsupported("unable to resolve Zapret index for " + section[".name"]);
-    push(config.outbounds, {
-        type: "direct",
-        tag: outbound_tag(section[".name"]),
-        routing_mark: runtime_constants.ZAPRET_ROUTE_MARK_BASE + index
-    });
-}
-
-function add_zapret2_outbound(config, section, sections) {
-    let index = enabled_action_index(sections, section, "zapret2");
-    if (index <= 0)
-        runtime_generate_unsupported("unable to resolve Zapret2 index for " + section[".name"]);
-    push(config.outbounds, {
-        type: "direct",
-        tag: outbound_tag(section[".name"]),
-        routing_mark: runtime_constants.ZAPRET2_ROUTE_MARK_BASE + index
-    });
-}
-
-function add_byedpi_outbound(config, section, sections) {
-    let index = enabled_action_index(sections, section, "byedpi");
-    if (index <= 0)
-        runtime_generate_unsupported("unable to resolve ByeDPI index for " + section[".name"]);
-    push(config.outbounds, {
-        type: "socks",
-        tag: outbound_tag(section[".name"]),
-        server: runtime_constants.BYEDPI_LISTEN_ADDRESS,
-        server_port: runtime_constants.BYEDPI_PORT_BASE + index - 1,
-        version: "5"
-    });
-}
-
 function ensure_community_ruleset(config, section_name, community) {
     if (!runtime_rulesets.is_community(community))
         runtime_generate_unsupported("unknown community list " + community);
@@ -2589,7 +2541,7 @@ function add_domain_ip_list_ruleset(config, section_name, rule_set_tags, dns_que
 }
 
 // Legacy and combined rule conditions are read through one layer
-// (routing/rule_conditions.uc), shared with autotune.
+// (routing/rule_conditions.uc).
 let legacy_condition_values = rule_conditions.legacy_condition_values;
 let domain_conditions = rule_conditions.domain_conditions;
 
@@ -3261,12 +3213,6 @@ function add_outbound_for_section(config, section, taken, sections) {
 
     if (connections.is_connections_action(action))
         add_connections_outbound(config, section, taken);
-    else if (action == "zapret")
-        add_zapret_outbound(config, section, sections);
-    else if (action == "zapret2")
-        add_zapret2_outbound(config, section, sections);
-    else if (action == "byedpi")
-        add_byedpi_outbound(config, section, sections);
     else if (action == "bypass") {
         /* route-only action */
     }
@@ -3284,8 +3230,7 @@ function add_outbound_for_section(config, section, taken, sections) {
 function reserve_section_outbound_tags(sections, taken) {
     for (let section in sections) {
         let action = option(section, "action", "");
-        if (connections.is_connections_action(action) ||
-            action == "byedpi" || action == "zapret" || action == "zapret2")
+        if (connections.is_connections_action(action))
             taken[outbound_tag(section[".name"])] = true;
 
         if (!connections.is_connections_action(action))
@@ -3365,8 +3310,7 @@ function add_service_route_rules(config, sections) {
     let first = null;
     for (let section in sections) {
         let action = option(section, "action", "");
-        if (connections.is_connections_action(action) ||
-            action == "byedpi" || action == "zapret" || action == "zapret2") {
+        if (connections.is_connections_action(action)) {
             first = section;
             break;
         }

@@ -51,7 +51,7 @@ function route_interface(text) {
     let matched = match(" " + text, /[ \t]dev[ \t]+([A-Za-z0-9_.:-]+)/);
     return matched != null && length(matched[1]) <= 32 ? matched[1] : "";
 }
-// The Forkop rule, action, outbound and DPI strategy the generated sing-box
+// The Forkop rule, action and outbound the generated sing-box
 // config assigns to this connection (routing/resolve.uc). Calculated, not
 // observed: Monitoring shows what real connections did.
 function config_route(target, address, source, protocol, port) {
@@ -59,8 +59,7 @@ function config_route(target, address, source, protocol, port) {
         // status: undecidable | unsupported | unavailable (routing/resolve.uc).
         rule: { value: null, provenance: "unknown", reason, status: status || "unavailable" },
         action: { value: null, provenance: "unknown" },
-        outbound: { value: null, provenance: "unknown" },
-        dpi: { value: null, provenance: "unknown" }
+        outbound: { value: null, provenance: "unknown" }
     });
     let text = fs.readfile(FORKOP_CONFIG);
     if (text == null) return unknown("config_unavailable", "unavailable");
@@ -75,12 +74,8 @@ function config_route(target, address, source, protocol, port) {
     let calculated = (v) => ({ value: v, provenance: "simulated" });
     result.outbound = calculated(r.outbound);
     result.action = calculated(r.kind == "outbound" ? "outbound" : r.action);
-    if (r.kind == "rule") {
+    if (r.kind == "rule")
         result.rule = { value: r.label, section: r.section, provenance: "simulated" };
-        if (r.dpi != null)
-            result.dpi = { value: r.dpi.provider, strategy: r.dpi.strategy,
-                strategy_custom: r.dpi.custom, provenance: "configured" };
-    }
     else {
         // No Forkop rule of its own: bypass list, block, no rule matched, or
         // an outbound no rule owns.
@@ -105,7 +100,6 @@ function trace(target, source, protocol, port, resolve, route) {
         rule: routed.rule,
         action: routed.action,
         outbound: routed.outbound,
-        dpi: routed.dpi,
         interface: { value: interface_name || null, provenance: interface_name ? "observed" : "unknown", context: "router" },
         runtime: { value: null, provenance: "unknown" }
     };

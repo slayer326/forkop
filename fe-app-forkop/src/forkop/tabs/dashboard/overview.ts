@@ -81,7 +81,7 @@ export interface OverviewRecovery {
   status: SemanticStatus;
   title: string;
   lines: OverviewLine[];
-  // The step that ends a DPI guard that is left (UC-019): the card offers
+  // The step that ends a safety guard that is left (UC-019): the card offers
   // the restart itself, the restore is on the History page.
   step?: 'restart' | 'restore';
 }
@@ -97,26 +97,26 @@ function lastEvent(health: Forkop.HealthStatus | null) {
   return events.length ? events[events.length - 1] : null;
 }
 
-// What the DPI guard that is left means, by what ends it
+// What the safety guard that is left means, by what ends it
 // (diagnostics/health.uc recovery.action): it does not go on its own unless
 // a change still holds it (UC-019, UC-066).
 function guardWarningText(action: Forkop.HealthStatus['recovery']['action']) {
   switch (action) {
     case 'restart':
       return _(
-        'A failed change left the DPI guard in place. Traffic that needs DPI bypass stays blocked until you restart Forkop X.',
+        'A failed change left the safety guard in place. Restart Forkop X to remove it.',
       );
     case 'restore':
       return _(
-        'A configuration restore did not finish. Traffic that needs DPI bypass stays blocked until you restore the last known good snapshot.',
+        'A configuration restore did not finish. Restore the last known good snapshot to finish it.',
       );
     case 'wait':
       return _(
-        'A configuration change is being applied. Traffic that needs DPI bypass may be blocked until it finishes.',
+        'A configuration change is being applied. Wait until it finishes.',
       );
     default:
       return _(
-        'A configuration change was not confirmed. Traffic that needs DPI bypass may be blocked; see the recovery details for the next step.',
+        'A configuration change was not confirmed. See the recovery details for the next step.',
       );
   }
 }
@@ -132,7 +132,7 @@ export function overviewWarning(
 
   if (health.guard?.active) {
     return {
-      title: _('DPI protection is holding traffic'),
+      title: _('A safety guard is active'),
       text: guardWarningText(health.recovery?.action),
       link: details,
     };
@@ -360,7 +360,7 @@ export function overviewRecovery(input: OverviewInput): OverviewRecovery {
   return { ...state, lines: [...state.lines, ...lines] };
 }
 
-// Whatever is left is never "No recovery needed" (UC-021): a DPI guard,
+// Whatever is left is never "No recovery needed" (UC-021): a safety guard,
 // named by what ends it (UC-019, UC-066), an unfinished package recovery,
 // or a failed last change (health.uc recovery.pending without a guard: the
 // previous configuration was kept, nothing is in progress).
@@ -375,7 +375,7 @@ function recoveryState(health: Forkop.HealthStatus): OverviewRecovery {
           lines: [
             {
               text: _(
-                'A failed change left the DPI guard in place: restart Forkop X to remove it.',
+                'A failed change left the safety guard in place: restart Forkop X to remove it.',
               ),
               tone: 'error',
             },

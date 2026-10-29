@@ -74,25 +74,6 @@ const RAW_VALUES: Record<StatusDomain, Record<string, SemanticStatus>> = {
     failed: 'error',
     needs_attention: 'needs_attention',
   },
-  autotune_candidate: {
-    stable: 'healthy',
-    unstable: 'warning',
-    failed: 'error',
-    supported: 'not_checked',
-    unsupported: 'unsupported',
-  },
-  autotune_apply: {
-    applied: 'healthy',
-    no_change_required: 'healthy',
-    checking: 'busy',
-    applying: 'busy',
-    verifying: 'busy',
-    rolling_back: 'busy',
-    rolled_back: 'warning',
-    stale: 'not_checked',
-    failed: 'error',
-    needs_attention: 'needs_attention',
-  },
 };
 
 describe('toSemantic', () => {
@@ -148,9 +129,6 @@ describe('labels and tones', () => {
       label: 'Recovered',
       tone: 'warning',
     });
-    expect(describeStatus('autotune_apply', 'rolled_back').label).toBe(
-      'Rolled back',
-    );
     expect(describeStatus('check', 'loading').label).toBe('Checking…');
     expect(describeStatus('health', 'ok').label).toBe('Healthy');
     // Stopped by the user is not a failure (D-15).

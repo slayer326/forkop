@@ -7,7 +7,6 @@ export type ForkopPage =
   | 'overview'
   | 'monitoring'
   | 'diagnostics'
-  | 'autotune'
   | 'history'
   | 'rules'
   | 'settings';
@@ -20,7 +19,6 @@ const PAGE_TAB_IDS: Record<ForkopPage, string> = {
   overview: 'dashboard',
   monitoring: 'monitoring',
   diagnostics: 'diagnostic',
-  autotune: 'autotune',
   history: 'history',
   rules: 'section',
   settings: 'settings',

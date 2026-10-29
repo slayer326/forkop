@@ -26,23 +26,6 @@ describe('bulk snapshot cleanup', () => {
     expect(remove.mock.calls.map(([id]) => id)).toEqual(['old-1', 'old-2']);
   });
 
-  it('keeps the autotune rollback snapshot even during bulk cleanup', async () => {
-    const protectedList = [
-      snapshot('old-1'),
-      snapshot('working', true),
-      { ...snapshot('rollback'), is_protected: true },
-    ];
-    const remove = vi.fn(async (_id: string) => 'deleted' as const);
-    expect(
-      await cleanupOldSnapshots(
-        protectedList,
-        async () => protectedList,
-        remove,
-      ),
-    ).toEqual({ status: 'deleted', deleted: 1 });
-    expect(remove.mock.calls.map(([id]) => id)).toEqual(['old-1']);
-  });
-
   it('does not delete anything if the working snapshot changed or disappeared', async () => {
     const remove = vi.fn(async () => 'deleted' as const);
     expect(

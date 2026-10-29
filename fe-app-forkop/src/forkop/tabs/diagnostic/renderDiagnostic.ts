@@ -8,56 +8,6 @@ function card(id: string, title: string, hint: string, body: Node[]) {
   ]);
 }
 
-function renderDpiValidator() {
-  const explanation = E(
-    'p',
-    { class: 'fkp-diag-hint' },
-    _(
-      'Checks that the parameters are valid. It does not test site reachability or bypass effectiveness.',
-    ),
-  );
-  if (isReadonlyMode())
-    return [
-      explanation,
-      E(
-        'p',
-        { class: 'fkp-diag-hint' },
-        _('Available to administrators only.'),
-      ),
-    ];
-  return [
-    explanation,
-    E('div', { class: 'fkp-diag-form' }, [
-      E('label', { class: 'fkp-diag-field' }, [
-        E('span', {}, _('Provider')),
-        E('select', { id: 'dpi-provider', class: 'cbi-input-select' }, [
-          E('option', { value: 'zapret' }, 'Zapret'),
-          E('option', { value: 'zapret2' }, 'Zapret2'),
-          E('option', { value: 'byedpi' }, 'ByeDPI'),
-        ]),
-      ]),
-      E('label', { class: 'fkp-diag-field fkp-diag-field--wide' }, [
-        E('span', {}, _('Strategy')),
-        E('textarea', {
-          id: 'dpi-strategy',
-          class: 'cbi-input-textarea',
-          maxLength: 4096,
-          rows: 3,
-          spellcheck: false,
-        }),
-      ]),
-    ]),
-    E('div', { class: 'fkp-diag-actions' }, [
-      E(
-        'button',
-        { id: 'dpi-validate', type: 'button', class: 'btn cbi-button' },
-        _('Check'),
-      ),
-      E('span', { id: 'dpi-playground-result', role: 'status' }),
-    ]),
-  ];
-}
-
 const HELP_URL = 'https://github.com/slayer326/forkop#readme';
 
 function renderSiteCheck() {
@@ -186,16 +136,5 @@ export function render() {
         E('div', { id: 'fkp_diagnostic-page-system-info' }),
       ]),
     ]),
-    E(
-      'details',
-      { class: 'fkp-diag-card fkp-diag-details', id: 'technical-data' },
-      [
-        E('summary', {}, _('Technical data')),
-        E('div', { class: 'fkp-diag-subsection', id: 'dpi-playground' }, [
-          E('h4', {}, _('DPI strategy syntax check')),
-          ...renderDpiValidator(),
-        ]),
-      ],
-    ),
   ]);
 }

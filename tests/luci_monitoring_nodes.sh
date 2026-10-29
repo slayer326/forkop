@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Stage 6.5: node selection lives in Monitoring (monitoring#view=nodes), the
-# Overview only summarizes it; Monitoring names routes and DPI strategies from
-# the derived read-only section view, never from raw strategy options.
+# Overview only summarizes it; Monitoring names routes from the derived
+# read-only section view, never from raw section options.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 node - "$ROOT_DIR" <<'NODE'
@@ -50,10 +50,8 @@ assert.match(cards, /openForkopPage\('monitoring', \{ view: 'nodes' \}\)/, 'Over
 const monitoring = monitoringInit;
 assert.match(monitoring, /ForkopShellMethods\.getReadonlyConfigSections\(\)/,
   'Monitoring reads the derived section view for both roles');
-assert.doesNotMatch(monitoring, /nfqws2?_opt|byedpi_cmd_opts/, 'Monitoring never shows raw strategy options');
 assert.doesNotMatch(monitoring, /fkp-monitoring-trace/, 'the fake per-row trace action is gone');
 assert.match(monitoring, /renderProvenance\('observed'\)/, 'the route is marked as observed');
-assert.match(monitoring, /renderProvenance\('configured'\)/, 'the DPI strategy is marked as from configuration');
 
 console.log('Monitoring hosts node selection and names paths safely');
 NODE

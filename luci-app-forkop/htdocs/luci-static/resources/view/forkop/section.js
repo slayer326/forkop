@@ -9,9 +9,6 @@
 "require view.forkop.main as main";
 
 const UCI_PACKAGE = main.FORKOP_UCI_PACKAGE;
-const ACTION_PROVIDERS_AVAILABILITY_EVENT =
-  main.FORKOP_ACTION_PROVIDERS_AVAILABILITY_EVENT ||
-  "forkop:action-providers-availability";
 const RULE_SET_ITEM_SETTINGS_KEY = "rule_set_settings";
 const ROUTING_ACTIONS = [
   "connection",
@@ -20,10 +17,8 @@ const ROUTING_ACTIONS = [
   "vpn",
   "bypass",
   "block",
-  "zapret",
-  "zapret2",
-  "byedpi",
 ];
+const CONNECTION_ACTIONS = ["connection", "proxy", "outbound", "vpn"];
 const CONNECTIONS_BLOCKED_INTERFACES = [
   "br-lan",
   "eth0",
@@ -384,16 +379,7 @@ function isDnsDetourTargetSection(section, currentSectionId) {
     return false;
   }
 
-  if (["connection", "proxy", "outbound", "vpn"].includes(action)) {
-    return true;
-  }
-  if (action === "zapret") {
-    return isZapretInstalledForUi();
-  }
-  if (action === "zapret2") {
-    return isZapret2InstalledForUi();
-  }
-  return action === "byedpi" && isByedpiInstalledForUi();
+  return CONNECTION_ACTIONS.includes(action);
 }
 
 function refreshDnsDetourSectionOptionValues(option, sectionId) {
@@ -436,19 +422,6 @@ function unavailableChoiceError(option, value) {
     : null;
 }
 
-function isActionProviderInstalledForUi(action) {
-  switch (action) {
-    case "zapret":
-      return isZapretInstalledForUi();
-    case "zapret2":
-      return isZapret2InstalledForUi();
-    case "byedpi":
-      return isByedpiInstalledForUi();
-    default:
-      return true;
-  }
-}
-
 function describeUnavailableSection(name) {
   const target = uci.get(UCI_PACKAGE, name);
 
@@ -471,15 +444,6 @@ function describeUnavailableSection(name) {
     };
   }
 
-  if (!isActionProviderInstalledForUi(target.action)) {
-    return {
-      label: _("%s (provider not installed)").format(label),
-      message: _(
-        "The DPI provider of the selected section is not installed. Install it in Components or choose another section.",
-      ),
-    };
-  }
-
   return {
     label: _("%s (unavailable)").format(label),
     message: _(
@@ -490,6 +454,16 @@ function describeUnavailableSection(name) {
 
 function dependsOnRoutingAction(option) {
   ROUTING_ACTIONS.forEach((action) => option.depends("action", action));
+  return option;
+}
+
+// Actions that produce an outbound and can therefore back a local inbound.
+function dependsOnConnectionAction(option, extraConditions) {
+  CONNECTION_ACTIONS.forEach((action) =>
+    option.depends(
+      extraConditions ? { action, ...extraConditions } : { action: action },
+    ),
+  );
   return option;
 }
 
@@ -519,285 +493,8 @@ function dependsOnRuleConditions(option) {
   return option;
 }
 
-const ZAPRET_LEGACY_DEFAULT_NFQWS_OPT =
-  "--filter-tcp=80 <HOSTLIST> --dpi-desync=fake,fakedsplit --dpi-desync-autottl=2 --dpi-desync-fooling=badsum --new --filter-tcp=443 --hostlist=/opt/zapret/ipset/zapret-hosts-google.txt --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=badsum --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=443 --hostlist=/opt/zapret/ipset/zapret-hosts-google.txt --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=/opt/zapret/files/fake/quic_initial_www_google_com.bin --new --filter-udp=443 <HOSTLIST_NOAUTO> --dpi-desync=fake --dpi-desync-repeats=11 --new --filter-tcp=443 <HOSTLIST> --dpi-desync=multidisorder --dpi-desync-split-pos=1,sniext+1,host+1,midsld-2,midsld,midsld+2,endhost-1";
-
-const ZAPRET_DEFAULT_NFQWS_OPT =
-  "--filter-tcp=80 --dpi-desync=fake,fakedsplit --dpi-desync-autottl=2 --dpi-desync-fooling=badsum --new --filter-tcp=443 --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=badsum --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=443 --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=/opt/zapret/files/fake/quic_initial_www_google_com.bin";
-
-const ZAPRET2_DEFAULT_NFQWS2_OPT =
-  "--filter-tcp=80 --filter-l7=http --payload=http_req --lua-desync=fake:blob=fake_default_http:tcp_md5 --lua-desync=multisplit:pos=method+2 --new --filter-tcp=443 --filter-l7=tls --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:tcp_seq=-10000 --lua-desync=multidisorder:pos=1,midsld --new --filter-udp=443 --filter-l7=quic --payload=quic_initial --lua-desync=fake:blob=fake_default_quic:repeats=6";
-
-const BYEDPI_DEFAULT_CMD_OPTS = "-o 2 --auto=t,r,a,s -d 2";
 const ANNOTATED_TEXTAREA_STYLE_ID = "fkp-annotated-textarea-styles";
 const CONNECTIONS_DYNLIST_STYLE_ID = "fkp-connections-dynlist-styles";
-const NFQWS_REMOTE_VALIDATION_DEBOUNCE_MS = 500;
-const NFQWS_VALIDATION_COMMAND = "/usr/bin/forkop";
-const nfqwsRemoteValidationCache = new Map();
-const nfqwsRemoteValidationInflight = new Map();
-const nfqwsRemoteValidationUnavailable = new Map();
-const nfqws2RemoteValidationCache = new Map();
-const nfqws2RemoteValidationInflight = new Map();
-const nfqws2RemoteValidationUnavailable = new Map();
-const byedpiRemoteValidationCache = new Map();
-const byedpiRemoteValidationInflight = new Map();
-const byedpiRemoteValidationUnavailable = new Map();
-const BYEDPI_LONG_VALUE_OPTIONS = new Set([
-  "--max-conn",
-  "--conn-ip",
-  "--buf-size",
-  "--debug",
-  "--def-ttl",
-  "--auto",
-  "--auto-mode",
-  "--cache-ttl",
-  "--cache-dump",
-  "--timeout",
-  "--proto",
-  "--hosts",
-  "--ipset",
-  "--pf",
-  "--round",
-  "--split",
-  "--disorder",
-  "--oob",
-  "--disoob",
-  "--fake",
-  "--fake-sni",
-  "--ttl",
-  "--fake-offset",
-  "--fake-data",
-  "--fake-tls-mod",
-  "--oob-data",
-  "--mod-http",
-  "--tlsrec",
-  "--tlsminor",
-  "--udp-fake",
-]);
-const BYEDPI_LONG_FLAG_OPTIONS = new Set([
-  "--md5sig",
-  "--tfo",
-  "--drop-sack",
-  "--no-domain",
-  "--no-udp",
-]);
-const BYEDPI_SHORT_VALUE_OPTIONS = new Set([
-  "-c",
-  "-I",
-  "-b",
-  "-x",
-  "-g",
-  "-A",
-  "-L",
-  "-u",
-  "-y",
-  "-T",
-  "-K",
-  "-H",
-  "-j",
-  "-V",
-  "-R",
-  "-s",
-  "-d",
-  "-o",
-  "-q",
-  "-f",
-  "-n",
-  "-t",
-  "-O",
-  "-l",
-  "-Q",
-  "-e",
-  "-M",
-  "-r",
-  "-m",
-  "-a",
-]);
-const BYEDPI_SHORT_FLAG_OPTIONS = new Set(["-N", "-U", "-F", "-S", "-Y"]);
-const NFQWS_OPTIONAL_ARG_OPTIONS = new Set([
-  "--comment",
-  "--ctrack-disable",
-  "--debug",
-  "--dpi-desync-any-protocol",
-  "--dpi-desync-autottl",
-  "--dpi-desync-autottl6",
-  "--dpi-desync-skip-nosni",
-  "--dpi-desync-tcp-flags-set",
-  "--dpi-desync-tcp-flags-unset",
-  "--dup-autottl",
-  "--dup-autottl6",
-  "--dup-replace",
-  "--dup-tcp-flags-set",
-  "--dup-tcp-flags-unset",
-  "--ipcache-hostname",
-  "--orig-autottl",
-  "--orig-autottl6",
-  "--orig-tcp-flags-set",
-  "--orig-tcp-flags-unset",
-  "--synack-split",
-]);
-const NFQWS_NO_ARG_OPTIONS = new Set([
-  "--bind-fix4",
-  "--bind-fix6",
-  "--daemon",
-  "--domcase",
-  "--dry-run",
-  "--hostcase",
-  "--hostnospace",
-  "--methodeol",
-  "--new",
-  "--skip",
-  "--version",
-]);
-const NFQWS_REQUIRED_ARG_OPTIONS = new Set([
-  "--ctrack-timeouts",
-  "--dpi-desync",
-  "--dpi-desync-badack-increment",
-  "--dpi-desync-badseq-increment",
-  "--dpi-desync-cutoff",
-  "--dpi-desync-fake-dht",
-  "--dpi-desync-fake-discord",
-  "--dpi-desync-fake-http",
-  "--dpi-desync-fake-quic",
-  "--dpi-desync-fake-stun",
-  "--dpi-desync-fake-syndata",
-  "--dpi-desync-fake-tcp-mod",
-  "--dpi-desync-fake-tls",
-  "--dpi-desync-fake-tls-mod",
-  "--dpi-desync-fake-unknown",
-  "--dpi-desync-fake-unknown-udp",
-  "--dpi-desync-fake-wireguard",
-  "--dpi-desync-fakedsplit-mod",
-  "--dpi-desync-fakedsplit-pattern",
-  "--dpi-desync-fooling",
-  "--dpi-desync-fwmark",
-  "--dpi-desync-hostfakesplit-midhost",
-  "--dpi-desync-hostfakesplit-mod",
-  "--dpi-desync-ipfrag-pos-tcp",
-  "--dpi-desync-ipfrag-pos-udp",
-  "--dpi-desync-repeats",
-  "--dpi-desync-split-http-req",
-  "--dpi-desync-split-pos",
-  "--dpi-desync-split-seqovl",
-  "--dpi-desync-split-seqovl-pattern",
-  "--dpi-desync-split-tls",
-  "--dpi-desync-start",
-  "--dpi-desync-ts-increment",
-  "--dpi-desync-ttl",
-  "--dpi-desync-ttl6",
-  "--dpi-desync-udplen-increment",
-  "--dpi-desync-udplen-pattern",
-  "--dup",
-  "--dup-badack-increment",
-  "--dup-badseq-increment",
-  "--dup-cutoff",
-  "--dup-fooling",
-  "--dup-ip-id",
-  "--dup-start",
-  "--dup-ts-increment",
-  "--dup-ttl",
-  "--dup-ttl6",
-  "--filter-l3",
-  "--filter-l7",
-  "--filter-tcp",
-  "--filter-udp",
-  "--hostlist",
-  "--hostlist-auto",
-  "--hostlist-auto-debug",
-  "--hostlist-auto-fail-threshold",
-  "--hostlist-auto-fail-time",
-  "--hostlist-auto-retrans-threshold",
-  "--hostlist-domains",
-  "--hostlist-exclude",
-  "--hostlist-exclude-domains",
-  "--hostspell",
-  "--ip-id",
-  "--ipcache-lifetime",
-  "--ipset",
-  "--ipset-exclude",
-  "--ipset-exclude-ip",
-  "--ipset-ip",
-  "--orig-mod-cutoff",
-  "--orig-mod-start",
-  "--orig-ttl",
-  "--orig-ttl6",
-  "--pidfile",
-  "--qnum",
-  "--uid",
-  "--user",
-  "--wsize",
-  "--wssize",
-  "--wssize-cutoff",
-  "--wssize-forced-cutoff",
-]);
-const NFQWS2_OPTIONAL_ARG_OPTIONS = new Set([
-  "--chdir",
-  "--comment",
-  "--ctrack-disable",
-  "--debug",
-  "--hostlist-auto-retrans-reset",
-  "--intercept",
-  "--ipcache-hostname",
-  "--new",
-  "--payload-disable",
-  "--reasm-disable",
-  "--server",
-  "--template",
-  "--writeable",
-]);
-const NFQWS2_NO_ARG_OPTIONS = new Set([
-  "--bind-fix4",
-  "--bind-fix6",
-  "--daemon",
-  "--dry-run",
-  "--skip",
-  "--version",
-]);
-const NFQWS2_REQUIRED_ARG_OPTIONS = new Set([
-  "--blob",
-  "--cookie",
-  "--ctrack-timeouts",
-  "--filter-l3",
-  "--filter-l7",
-  "--filter-tcp",
-  "--filter-udp",
-  "--fwmark",
-  "--fuzz",
-  "--hostlist",
-  "--hostlist-auto",
-  "--hostlist-auto-debug",
-  "--hostlist-auto-fail-threshold",
-  "--hostlist-auto-fail-time",
-  "--hostlist-auto-retrans-threshold",
-  "--hostlist-domains",
-  "--hostlist-exclude",
-  "--hostlist-exclude-domains",
-  "--import",
-  "--in-range",
-  "--ipcache-lifetime",
-  "--ipset",
-  "--ipset-exclude",
-  "--ipset-exclude-ip",
-  "--ipset-ip",
-  "--lua-gc",
-  "--lua-init",
-  "--lua-desync",
-  "--name",
-  "--out-range",
-  "--payload",
-  "--pidfile",
-  "--qnum",
-  "--uid",
-  "--user",
-]);
-const actionProvidersAvailabilityState = {
-  loaded: false,
-  zapretInstalled: false,
-  zapret2Installed: false,
-  byedpiInstalled: false,
-};
-let actionProvidersAvailabilityPromise = null;
-let actionProvidersAvailabilityLoader = null;
 const outboundNameChoicesCache = new Map();
 const outboundNameChoicesInflight = new Map();
 const outboundNameSourceOptions = new Map();
@@ -812,67 +509,6 @@ const REGION_NAME_FALLBACKS = {
   XK: "Kosovo",
 };
 let regionDisplayNamesCache = {};
-
-function updateActionProvidersAvailabilityState(nextState) {
-  if (!nextState) {
-    return;
-  }
-
-  actionProvidersAvailabilityState.loaded = true;
-
-  if (typeof nextState.zapretInstalled !== "undefined") {
-    actionProvidersAvailabilityState.zapretInstalled = Boolean(
-      nextState.zapretInstalled,
-    );
-  }
-
-  if (typeof nextState.zapret2Installed !== "undefined") {
-    actionProvidersAvailabilityState.zapret2Installed = Boolean(
-      nextState.zapret2Installed,
-    );
-  }
-
-  if (typeof nextState.byedpiInstalled !== "undefined") {
-    actionProvidersAvailabilityState.byedpiInstalled = Boolean(
-      nextState.byedpiInstalled,
-    );
-  }
-
-  actionProvidersAvailabilityPromise = null;
-}
-
-function updateActionProvidersAvailabilityFromSystemInfo(systemInfo) {
-  if (!systemInfo || !systemInfo.providerInfoLoaded) {
-    return;
-  }
-
-  updateActionProvidersAvailabilityState({
-    zapretInstalled: Boolean(systemInfo.zapret_installed),
-    zapret2Installed: Boolean(systemInfo.zapret2_installed),
-    byedpiInstalled: Boolean(systemInfo.byedpi_installed),
-  });
-}
-
-function setActionProvidersAvailabilityLoader(loader) {
-  actionProvidersAvailabilityLoader =
-    typeof loader === "function" ? loader : null;
-}
-
-if (typeof window !== "undefined") {
-  window.addEventListener(ACTION_PROVIDERS_AVAILABILITY_EVENT, (event) => {
-    updateActionProvidersAvailabilityState(event.detail);
-  });
-}
-
-if (main.store && typeof main.store.subscribe === "function") {
-  main.store.subscribe((next, _prev, diff) => {
-    if (!diff || diff.diagnosticsSystemInfo) {
-      updateActionProvidersAvailabilityFromSystemInfo(
-        next.diagnosticsSystemInfo,
-      );
-    }
-  });
-}
 
 function getLuciLanguage() {
   if (typeof L !== "undefined" && L.env && L.env.lang) {
@@ -2084,23 +1720,7 @@ function isDownloadThroughTargetSection(section, currentSectionId) {
     return false;
   }
 
-  if (["connection", "proxy", "outbound", "vpn"].includes(action)) {
-    return true;
-  }
-
-  if (action === "zapret") {
-    return isZapretInstalledForUi();
-  }
-
-  if (action === "zapret2") {
-    return isZapret2InstalledForUi();
-  }
-
-  if (action === "byedpi") {
-    return isByedpiInstalledForUi();
-  }
-
-  return false;
+  return CONNECTION_ACTIONS.includes(action);
 }
 
 function subscriptionDownloadTargetChoices(section_id) {
@@ -2739,11 +2359,9 @@ function addSubscriptionUrlItemOptions(itemSection, options = {}) {
     const sectionId = parentSectionForItem(itemId);
     const value =
       optionMapValue(this, itemId, "download_via_proxy_section") || "";
-    return ensureActionProvidersAvailabilityLoaded().then(() => {
-      refreshOptionChoices(this, subscriptionDownloadTargetChoices(sectionId));
-      keepUnavailableChoice(this, value, describeUnavailableSection);
-      return value;
-    });
+    refreshOptionChoices(this, subscriptionDownloadTargetChoices(sectionId));
+    keepUnavailableChoice(this, value, describeUnavailableSection);
+    return value;
   };
   o.validate = function (itemId, value) {
     const sectionId = parentSectionForItem(itemId);
@@ -4114,97 +3732,6 @@ function showRuleSetSettingsModal(section_id, itemValue, option, widget) {
   );
 }
 
-function ensureActionProvidersAvailabilityLoaded() {
-  if (actionProvidersAvailabilityState.loaded) {
-    return Promise.resolve(actionProvidersAvailabilityState);
-  }
-
-  if (actionProvidersAvailabilityPromise) {
-    return actionProvidersAvailabilityPromise;
-  }
-
-  if (actionProvidersAvailabilityLoader) {
-    actionProvidersAvailabilityPromise = actionProvidersAvailabilityLoader()
-      .then((capabilities) => {
-        updateActionProvidersAvailabilityState({
-          zapretInstalled: Boolean(capabilities?.zapretInstalled),
-          zapret2Installed: Boolean(capabilities?.zapret2Installed),
-          byedpiInstalled: Boolean(capabilities?.byedpiInstalled),
-        });
-        return actionProvidersAvailabilityState;
-      })
-      .catch(() => {
-        actionProvidersAvailabilityLoader = null;
-        actionProvidersAvailabilityPromise = null;
-        return ensureActionProvidersAvailabilityLoaded();
-      })
-      .finally(() => {
-        actionProvidersAvailabilityPromise = null;
-      });
-
-    return actionProvidersAvailabilityPromise;
-  }
-
-  actionProvidersAvailabilityPromise = Promise.allSettled([
-    main.ForkopShellMethods.checkZapretRuntime(),
-    main.ForkopShellMethods.checkZapret2Runtime(),
-    main.ForkopShellMethods.checkByedpiRuntime(),
-  ])
-    .then(([zapretResult, zapret2Result, byedpiResult]) => {
-      const zapret =
-        zapretResult && zapretResult.status === "fulfilled"
-          ? zapretResult.value
-          : null;
-      const zapret2 =
-        zapret2Result && zapret2Result.status === "fulfilled"
-          ? zapret2Result.value
-          : null;
-      const byedpi =
-        byedpiResult && byedpiResult.status === "fulfilled"
-          ? byedpiResult.value
-          : null;
-
-      actionProvidersAvailabilityState.loaded = true;
-      actionProvidersAvailabilityState.zapretInstalled = Boolean(
-        zapret && zapret.success && zapret.data && zapret.data.zapret_installed,
-      );
-      actionProvidersAvailabilityState.zapret2Installed = Boolean(
-        zapret2 &&
-          zapret2.success &&
-          zapret2.data &&
-          zapret2.data.zapret2_installed,
-      );
-      actionProvidersAvailabilityState.byedpiInstalled = Boolean(
-        byedpi && byedpi.success && byedpi.data && byedpi.data.byedpi_installed,
-      );
-      return actionProvidersAvailabilityState;
-    })
-    .catch(() => {
-      actionProvidersAvailabilityState.loaded = true;
-      actionProvidersAvailabilityState.zapretInstalled = false;
-      actionProvidersAvailabilityState.zapret2Installed = false;
-      actionProvidersAvailabilityState.byedpiInstalled = false;
-      return actionProvidersAvailabilityState;
-    })
-    .finally(() => {
-      actionProvidersAvailabilityPromise = null;
-    });
-
-  return actionProvidersAvailabilityPromise;
-}
-
-function isZapretInstalledForUi() {
-  return actionProvidersAvailabilityState.zapretInstalled;
-}
-
-function isZapret2InstalledForUi() {
-  return actionProvidersAvailabilityState.zapret2Installed;
-}
-
-function isByedpiInstalledForUi() {
-  return actionProvidersAvailabilityState.byedpiInstalled;
-}
-
 function getRuleConfiguredAction(section_id) {
   const action = uci.get(UCI_PACKAGE, section_id, "action");
   return action ? `${action}` : null;
@@ -4226,12 +3753,6 @@ function getActionOptionLabel(action) {
       return "DNS";
     case "vpn":
       return "VPN";
-    case "zapret":
-      return "Zapret";
-    case "zapret2":
-      return "Zapret2";
-    case "byedpi":
-      return "ByeDPI";
     case "outbound":
       return _("JSON outbound");
     case "proxy":
@@ -4240,16 +3761,8 @@ function getActionOptionLabel(action) {
   }
 }
 
-// DPI providers read as "DPI · <provider>", the same words Monitoring and
-// Diagnostics use for the path of a connection.
 function getRuleActionDisplayValue(section_id) {
-  const action = getRuleResolvedAction(section_id);
-
-  if (action === "zapret" || action === "zapret2" || action === "byedpi") {
-    return `${_("DPI")} · ${getActionOptionLabel(action)}`;
-  }
-
-  return getActionOptionLabel(action);
+  return getActionOptionLabel(getRuleResolvedAction(section_id));
 }
 
 function countConfigValues(section_id, keys) {
@@ -4315,28 +3828,6 @@ function populateActionOptionValues(option, section_id) {
   option.value("bypass", getActionOptionLabel("bypass"));
   option.value("block", getActionOptionLabel("block"));
   option.value("dns", "DNS");
-  if (isZapretInstalledForUi()) {
-    option.value("zapret", getActionOptionLabel("zapret"));
-  }
-  if (isZapret2InstalledForUi()) {
-    option.value("zapret2", getActionOptionLabel("zapret2"));
-  }
-  if (isByedpiInstalledForUi()) {
-    option.value("byedpi", getActionOptionLabel("byedpi"));
-  }
-
-  // A DPI rule whose provider is missing keeps its action (UC-008).
-  const configured = section_id ? getRuleConfiguredAction(section_id) : null;
-  keepUnavailableChoice(
-    option,
-    ["zapret", "zapret2", "byedpi"].includes(configured) ? configured : null,
-    (action) => ({
-      label: _("%s (not installed)").format(getActionOptionLabel(action)),
-      message: _(
-        "%s is not installed. Install it in Components or choose another action.",
-      ).format(getActionOptionLabel(action)),
-    }),
-  );
 }
 
 function getConfigListValues(section_id, key) {
@@ -5987,116 +5478,6 @@ function attachAnnotatedTextarea(textarea, analyzer) {
   controller.update();
 }
 
-function refreshAnnotatedTextareaValidation(option, section_id, textarea) {
-  if (option && typeof option.triggerValidation === "function") {
-    option.triggerValidation(section_id);
-  }
-
-  if (
-    textarea &&
-    textarea.__forkopAnnotatedTextareaController &&
-    typeof textarea.__forkopAnnotatedTextareaController.update === "function"
-  ) {
-    textarea.__forkopAnnotatedTextareaController.update();
-  }
-}
-
-function attachNfqwsRemoteValidation(option, section_id, textarea) {
-  if (!textarea || textarea.__forkopNfqwsRemoteValidationAttached) {
-    return;
-  }
-
-  textarea.__forkopNfqwsRemoteValidationAttached = true;
-  textarea.__forkopNfqwsRemoteValidationRequestId = 0;
-  textarea.__forkopNfqwsRemoteValidationTimer = null;
-
-  const runValidation = () => {
-    const value = textarea.value;
-    const localAnalysis = buildNfqwsLocalAnalysis(value);
-    if (!localAnalysis.valid) {
-      refreshAnnotatedTextareaValidation(option, section_id, textarea);
-      return;
-    }
-
-    const requestId =
-      (textarea.__forkopNfqwsRemoteValidationRequestId || 0) + 1;
-    textarea.__forkopNfqwsRemoteValidationRequestId = requestId;
-
-    validateNfqwsStrategyRemotely(value).then(() => {
-      if (textarea.__forkopNfqwsRemoteValidationRequestId !== requestId) {
-        return;
-      }
-
-      refreshAnnotatedTextareaValidation(option, section_id, textarea);
-    });
-  };
-
-  const scheduleValidation = (delay = NFQWS_REMOTE_VALIDATION_DEBOUNCE_MS) => {
-    if (textarea.__forkopNfqwsRemoteValidationTimer) {
-      window.clearTimeout(textarea.__forkopNfqwsRemoteValidationTimer);
-    }
-
-    textarea.__forkopNfqwsRemoteValidationTimer = window.setTimeout(() => {
-      textarea.__forkopNfqwsRemoteValidationTimer = null;
-      runValidation();
-    }, delay);
-  };
-
-  textarea.addEventListener("input", () => scheduleValidation());
-  textarea.addEventListener("change", () => scheduleValidation(0));
-  textarea.addEventListener("blur", () => scheduleValidation(0));
-
-  scheduleValidation(0);
-}
-
-function attachNfqws2RemoteValidation(option, section_id, textarea) {
-  if (!textarea || textarea.__forkopNfqws2RemoteValidationAttached) {
-    return;
-  }
-
-  textarea.__forkopNfqws2RemoteValidationAttached = true;
-  textarea.__forkopNfqws2RemoteValidationRequestId = 0;
-  textarea.__forkopNfqws2RemoteValidationTimer = null;
-
-  const runValidation = () => {
-    const value = textarea.value;
-    const localAnalysis = buildNfqws2LocalAnalysis(value);
-    if (!localAnalysis.valid) {
-      refreshAnnotatedTextareaValidation(option, section_id, textarea);
-      return;
-    }
-
-    const requestId =
-      (textarea.__forkopNfqws2RemoteValidationRequestId || 0) + 1;
-    textarea.__forkopNfqws2RemoteValidationRequestId = requestId;
-
-    validateNfqws2StrategyRemotely(value).then(() => {
-      if (textarea.__forkopNfqws2RemoteValidationRequestId !== requestId) {
-        return;
-      }
-
-      refreshAnnotatedTextareaValidation(option, section_id, textarea);
-    });
-  };
-
-  const scheduleValidation = (delay = NFQWS_REMOTE_VALIDATION_DEBOUNCE_MS) => {
-    if (textarea.__forkopNfqws2RemoteValidationTimer) {
-      window.clearTimeout(textarea.__forkopNfqws2RemoteValidationTimer);
-    }
-
-    textarea.__forkopNfqws2RemoteValidationTimer = window.setTimeout(() => {
-      textarea.__forkopNfqws2RemoteValidationTimer = null;
-      runValidation();
-    }, delay);
-  };
-
-  textarea.addEventListener("input", () => scheduleValidation());
-  textarea.addEventListener("change", () => scheduleValidation(0));
-  textarea.addEventListener("blur", () => scheduleValidation(0));
-
-  scheduleValidation(0);
-}
-
 function parseCommentAwareListTokens(value) {
   const text = value ? `${value}` : "";
   const tokens = [];
@@ -6373,1343 +5754,6 @@ function validatePortCondition(_section_id, value) {
   return true;
 }
 
-function getNfqwsOptionArgumentMode(option) {
-  if (NFQWS_REQUIRED_ARG_OPTIONS.has(option)) {
-    return "required";
-  }
-
-  if (NFQWS_OPTIONAL_ARG_OPTIONS.has(option)) {
-    return "optional";
-  }
-
-  if (NFQWS_NO_ARG_OPTIONS.has(option)) {
-    return "none";
-  }
-
-  return "unknown";
-}
-
-function getNfqws2OptionArgumentMode(option) {
-  if (NFQWS2_REQUIRED_ARG_OPTIONS.has(option)) {
-    return "required";
-  }
-
-  if (NFQWS2_OPTIONAL_ARG_OPTIONS.has(option)) {
-    return "optional";
-  }
-
-  if (NFQWS2_NO_ARG_OPTIONS.has(option)) {
-    return "none";
-  }
-
-  return "unknown";
-}
-
-function normalizeNfqwsStrategyWhitespace(value) {
-  return value ? `${value}`.replace(/\s+/g, " ").trim() : "";
-}
-
-function parseNfqwsRuntimeTokens(value) {
-  const text = value ? `${value}` : "";
-  const tokens = [];
-  const matcher = /\S+/g;
-  let match;
-
-  while ((match = matcher.exec(text)) !== null) {
-    tokens.push({
-      value: match[0],
-      start: match.index,
-      end: match.index + match[0].length,
-    });
-  }
-
-  return tokens;
-}
-function normalizeNfqwsStrategyValue(value) {
-  const normalized = normalizeNfqwsStrategyWhitespace(value);
-  if (!normalized.length) {
-    return "";
-  }
-
-  return normalized === ZAPRET_LEGACY_DEFAULT_NFQWS_OPT
-    ? ZAPRET_DEFAULT_NFQWS_OPT
-    : normalized;
-}
-
-function getCachedNfqwsRemoteValidation(value) {
-  const normalized = normalizeNfqwsStrategyValue(value);
-  return normalized.length
-    ? nfqwsRemoteValidationCache.get(normalized) ||
-        nfqwsRemoteValidationUnavailable.get(normalized) ||
-        null
-    : null;
-}
-
-function cacheNfqwsRemoteValidation(value, result) {
-  const normalized = normalizeNfqwsStrategyValue(value);
-  if (!normalized.length) {
-    return result;
-  }
-
-  const cached = {
-    valid: result && result.valid === true,
-    message: result && result.message ? `${result.message}` : "",
-    needle: result && result.needle ? `${result.needle}` : "",
-    needles:
-      result && Array.isArray(result.needles)
-        ? result.needles.filter(Boolean).map((item) => `${item}`)
-        : result && result.needle
-          ? [`${result.needle}`]
-          : [],
-  };
-
-  nfqwsRemoteValidationCache.set(normalized, cached);
-  return cached;
-}
-
-function buildNfqwsRemoteValidationFallback(error) {
-  const message =
-    error && error.message
-      ? `${error.message}`
-      : _("Unable to validate the NFQWS strategy through the backend parser.");
-
-  return {
-    valid: false,
-    message: _(
-      "Backend validation unavailable: %s. Save again to retry.",
-    ).format(message.replace(/[.\s]+$/, "")),
-    needle: "",
-    needles: [],
-  };
-}
-
-function validateNfqwsStrategyRemotely(value) {
-  const normalized = normalizeNfqwsStrategyValue(value);
-
-  if (!normalized.length) {
-    return Promise.resolve({
-      valid: true,
-      message: "",
-      needle: "",
-      needles: [],
-    });
-  }
-
-  if (nfqwsRemoteValidationCache.has(normalized)) {
-    return Promise.resolve(nfqwsRemoteValidationCache.get(normalized));
-  }
-
-  if (nfqwsRemoteValidationInflight.has(normalized)) {
-    return nfqwsRemoteValidationInflight.get(normalized);
-  }
-
-  const validationTask = fs
-    .exec(NFQWS_VALIDATION_COMMAND, [
-      "validate_nfqws_strategy_json",
-      normalized,
-    ])
-    .then((result) => {
-      const payload = JSON.parse(
-        (result && result.stdout ? result.stdout : "{}").trim() || "{}",
-      );
-      if (typeof payload.valid !== "boolean") {
-        throw new Error();
-      }
-      nfqwsRemoteValidationUnavailable.delete(normalized);
-      return cacheNfqwsRemoteValidation(normalized, {
-        valid: payload.valid === true,
-        message: payload.message || "",
-        needle: payload.needle || "",
-        needles: Array.isArray(payload.needles)
-          ? payload.needles.filter(Boolean)
-          : payload.needle
-            ? [payload.needle]
-            : [],
-      });
-    })
-    // A failed call is not a verdict: it is not cached, so the next
-    // validation or Save asks the backend again (UC-040). Until then the
-    // field says the check is unavailable.
-    .catch((error) => {
-      const fallback = buildNfqwsRemoteValidationFallback(error);
-      nfqwsRemoteValidationUnavailable.set(normalized, fallback);
-      return fallback;
-    })
-    .finally(() => {
-      nfqwsRemoteValidationInflight.delete(normalized);
-    });
-
-  nfqwsRemoteValidationInflight.set(normalized, validationTask);
-  return validationTask;
-}
-
-function getNfqwsForbiddenTokenInfo(token, index) {
-  const configFileMessage = _(
-    "External nfqws config files bypass Forkop queue management and explicit validation.",
-  );
-  const hostSelectionMessage = _(
-    "Resource selection by hostname inside nfqws is not supported here; sing-box selects resources before NFQUEUE.",
-  );
-  const ipSelectionMessage = _(
-    "Resource selection by IP or CIDR inside nfqws is not supported here; sing-box selects resources before NFQUEUE.",
-  );
-  const placeholderMessage = _(
-    "Zapret hostlist templates are not supported here because Forkop does not expand them for per-rule NFQWS strategies.",
-  );
-  const queueMessage = _(
-    "The NFQUEUE number is assigned by Forkop for each rule and must not be overridden here.",
-  );
-  const fwmarkMessage = _(
-    "The desync fwmark is managed by Forkop for loop prevention and must not be overridden here.",
-  );
-  const daemonMessage = _(
-    "Forkop manages the nfqws process lifecycle itself, so daemon mode is not allowed here.",
-  );
-  const dryRunMessage = _(
-    "This field must start a working nfqws strategy; --dry-run exits immediately and is not allowed here.",
-  );
-  const versionMessage = _(
-    "This field must start a working nfqws strategy; --version exits immediately and is not allowed here.",
-  );
-
-  if (index === 0 && (token.startsWith("@") || token.startsWith("$"))) {
-    return {
-      reason: configFileMessage,
-      captureNextValue: false,
-    };
-  }
-
-  if (token === "<HOSTLIST>" || token === "<HOSTLIST_NOAUTO>") {
-    return {
-      reason: placeholderMessage,
-      captureNextValue: false,
-    };
-  }
-
-  if (
-    token === "--hostlist" ||
-    token.startsWith("--hostlist=") ||
-    token === "--hostlist-domains" ||
-    token.startsWith("--hostlist-domains=") ||
-    token === "--hostlist-exclude" ||
-    token.startsWith("--hostlist-exclude=") ||
-    token === "--hostlist-exclude-domains" ||
-    token.startsWith("--hostlist-exclude-domains=") ||
-    token === "--hostlist-auto" ||
-    token.startsWith("--hostlist-auto=") ||
-    token === "--hostlist-auto-fail-threshold" ||
-    token.startsWith("--hostlist-auto-fail-threshold=") ||
-    token === "--hostlist-auto-fail-time" ||
-    token.startsWith("--hostlist-auto-fail-time=") ||
-    token === "--hostlist-auto-retrans-threshold" ||
-    token.startsWith("--hostlist-auto-retrans-threshold=") ||
-    token === "--hostlist-auto-debug" ||
-    token.startsWith("--hostlist-auto-debug=")
-  ) {
-    return {
-      reason: hostSelectionMessage,
-      captureNextValue: !token.includes("="),
-    };
-  }
-
-  if (
-    token === "--ipset" ||
-    token.startsWith("--ipset=") ||
-    token === "--ipset-ip" ||
-    token.startsWith("--ipset-ip=") ||
-    token === "--ipset-exclude" ||
-    token.startsWith("--ipset-exclude=") ||
-    token === "--ipset-exclude-ip" ||
-    token.startsWith("--ipset-exclude-ip=")
-  ) {
-    return {
-      reason: ipSelectionMessage,
-      captureNextValue: !token.includes("="),
-    };
-  }
-
-  if (token === "--qnum" || token.startsWith("--qnum=")) {
-    return {
-      reason: queueMessage,
-      captureNextValue: !token.includes("="),
-    };
-  }
-
-  if (
-    token === "--dpi-desync-fwmark" ||
-    token.startsWith("--dpi-desync-fwmark=")
-  ) {
-    return {
-      reason: fwmarkMessage,
-      captureNextValue: !token.includes("="),
-    };
-  }
-
-  if (token === "--daemon") {
-    return {
-      reason: daemonMessage,
-      captureNextValue: false,
-    };
-  }
-
-  if (token === "--dry-run") {
-    return {
-      reason: dryRunMessage,
-      captureNextValue: false,
-    };
-  }
-
-  if (token === "--version") {
-    return {
-      reason: versionMessage,
-      captureNextValue: false,
-    };
-  }
-
-  return null;
-}
-
-function buildNfqwsLocalAnalysis(value) {
-  const text = value ? `${value}` : "";
-  if (!text.trim().length) {
-    return {
-      valid: false,
-      message: _("NFQWS strategy cannot be empty"),
-      annotations: [],
-    };
-  }
-
-  if (text.trim() === ZAPRET_LEGACY_DEFAULT_NFQWS_OPT) {
-    return { valid: true, message: "", annotations: [] };
-  }
-
-  const tokens = parseNfqwsRuntimeTokens(text);
-  const annotationMap = new Map();
-  const errors = [];
-
-  for (let index = 0; index < tokens.length; ) {
-    const token = tokens[index];
-    const bareToken = token.value.includes("=")
-      ? token.value.slice(0, token.value.indexOf("="))
-      : token.value;
-    const nextToken = tokens[index + 1] || null;
-
-    const forbidden = getNfqwsForbiddenTokenInfo(token.value, index);
-    if (forbidden) {
-      addAnnotationIssue(annotationMap, token, forbidden.reason);
-
-      let displayToken = token.value;
-
-      if (
-        forbidden.captureNextValue &&
-        nextToken &&
-        !nextToken.value.startsWith("--")
-      ) {
-        addAnnotationIssue(annotationMap, nextToken, forbidden.reason);
-        displayToken = `${displayToken} ${nextToken.value}`;
-        index += 2;
-      } else {
-        index += 1;
-      }
-
-      errors.push(`${displayToken}: ${forbidden.reason}`);
-      continue;
-    }
-
-    if (!token.value.startsWith("--")) {
-      const reason = _(
-        "Unexpected standalone token. Use explicit flags such as --name or --name=value.",
-      );
-      addAnnotationIssue(annotationMap, token, reason);
-      errors.push(`${token.value}: ${reason}`);
-      index += 1;
-      continue;
-    }
-
-    const mode = getNfqwsOptionArgumentMode(bareToken);
-    if (mode === "unknown") {
-      const reason = _("Unknown NFQWS flag.");
-      addAnnotationIssue(annotationMap, token, reason);
-      errors.push(`${token.value}: ${reason}`);
-      index += 1;
-      continue;
-    }
-
-    if (mode === "none") {
-      if (token.value.includes("=")) {
-        const reason = _("This flag does not accept a value.");
-        addAnnotationIssue(annotationMap, token, reason);
-        errors.push(`${token.value}: ${reason}`);
-      }
-
-      index += 1;
-      continue;
-    }
-
-    if (mode === "optional") {
-      if (
-        nextToken &&
-        !token.value.includes("=") &&
-        !nextToken.value.startsWith("--")
-      ) {
-        const reason = _(
-          "Optional values must be attached with '=' here; a separate token would be ignored by nfqws.",
-        );
-        addAnnotationIssue(annotationMap, token, reason);
-        addAnnotationIssue(annotationMap, nextToken, reason);
-        errors.push(`${token.value} ${nextToken.value}: ${reason}`);
-        index += 2;
-      } else {
-        index += 1;
-      }
-
-      continue;
-    }
-
-    if (!token.value.includes("=")) {
-      if (!nextToken || nextToken.value.startsWith("--")) {
-        const reason = _("This option requires a value.");
-        addAnnotationIssue(annotationMap, token, reason);
-        errors.push(`${token.value}: ${reason}`);
-        index += 1;
-        continue;
-      }
-
-      index += 2;
-      continue;
-    }
-
-    index += 1;
-  }
-
-  if (!errors.length) {
-    return { valid: true, message: "", annotations: [] };
-  }
-
-  return {
-    valid: false,
-    message: [getValidationHeaderText(), ...errors].join("\n"),
-    annotations: finalizeAnnotations(annotationMap),
-  };
-}
-
-function addNfqwsRemoteValidationNeedleAnnotations(
-  annotationMap,
-  tokens,
-  remoteValidation,
-  needle,
-) {
-  if (!needle.length) {
-    return;
-  }
-
-  let matched = false;
-
-  tokens.forEach((token) => {
-    const tokenValue = token.value || "";
-    const optionMatch =
-      needle.startsWith("--") &&
-      (tokenValue === needle || tokenValue.startsWith(`${needle}=`));
-    const valueMatch =
-      tokenValue === needle ||
-      tokenValue.endsWith(`=${needle}`) ||
-      (!needle.startsWith("--") && tokenValue.includes(`=${needle},`)) ||
-      (!needle.startsWith("--") && tokenValue.endsWith(`=${needle}`));
-
-    if (optionMatch || valueMatch) {
-      addAnnotationIssue(annotationMap, token, remoteValidation.message);
-      matched = true;
-    }
-  });
-
-  if (matched) {
-    return;
-  }
-
-  if (needle.startsWith("--")) {
-    tokens
-      .filter((token) => token.value && token.value.startsWith(needle))
-      .forEach((token) =>
-        addAnnotationIssue(annotationMap, token, remoteValidation.message),
-      );
-  }
-}
-
-function addNfqwsRemoteValidationAnnotations(
-  annotationMap,
-  tokens,
-  remoteValidation,
-) {
-  const needles =
-    remoteValidation &&
-    Array.isArray(remoteValidation.needles) &&
-    remoteValidation.needles.length
-      ? remoteValidation.needles.map((needle) => `${needle}`)
-      : remoteValidation && remoteValidation.needle
-        ? [`${remoteValidation.needle}`]
-        : [];
-
-  needles.forEach((needle) =>
-    addNfqwsRemoteValidationNeedleAnnotations(
-      annotationMap,
-      tokens,
-      remoteValidation,
-      needle,
-    ),
-  );
-}
-
-function analyzeNfqwsStrategy(value) {
-  const localAnalysis = buildNfqwsLocalAnalysis(value);
-  if (!localAnalysis.valid) {
-    return localAnalysis;
-  }
-
-  const remoteValidation = getCachedNfqwsRemoteValidation(value);
-  if (!remoteValidation || remoteValidation.valid) {
-    return localAnalysis;
-  }
-
-  const text = value ? `${value}` : "";
-  const tokens = parseNfqwsRuntimeTokens(text);
-  const annotationMap = new Map();
-
-  localAnalysis.annotations.forEach((annotation) =>
-    addAnnotationIssue(annotationMap, annotation, annotation.message),
-  );
-  addNfqwsRemoteValidationAnnotations(annotationMap, tokens, remoteValidation);
-
-  return {
-    valid: false,
-    message: [getValidationHeaderText(), remoteValidation.message].join("\n"),
-    annotations: finalizeAnnotations(annotationMap),
-  };
-}
-
-function normalizeNfqws2StrategyValue(value) {
-  const normalized = normalizeNfqwsStrategyWhitespace(value);
-  return normalized.length ? normalized : ZAPRET2_DEFAULT_NFQWS2_OPT;
-}
-
-function getCachedNfqws2RemoteValidation(value) {
-  const normalized = normalizeNfqws2StrategyValue(value);
-  return normalized.length
-    ? nfqws2RemoteValidationCache.get(normalized) ||
-        nfqws2RemoteValidationUnavailable.get(normalized) ||
-        null
-    : null;
-}
-
-function cacheNfqws2RemoteValidation(value, result) {
-  const normalized = normalizeNfqws2StrategyValue(value);
-  if (!normalized.length) {
-    return result;
-  }
-
-  const cached = {
-    valid: result && result.valid === true,
-    message: result && result.message ? `${result.message}` : "",
-    needle: result && result.needle ? `${result.needle}` : "",
-    needles:
-      result && Array.isArray(result.needles)
-        ? result.needles.filter(Boolean).map((item) => `${item}`)
-        : result && result.needle
-          ? [`${result.needle}`]
-          : [],
-  };
-
-  nfqws2RemoteValidationCache.set(normalized, cached);
-  return cached;
-}
-
-function buildNfqws2RemoteValidationFallback(error) {
-  const message =
-    error && error.message
-      ? `${error.message}`
-      : _("Unable to validate the NFQWS2 strategy through the backend parser.");
-
-  return {
-    valid: false,
-    message: _(
-      "Backend validation unavailable: %s. Save again to retry.",
-    ).format(message.replace(/[.\s]+$/, "")),
-    needle: "",
-    needles: [],
-  };
-}
-
-function validateNfqws2StrategyRemotely(value) {
-  const normalized = normalizeNfqws2StrategyValue(value);
-
-  if (!normalized.length) {
-    return Promise.resolve({
-      valid: true,
-      message: "",
-      needle: "",
-      needles: [],
-    });
-  }
-
-  if (nfqws2RemoteValidationCache.has(normalized)) {
-    return Promise.resolve(nfqws2RemoteValidationCache.get(normalized));
-  }
-
-  if (nfqws2RemoteValidationInflight.has(normalized)) {
-    return nfqws2RemoteValidationInflight.get(normalized);
-  }
-
-  const validationTask = fs
-    .exec(NFQWS_VALIDATION_COMMAND, [
-      "validate_nfqws2_strategy_json",
-      normalized,
-    ])
-    .then((result) => {
-      const payload = JSON.parse(
-        (result && result.stdout ? result.stdout : "{}").trim() || "{}",
-      );
-      if (typeof payload.valid !== "boolean") {
-        throw new Error();
-      }
-      nfqws2RemoteValidationUnavailable.delete(normalized);
-      return cacheNfqws2RemoteValidation(normalized, {
-        valid: payload.valid === true,
-        message: payload.message || "",
-        needle: payload.needle || "",
-        needles: Array.isArray(payload.needles)
-          ? payload.needles.filter(Boolean)
-          : payload.needle
-            ? [payload.needle]
-            : [],
-      });
-    })
-    // A failed call is not a verdict: it is not cached, so the next
-    // validation or Save asks the backend again (UC-040). Until then the
-    // field says the check is unavailable.
-    .catch((error) => {
-      const fallback = buildNfqws2RemoteValidationFallback(error);
-      nfqws2RemoteValidationUnavailable.set(normalized, fallback);
-      return fallback;
-    })
-    .finally(() => {
-      nfqws2RemoteValidationInflight.delete(normalized);
-    });
-
-  nfqws2RemoteValidationInflight.set(normalized, validationTask);
-  return validationTask;
-}
-
-function getNfqws2ForbiddenTokenInfo(token, index, nextToken) {
-  const configFileMessage = _(
-    "External nfqws2 config files bypass Forkop queue management and explicit validation.",
-  );
-  const hostSelectionMessage = _(
-    "Resource selection by hostname inside nfqws2 is not supported here; sing-box selects resources before NFQUEUE.",
-  );
-  const ipSelectionMessage = _(
-    "Resource selection by IP or CIDR inside nfqws2 is not supported here; sing-box selects resources before NFQUEUE.",
-  );
-  const placeholderMessage = _(
-    "Zapret2 hostlist templates are not supported here because Forkop does not expand them for per-rule NFQWS2 strategies.",
-  );
-  const queueMessage = _(
-    "The NFQUEUE number is assigned by Forkop for each rule and must not be overridden here.",
-  );
-  const fwmarkMessage = _(
-    "The desync fwmark is managed by Forkop for loop prevention and must not be overridden here.",
-  );
-  const fuzzMessage = _(
-    "Fuzzing is not supported here because Forkop needs deterministic runtime validation.",
-  );
-  const interceptMessage = _(
-    "Disabling interception is incompatible with action=zapret2 because Forkop sends matched traffic through NFQUEUE.",
-  );
-  const daemonMessage = _(
-    "Forkop manages the nfqws2 process lifecycle itself, so daemon mode is not allowed here.",
-  );
-  const dryRunMessage = _(
-    "This field must start a working nfqws2 strategy; --dry-run exits immediately and is not allowed here.",
-  );
-  const versionMessage = _(
-    "This field must start a working nfqws2 strategy; --version exits immediately and is not allowed here.",
-  );
-
-  if (index === 0 && (token.startsWith("@") || token.startsWith("$"))) {
-    return {
-      reason: configFileMessage,
-      captureNextValue: false,
-    };
-  }
-
-  if (token === "<HOSTLIST>" || token === "<HOSTLIST_NOAUTO>") {
-    return {
-      reason: placeholderMessage,
-      captureNextValue: false,
-    };
-  }
-
-  if (
-    token === "--hostlist" ||
-    token.startsWith("--hostlist=") ||
-    token === "--hostlist-domains" ||
-    token.startsWith("--hostlist-domains=") ||
-    token === "--hostlist-exclude" ||
-    token.startsWith("--hostlist-exclude=") ||
-    token === "--hostlist-exclude-domains" ||
-    token.startsWith("--hostlist-exclude-domains=") ||
-    token === "--hostlist-auto" ||
-    token.startsWith("--hostlist-auto=") ||
-    token === "--hostlist-auto-fail-threshold" ||
-    token.startsWith("--hostlist-auto-fail-threshold=") ||
-    token === "--hostlist-auto-fail-time" ||
-    token.startsWith("--hostlist-auto-fail-time=") ||
-    token === "--hostlist-auto-retrans-threshold" ||
-    token.startsWith("--hostlist-auto-retrans-threshold=") ||
-    token === "--hostlist-auto-debug" ||
-    token.startsWith("--hostlist-auto-debug=") ||
-    token === "--hostlist-auto-retrans-reset" ||
-    token.startsWith("--hostlist-auto-retrans-reset=")
-  ) {
-    return {
-      reason: hostSelectionMessage,
-      captureNextValue: !token.includes("="),
-    };
-  }
-
-  if (
-    token === "--ipset" ||
-    token.startsWith("--ipset=") ||
-    token === "--ipset-ip" ||
-    token.startsWith("--ipset-ip=") ||
-    token === "--ipset-exclude" ||
-    token.startsWith("--ipset-exclude=") ||
-    token === "--ipset-exclude-ip" ||
-    token.startsWith("--ipset-exclude-ip=")
-  ) {
-    return {
-      reason: ipSelectionMessage,
-      captureNextValue: !token.includes("="),
-    };
-  }
-
-  if (token === "--qnum" || token.startsWith("--qnum=")) {
-    return {
-      reason: queueMessage,
-      captureNextValue: !token.includes("="),
-    };
-  }
-
-  if (
-    token === "--fwmark" ||
-    token.startsWith("--fwmark=") ||
-    token === "--dpi-desync-fwmark" ||
-    token.startsWith("--dpi-desync-fwmark=")
-  ) {
-    return {
-      reason: fwmarkMessage,
-      captureNextValue: !token.includes("="),
-    };
-  }
-
-  if (token === "--fuzz" || token.startsWith("--fuzz=")) {
-    return {
-      reason: fuzzMessage,
-      captureNextValue: !token.includes("="),
-    };
-  }
-
-  if (
-    token === "--intercept=0" ||
-    token === "--intercept=false" ||
-    token === "--intercept=no" ||
-    (token === "--intercept" && nextToken && nextToken.value === "0")
-  ) {
-    return {
-      reason: interceptMessage,
-      captureNextValue: token === "--intercept",
-    };
-  }
-
-  if (token === "--daemon") {
-    return {
-      reason: daemonMessage,
-      captureNextValue: false,
-    };
-  }
-
-  if (token === "--dry-run") {
-    return {
-      reason: dryRunMessage,
-      captureNextValue: false,
-    };
-  }
-
-  if (token === "--version") {
-    return {
-      reason: versionMessage,
-      captureNextValue: false,
-    };
-  }
-
-  return null;
-}
-
-function buildNfqws2LocalAnalysis(value) {
-  const text = value ? `${value}` : "";
-  if (!text.trim().length) {
-    return {
-      valid: false,
-      message: _("NFQWS2 strategy cannot be empty"),
-      annotations: [],
-    };
-  }
-
-  const tokens = parseNfqwsRuntimeTokens(text);
-  const annotationMap = new Map();
-  const errors = [];
-
-  for (let index = 0; index < tokens.length; ) {
-    const token = tokens[index];
-    const bareToken = token.value.includes("=")
-      ? token.value.slice(0, token.value.indexOf("="))
-      : token.value;
-    const nextToken = tokens[index + 1] || null;
-
-    const forbidden = getNfqws2ForbiddenTokenInfo(
-      token.value,
-      index,
-      nextToken,
-    );
-    if (forbidden) {
-      addAnnotationIssue(annotationMap, token, forbidden.reason);
-
-      let displayToken = token.value;
-
-      if (
-        forbidden.captureNextValue &&
-        nextToken &&
-        !nextToken.value.startsWith("--")
-      ) {
-        addAnnotationIssue(annotationMap, nextToken, forbidden.reason);
-        displayToken = `${displayToken} ${nextToken.value}`;
-        index += 2;
-      } else {
-        index += 1;
-      }
-
-      errors.push(`${displayToken}: ${forbidden.reason}`);
-      continue;
-    }
-
-    if (!token.value.startsWith("--")) {
-      const reason = _(
-        "Unexpected standalone token. Use explicit flags such as --name or --name=value.",
-      );
-      addAnnotationIssue(annotationMap, token, reason);
-      errors.push(`${token.value}: ${reason}`);
-      index += 1;
-      continue;
-    }
-
-    const mode = getNfqws2OptionArgumentMode(bareToken);
-    if (mode === "unknown") {
-      const reason = _("Unknown NFQWS2 flag.");
-      addAnnotationIssue(annotationMap, token, reason);
-      errors.push(`${token.value}: ${reason}`);
-      index += 1;
-      continue;
-    }
-
-    if (mode === "none") {
-      if (token.value.includes("=")) {
-        const reason = _("This flag does not accept a value.");
-        addAnnotationIssue(annotationMap, token, reason);
-        errors.push(`${token.value}: ${reason}`);
-      }
-
-      index += 1;
-      continue;
-    }
-
-    if (mode === "optional") {
-      if (
-        nextToken &&
-        !token.value.includes("=") &&
-        !nextToken.value.startsWith("--")
-      ) {
-        const reason = _(
-          "Optional values must be attached with '=' here; a separate token would be ignored by nfqws2.",
-        );
-        addAnnotationIssue(annotationMap, token, reason);
-        addAnnotationIssue(annotationMap, nextToken, reason);
-        errors.push(`${token.value} ${nextToken.value}: ${reason}`);
-        index += 2;
-      } else {
-        index += 1;
-      }
-
-      continue;
-    }
-
-    if (!token.value.includes("=")) {
-      if (!nextToken || nextToken.value.startsWith("--")) {
-        const reason = _("This option requires a value.");
-        addAnnotationIssue(annotationMap, token, reason);
-        errors.push(`${token.value}: ${reason}`);
-        index += 1;
-        continue;
-      }
-
-      index += 2;
-      continue;
-    }
-
-    index += 1;
-  }
-
-  if (!errors.length) {
-    return { valid: true, message: "", annotations: [] };
-  }
-
-  return {
-    valid: false,
-    message: [getValidationHeaderText(), ...errors].join("\n"),
-    annotations: finalizeAnnotations(annotationMap),
-  };
-}
-
-function analyzeNfqws2Strategy(value) {
-  const localAnalysis = buildNfqws2LocalAnalysis(value);
-  if (!localAnalysis.valid) {
-    return localAnalysis;
-  }
-
-  const remoteValidation = getCachedNfqws2RemoteValidation(value);
-  if (!remoteValidation || remoteValidation.valid) {
-    return localAnalysis;
-  }
-
-  const text = value ? `${value}` : "";
-  const tokens = parseNfqwsRuntimeTokens(text);
-  const annotationMap = new Map();
-
-  localAnalysis.annotations.forEach((annotation) =>
-    addAnnotationIssue(annotationMap, annotation, annotation.message),
-  );
-  addNfqwsRemoteValidationAnnotations(annotationMap, tokens, remoteValidation);
-
-  return {
-    valid: false,
-    message: [getValidationHeaderText(), remoteValidation.message].join("\n"),
-    annotations: finalizeAnnotations(annotationMap),
-  };
-}
-
-function normalizeByedpiStrategyWhitespace(value) {
-  return value ? `${value}`.replace(/\s+/g, " ").trim() : "";
-}
-
-function normalizeByedpiStrategyValue(value) {
-  const normalized = normalizeByedpiStrategyWhitespace(value);
-  return normalized.length ? normalized : BYEDPI_DEFAULT_CMD_OPTS;
-}
-
-function getCachedByedpiRemoteValidation(value) {
-  const normalized = normalizeByedpiStrategyValue(value);
-  return normalized.length
-    ? byedpiRemoteValidationCache.get(normalized) ||
-        byedpiRemoteValidationUnavailable.get(normalized) ||
-        null
-    : null;
-}
-
-function cacheByedpiRemoteValidation(value, result) {
-  const normalized = normalizeByedpiStrategyValue(value);
-  if (!normalized.length) {
-    return result;
-  }
-
-  const cached = {
-    valid: result && result.valid === true,
-    message: result && result.message ? `${result.message}` : "",
-    needle: result && result.needle ? `${result.needle}` : "",
-    needles:
-      result && Array.isArray(result.needles)
-        ? result.needles.filter(Boolean).map((item) => `${item}`)
-        : result && result.needle
-          ? [`${result.needle}`]
-          : [],
-  };
-
-  byedpiRemoteValidationCache.set(normalized, cached);
-  return cached;
-}
-
-function buildByedpiRemoteValidationFallback(error) {
-  const message =
-    error && error.message
-      ? `${error.message}`
-      : _("Unable to validate the ByeDPI strategy through the backend parser.");
-
-  return {
-    valid: false,
-    message: _(
-      "Backend validation unavailable: %s. Save again to retry.",
-    ).format(message.replace(/[.\s]+$/, "")),
-    needle: "",
-    needles: [],
-  };
-}
-
-function validateByedpiStrategyRemotely(value) {
-  const normalized = normalizeByedpiStrategyValue(value);
-
-  if (!normalized.length) {
-    return Promise.resolve({
-      valid: true,
-      message: "",
-      needle: "",
-      needles: [],
-    });
-  }
-
-  if (byedpiRemoteValidationCache.has(normalized)) {
-    return Promise.resolve(byedpiRemoteValidationCache.get(normalized));
-  }
-
-  if (byedpiRemoteValidationInflight.has(normalized)) {
-    return byedpiRemoteValidationInflight.get(normalized);
-  }
-
-  const validationTask = fs
-    .exec(NFQWS_VALIDATION_COMMAND, [
-      "validate_byedpi_strategy_json",
-      normalized,
-    ])
-    .then((result) => {
-      const payload = JSON.parse(
-        (result && result.stdout ? result.stdout : "{}").trim() || "{}",
-      );
-      if (typeof payload.valid !== "boolean") {
-        throw new Error();
-      }
-      byedpiRemoteValidationUnavailable.delete(normalized);
-      return cacheByedpiRemoteValidation(normalized, {
-        valid: payload.valid === true,
-        message: payload.message || "",
-        needle: payload.needle || "",
-        needles: Array.isArray(payload.needles)
-          ? payload.needles.filter(Boolean)
-          : payload.needle
-            ? [payload.needle]
-            : [],
-      });
-    })
-    // A failed call is not a verdict: it is not cached, so the next
-    // validation or Save asks the backend again (UC-040). Until then the
-    // field says the check is unavailable.
-    .catch((error) => {
-      const fallback = buildByedpiRemoteValidationFallback(error);
-      byedpiRemoteValidationUnavailable.set(normalized, fallback);
-      return fallback;
-    })
-    .finally(() => {
-      byedpiRemoteValidationInflight.delete(normalized);
-    });
-
-  byedpiRemoteValidationInflight.set(normalized, validationTask);
-  return validationTask;
-}
-
-function getByedpiShortOptionName(token) {
-  return token.length > 2 ? token.slice(0, 2) : token;
-}
-
-function byedpiTokenLooksLikeOption(token) {
-  return /^--.+/.test(token) || /^-[A-Za-z].*/.test(token);
-}
-
-function getByedpiControlledTokenInfo(token) {
-  const listenMessage = _(
-    "ByeDPI listen address and port are assigned by Forkop and must not be set in the strategy.",
-  );
-  const transparentMessage = _(
-    "Transparent proxy mode is incompatible with action=byedpi because Forkop connects to ciadpi through SOCKS.",
-  );
-  const daemonMessage = _(
-    "Forkop manages the ciadpi process lifecycle itself, so daemon mode is not allowed here.",
-  );
-  const pidfileMessage = _(
-    "Forkop manages ciadpi pid files itself, so pidfile options are not allowed here.",
-  );
-  const exitMessage = _(
-    "This field must start a working ciadpi strategy; help/version options exit immediately and are not allowed here.",
-  );
-
-  if (
-    token === "--ip" ||
-    token.startsWith("--ip=") ||
-    token === "-i" ||
-    /^-i.+/.test(token) ||
-    token === "--port" ||
-    token.startsWith("--port=") ||
-    token === "-p" ||
-    /^-p.+/.test(token)
-  ) {
-    return {
-      reason: listenMessage,
-      captureNextValue:
-        token === "--ip" ||
-        token === "-i" ||
-        token === "--port" ||
-        token === "-p",
-    };
-  }
-
-  if (token === "--transparent" || token === "-E" || /^-E.+/.test(token)) {
-    return {
-      reason: transparentMessage,
-      captureNextValue: false,
-    };
-  }
-
-  if (token === "--daemon" || token === "-D" || /^-D.+/.test(token)) {
-    return {
-      reason: daemonMessage,
-      captureNextValue: false,
-    };
-  }
-
-  if (
-    token === "--pidfile" ||
-    token.startsWith("--pidfile=") ||
-    token === "-w" ||
-    /^-w.+/.test(token)
-  ) {
-    return {
-      reason: pidfileMessage,
-      captureNextValue: token === "--pidfile" || token === "-w",
-    };
-  }
-
-  if (
-    token === "--help" ||
-    token === "-h" ||
-    /^-h.+/.test(token) ||
-    token === "--version" ||
-    token === "-v" ||
-    /^-v.+/.test(token)
-  ) {
-    return {
-      reason: exitMessage,
-      captureNextValue: false,
-    };
-  }
-
-  return null;
-}
-
-function validateByedpiStrategyToken(token, nextToken) {
-  const controlled = getByedpiControlledTokenInfo(token);
-  if (controlled) {
-    return {
-      valid: false,
-      reason: controlled.reason,
-      captureNextValue: controlled.captureNextValue,
-    };
-  }
-
-  if (/^--[^=]+=/.test(token)) {
-    const base = token.split("=", 1)[0];
-    const value = token.slice(base.length + 1);
-
-    if (BYEDPI_LONG_VALUE_OPTIONS.has(base)) {
-      return value.length
-        ? { valid: true, consumeNext: false }
-        : {
-            valid: false,
-            reason: _("ByeDPI option requires a value: %s").format(base),
-            captureNextValue: false,
-          };
-    }
-
-    if (BYEDPI_LONG_FLAG_OPTIONS.has(base)) {
-      return {
-        valid: false,
-        reason: _("ByeDPI option does not accept a value: %s").format(base),
-        captureNextValue: false,
-      };
-    }
-
-    return {
-      valid: false,
-      reason: _("Unknown ByeDPI option: %s").format(base),
-      captureNextValue: false,
-    };
-  }
-
-  if (/^--.+/.test(token)) {
-    if (BYEDPI_LONG_VALUE_OPTIONS.has(token)) {
-      return nextToken && !byedpiTokenLooksLikeOption(nextToken)
-        ? { valid: true, consumeNext: true }
-        : {
-            valid: false,
-            reason: _("ByeDPI option requires a value: %s").format(token),
-            captureNextValue: false,
-          };
-    }
-
-    if (BYEDPI_LONG_FLAG_OPTIONS.has(token)) {
-      return { valid: true, consumeNext: false };
-    }
-
-    return {
-      valid: false,
-      reason: _("Unknown ByeDPI option: %s").format(token),
-      captureNextValue: false,
-    };
-  }
-
-  if (/^-./.test(token)) {
-    if (token === "-") {
-      return {
-        valid: false,
-        reason: _("Unexpected ByeDPI strategy argument: %s").format(token),
-        captureNextValue: false,
-      };
-    }
-
-    const short = getByedpiShortOptionName(token);
-    const compactValue = token.slice(short.length);
-
-    if (BYEDPI_SHORT_VALUE_OPTIONS.has(short)) {
-      if (token === short) {
-        return nextToken && !byedpiTokenLooksLikeOption(nextToken)
-          ? { valid: true, consumeNext: true }
-          : {
-              valid: false,
-              reason: _("ByeDPI option requires a value: %s").format(short),
-              captureNextValue: false,
-            };
-      }
-
-      return compactValue.length
-        ? { valid: true, consumeNext: false }
-        : {
-            valid: false,
-            reason: _("ByeDPI option requires a value: %s").format(short),
-            captureNextValue: false,
-          };
-    }
-
-    if (BYEDPI_SHORT_FLAG_OPTIONS.has(short)) {
-      return token === short
-        ? { valid: true, consumeNext: false }
-        : {
-            valid: false,
-            reason: _(
-              "ByeDPI option does not accept a compact value: %s",
-            ).format(short),
-            captureNextValue: false,
-          };
-    }
-
-    return {
-      valid: false,
-      reason: _("Unknown ByeDPI option: %s").format(short),
-      captureNextValue: false,
-    };
-  }
-
-  return {
-    valid: false,
-    reason: _("Unexpected ByeDPI strategy argument: %s").format(token),
-    captureNextValue: false,
-  };
-}
-
-function buildByedpiLocalAnalysis(value) {
-  const text = value ? `${value}` : "";
-  if (!text.trim().length) {
-    return {
-      valid: false,
-      message: _("ByeDPI strategy cannot be empty"),
-      annotations: [],
-    };
-  }
-
-  const tokens = parseNfqwsRuntimeTokens(text);
-  const annotationMap = new Map();
-  const errors = [];
-
-  for (let index = 0; index < tokens.length; ) {
-    const token = tokens[index];
-    const nextToken = tokens[index + 1] || null;
-    const tokenValidation = validateByedpiStrategyToken(
-      token.value,
-      nextToken ? nextToken.value : null,
-    );
-
-    if (tokenValidation.valid) {
-      index += tokenValidation.consumeNext ? 2 : 1;
-      continue;
-    }
-
-    addAnnotationIssue(annotationMap, token, tokenValidation.reason);
-    let displayToken = token.value;
-
-    if (
-      tokenValidation.captureNextValue &&
-      nextToken &&
-      !nextToken.value.startsWith("-")
-    ) {
-      addAnnotationIssue(annotationMap, nextToken, tokenValidation.reason);
-      displayToken = `${displayToken} ${nextToken.value}`;
-      index += 2;
-    } else {
-      index += 1;
-    }
-
-    errors.push(`${displayToken}: ${tokenValidation.reason}`);
-  }
-
-  if (!errors.length) {
-    return { valid: true, message: "", annotations: [] };
-  }
-
-  return {
-    valid: false,
-    message: [getValidationHeaderText(), ...errors].join("\n"),
-    annotations: finalizeAnnotations(annotationMap),
-  };
-}
-
-function analyzeByedpiStrategy(value) {
-  const localAnalysis = buildByedpiLocalAnalysis(value);
-  if (!localAnalysis.valid) {
-    return localAnalysis;
-  }
-
-  const remoteValidation = getCachedByedpiRemoteValidation(value);
-  if (!remoteValidation || remoteValidation.valid) {
-    return localAnalysis;
-  }
-
-  const text = value ? `${value}` : "";
-  const tokens = parseNfqwsRuntimeTokens(text);
-  const annotationMap = new Map();
-
-  localAnalysis.annotations.forEach((annotation) =>
-    addAnnotationIssue(annotationMap, annotation, annotation.message),
-  );
-  addNfqwsRemoteValidationAnnotations(annotationMap, tokens, remoteValidation);
-
-  return {
-    valid: false,
-    message: [getValidationHeaderText(), remoteValidation.message].join("\n"),
-    annotations: finalizeAnnotations(annotationMap),
-  };
-}
-
 function configureTextareaOption(option, analyzer, remoteValidationAttacher) {
   const originalRenderWidget = option.renderWidget;
 
@@ -7748,31 +5792,6 @@ function configureTextareaOption(option, analyzer, remoteValidationAttacher) {
   };
 }
 
-function getOptionTextarea(option, section_id) {
-  const field =
-    typeof option.map.findElement === "function"
-      ? option.map.findElement("data-field", option.cbid(section_id))
-      : null;
-
-  if (field && typeof field.querySelector === "function") {
-    return field.querySelector("textarea");
-  }
-
-  const elem =
-    typeof option.getUIElement === "function"
-      ? option.getUIElement(section_id)
-      : null;
-  const node = elem && elem.node ? elem.node : null;
-
-  if (node && node.nodeName === "TEXTAREA") {
-    return node;
-  }
-
-  return node && typeof node.querySelector === "function"
-    ? node.querySelector("textarea")
-    : null;
-}
-
 function invalidOptionError(option, section_id, message) {
   const title = option.stripTags(option.title).trim();
   const error = message || option.getValidationError(section_id) || "";
@@ -7784,134 +5803,6 @@ function invalidOptionError(option, section_id, message) {
 
 function rejectInvalidOption(option, section_id, message) {
   return Promise.reject(invalidOptionError(option, section_id, message));
-}
-
-function parseStrategyWithRemoteValidation(section_id, config) {
-  const active = this.isActive(section_id);
-
-  if (active) {
-    if (typeof this.triggerValidation === "function") {
-      this.triggerValidation(section_id);
-    }
-
-    if (!this.isValid(section_id)) {
-      return rejectInvalidOption(
-        this,
-        section_id,
-        this.getValidationError(section_id),
-      );
-    }
-
-    const cval = this.cfgvalue(section_id);
-    const fval = this.formvalue(section_id);
-    const cvalString = cval == null ? "" : `${cval}`;
-    const fvalString = fval == null ? "" : `${fval}`;
-    const shouldWrite = this.forcewrite || cvalString !== fvalString;
-
-    if (!shouldWrite) {
-      return Promise.resolve();
-    }
-
-    return config.remoteValidate(fvalString).then((result) => {
-      const textarea = getOptionTextarea(this, section_id);
-
-      if (textarea) {
-        refreshAnnotatedTextareaValidation(this, section_id, textarea);
-      }
-
-      if (typeof this.triggerValidation === "function") {
-        this.triggerValidation(section_id);
-      }
-
-      if (!result || result.valid !== true) {
-        return rejectInvalidOption(
-          this,
-          section_id,
-          result && result.message ? result.message : config.invalidMessage,
-        );
-      }
-
-      return Promise.resolve(this.write(section_id, fvalString));
-    });
-  }
-
-  if (!this.retain) {
-    return Promise.resolve(this.remove(section_id));
-  }
-
-  return Promise.resolve();
-}
-
-// A failed backend check is shown on the strategy field until the next Save,
-// which asks the backend again instead of refusing on the old failure.
-function forgetUnavailableStrategyValidations() {
-  nfqwsRemoteValidationUnavailable.clear();
-  nfqws2RemoteValidationUnavailable.clear();
-  byedpiRemoteValidationUnavailable.clear();
-}
-
-// The backend check of a changed strategy runs inside parse, after the other
-// options of the rule have been written or removed; the rule modal runs it
-// before anything is written (refuseInvalidModalSave). A passed check is
-// cached, so parse does not ask the backend again.
-function checkStrategyBeforeSave(section_id, config) {
-  const cval = this.cfgvalue(section_id);
-  const fval = this.formvalue(section_id);
-  const fvalString = fval == null ? "" : `${fval}`;
-
-  if (!this.forcewrite && (cval == null ? "" : `${cval}`) === fvalString) {
-    return true;
-  }
-
-  return config.remoteValidate(fvalString).then((result) => {
-    const textarea = getOptionTextarea(this, section_id);
-
-    if (textarea) {
-      refreshAnnotatedTextareaValidation(this, section_id, textarea);
-    }
-
-    if (typeof this.triggerValidation === "function") {
-      this.triggerValidation(section_id);
-    }
-
-    return result && result.valid === true
-      ? true
-      : (result && result.message) || config.invalidMessage;
-  });
-}
-
-function nfqwsStrategyValidation() {
-  return {
-    remoteValidate: validateNfqwsStrategyRemotely,
-    invalidMessage: _(
-      "Unable to validate the NFQWS strategy through the backend parser.",
-    ),
-  };
-}
-
-function nfqws2StrategyValidation() {
-  return {
-    remoteValidate: validateNfqws2StrategyRemotely,
-    invalidMessage: _(
-      "Unable to validate the NFQWS2 strategy through the backend parser.",
-    ),
-  };
-}
-
-function parseNfqwsStrategyOnSave(section_id) {
-  return parseStrategyWithRemoteValidation.call(
-    this,
-    section_id,
-    nfqwsStrategyValidation(),
-  );
-}
-
-function parseNfqws2StrategyOnSave(section_id) {
-  return parseStrategyWithRemoteValidation.call(
-    this,
-    section_id,
-    nfqws2StrategyValidation(),
-  );
 }
 
 function addDynamicConditionField(section, config) {
@@ -8495,24 +6386,13 @@ function createSectionContent(section) {
     return getRuleConfiguredAction(section_id);
   };
   o.load = function (section_id) {
-    // The page grid must render immediately. Its modal map has a parent and
-    // can wait for provider status before building the editable select.
-    if (this.map?.parent) {
-      return ensureActionProvidersAvailabilityLoaded().then(() => {
-        populateActionOptionValues(this, section_id);
-        return this.cfgvalue(section_id);
-      });
-    }
     populateActionOptionValues(this, section_id);
     return this.cfgvalue(section_id);
   };
   const renderActionWidget = o.renderWidget;
-  o.renderWidget = function () {
-    const args = arguments;
-    return ensureActionProvidersAvailabilityLoaded().then(() => {
-      populateActionOptionValues(this, args[0]);
-      return renderActionWidget.apply(this, args);
-    });
+  o.renderWidget = function (section_id) {
+    populateActionOptionValues(this, section_id);
+    return renderActionWidget.apply(this, arguments);
   };
   o.validate = function (section_id, value) {
     const unavailable = unavailableChoiceError(this, value);
@@ -8607,27 +6487,16 @@ function createSectionContent(section) {
   o.modalonly = true;
   o.load = function (section_id) {
     const value = uci.get(UCI_PACKAGE, section_id, "dns_detour_section") || "";
-    if (this.map?.parent) {
-      return ensureActionProvidersAvailabilityLoaded().then(() => {
-        refreshDnsDetourSectionOptionValues(this, section_id);
-        keepUnavailableChoice(this, value, describeUnavailableSection);
-        return value;
-      });
-    }
     refreshDnsDetourSectionOptionValues(this, section_id);
     keepUnavailableChoice(this, value, describeUnavailableSection);
     return value;
   };
   const renderDnsDetourWidget = o.renderWidget;
-  o.renderWidget = function () {
-    const args = arguments;
-    return ensureActionProvidersAvailabilityLoaded().then(() => {
-      const section_id = args[0];
-      const value = uci.get(UCI_PACKAGE, section_id, "dns_detour_section") || "";
-      refreshDnsDetourSectionOptionValues(this, section_id);
-      keepUnavailableChoice(this, value, describeUnavailableSection);
-      return renderDnsDetourWidget.apply(this, args);
-    });
+  o.renderWidget = function (section_id) {
+    const value = uci.get(UCI_PACKAGE, section_id, "dns_detour_section") || "";
+    refreshDnsDetourSectionOptionValues(this, section_id);
+    keepUnavailableChoice(this, value, describeUnavailableSection);
+    return renderDnsDetourWidget.apply(this, arguments);
   };
   o.validate = function (_section_id, value) {
     if (!value) {
@@ -8635,154 +6504,6 @@ function createSectionContent(section) {
     }
     return unavailableChoiceError(this, value) || true;
   };
-
-  o = section.taboption(
-    "target",
-    form.TextValue,
-    "nfqws_opt",
-    _("NFQWS Strategy"),
-  );
-  o.depends("action", "zapret");
-  o.rows = 6;
-  o.wrap = "soft";
-  o.textarea = true;
-  o.modalonly = true;
-  o.load = function (section_id) {
-    const value = uci.get(UCI_PACKAGE, section_id, "nfqws_opt");
-    if (!value || value === ZAPRET_LEGACY_DEFAULT_NFQWS_OPT) {
-      return ZAPRET_DEFAULT_NFQWS_OPT;
-    }
-
-    return value;
-  };
-  o.write = function (section_id, value) {
-    const normalized = normalizeNfqwsStrategyValue(value);
-    const nextValue =
-      !normalized.length || normalized === ZAPRET_LEGACY_DEFAULT_NFQWS_OPT
-        ? ZAPRET_DEFAULT_NFQWS_OPT
-        : normalized;
-
-    return validateNfqwsStrategyRemotely(nextValue).then((result) => {
-      if (!result || result.valid !== true) {
-        throw new TypeError(
-          result && result.message
-            ? result.message
-            : _(
-                "Unable to validate the NFQWS strategy through the backend parser.",
-              ),
-        );
-      }
-
-      uci.set(UCI_PACKAGE, section_id, "nfqws_opt", nextValue);
-    });
-  };
-  o.validate = function (_section_id, value) {
-    const analysis = analyzeNfqwsStrategy(value);
-    return analysis.valid ? true : analysis.message;
-  };
-  o.parse = parseNfqwsStrategyOnSave;
-  o.checkBeforeSave = function (section_id) {
-    return checkStrategyBeforeSave.call(
-      this,
-      section_id,
-      nfqwsStrategyValidation(),
-    );
-  };
-  configureTextareaOption(o, analyzeNfqwsStrategy, attachNfqwsRemoteValidation);
-
-  o = section.taboption(
-    "target",
-    form.TextValue,
-    "nfqws2_opt",
-    _("NFQWS2 Strategy"),
-  );
-  o.depends("action", "zapret2");
-  o.rows = 6;
-  o.wrap = "soft";
-  o.textarea = true;
-  o.modalonly = true;
-  o.load = function (section_id) {
-    return (
-      uci.get(UCI_PACKAGE, section_id, "nfqws2_opt") ||
-      ZAPRET2_DEFAULT_NFQWS2_OPT
-    );
-  };
-  o.write = function (section_id, value) {
-    const normalized = normalizeNfqws2StrategyValue(value);
-
-    return validateNfqws2StrategyRemotely(normalized).then((result) => {
-      if (!result || result.valid !== true) {
-        throw new TypeError(
-          result && result.message
-            ? result.message
-            : _("Invalid NFQWS2 strategy"),
-        );
-      }
-
-      uci.set(UCI_PACKAGE, section_id, "nfqws2_opt", normalized);
-    });
-  };
-  o.validate = function (_section_id, value) {
-    const analysis = analyzeNfqws2Strategy(value);
-    return analysis.valid ? true : analysis.message;
-  };
-  o.parse = parseNfqws2StrategyOnSave;
-  o.checkBeforeSave = function (section_id) {
-    return checkStrategyBeforeSave.call(
-      this,
-      section_id,
-      nfqws2StrategyValidation(),
-    );
-  };
-  configureTextareaOption(
-    o,
-    analyzeNfqws2Strategy,
-    attachNfqws2RemoteValidation,
-  );
-
-  o = section.taboption(
-    "target",
-    form.TextValue,
-    "byedpi_cmd_opts",
-    _("ByeDPI Strategy"),
-  );
-  o.depends("action", "byedpi");
-  o.rows = 6;
-  o.wrap = "soft";
-  o.textarea = true;
-  o.modalonly = true;
-  o.load = function (section_id) {
-    return (
-      uci.get(UCI_PACKAGE, section_id, "byedpi_cmd_opts") ||
-      BYEDPI_DEFAULT_CMD_OPTS
-    );
-  };
-  o.write = function (section_id, value) {
-    const normalized = normalizeByedpiStrategyValue(value);
-
-    return validateByedpiStrategyRemotely(normalized).then((result) => {
-      if (!result || result.valid !== true) {
-        throw new TypeError(
-          result && result.message
-            ? result.message
-            : _("Invalid ByeDPI strategy"),
-        );
-      }
-
-      uci.set(UCI_PACKAGE, section_id, "byedpi_cmd_opts", normalized);
-    });
-  };
-  o.validate = function (_section_id, value) {
-    const analysis = analyzeByedpiStrategy(value);
-    return analysis.valid ? true : analysis.message;
-  };
-  o.checkBeforeSave = function (section_id) {
-    return checkStrategyBeforeSave.call(this, section_id, {
-      remoteValidate: validateByedpiStrategyRemotely,
-      invalidMessage: _("Invalid ByeDPI strategy"),
-    });
-  };
-  configureTextareaOption(o, analyzeByedpiStrategy);
 
   o = section.taboption(
     "target",
@@ -9186,9 +6907,6 @@ function createSectionContent(section) {
   o.depends("action", "proxy");
   o.depends("action", "outbound");
   o.depends("action", "vpn");
-  o.depends("action", "byedpi");
-  o.depends("action", "zapret");
-  o.depends("action", "zapret2");
   o.modalonly = true;
 
   o = section.taboption(
@@ -9203,9 +6921,6 @@ function createSectionContent(section) {
   o.depends({ action: "proxy", mixed_proxy_enabled: "1" });
   o.depends({ action: "outbound", mixed_proxy_enabled: "1" });
   o.depends({ action: "vpn", mixed_proxy_enabled: "1" });
-  o.depends({ action: "byedpi", mixed_proxy_enabled: "1" });
-  o.depends({ action: "zapret", mixed_proxy_enabled: "1" });
-  o.depends({ action: "zapret2", mixed_proxy_enabled: "1" });
   o.modalonly = true;
   o.validate = function (_section_id, value) {
     if (!value || value.length === 0) {
@@ -9233,9 +6948,6 @@ function createSectionContent(section) {
   o.depends({ action: "proxy", mixed_proxy_enabled: "1" });
   o.depends({ action: "outbound", mixed_proxy_enabled: "1" });
   o.depends({ action: "vpn", mixed_proxy_enabled: "1" });
-  o.depends({ action: "byedpi", mixed_proxy_enabled: "1" });
-  o.depends({ action: "zapret", mixed_proxy_enabled: "1" });
-  o.depends({ action: "zapret2", mixed_proxy_enabled: "1" });
   o.modalonly = true;
 
   o = section.taboption(
@@ -9262,21 +6974,6 @@ function createSectionContent(section) {
   });
   o.depends({
     action: "vpn",
-    mixed_proxy_enabled: "1",
-    mixed_proxy_auth_enabled: "1",
-  });
-  o.depends({
-    action: "byedpi",
-    mixed_proxy_enabled: "1",
-    mixed_proxy_auth_enabled: "1",
-  });
-  o.depends({
-    action: "zapret",
-    mixed_proxy_enabled: "1",
-    mixed_proxy_auth_enabled: "1",
-  });
-  o.depends({
-    action: "zapret2",
     mixed_proxy_enabled: "1",
     mixed_proxy_auth_enabled: "1",
   });
@@ -9317,21 +7014,6 @@ function createSectionContent(section) {
     mixed_proxy_enabled: "1",
     mixed_proxy_auth_enabled: "1",
   });
-  o.depends({
-    action: "byedpi",
-    mixed_proxy_enabled: "1",
-    mixed_proxy_auth_enabled: "1",
-  });
-  o.depends({
-    action: "zapret",
-    mixed_proxy_enabled: "1",
-    mixed_proxy_auth_enabled: "1",
-  });
-  o.depends({
-    action: "zapret2",
-    mixed_proxy_enabled: "1",
-    mixed_proxy_auth_enabled: "1",
-  });
   o.modalonly = true;
   o.validate = function (_section_id, value) {
     if (!value || value.length === 0) {
@@ -9365,7 +7047,7 @@ function createSectionContent(section) {
       return value;
     }
 
-    return getRuleResolvedAction(section_id) === "byedpi" ? "1" : "0";
+    return "0";
   };
 
   addTextConditionField(section, {
@@ -9702,8 +7384,7 @@ function loadSectionTableOptions(sectionRef) {
 // Dismiss the next Save & Apply would send them. Refuse the save before
 // anything is written while an active option is invalid, and while a check
 // that parse would run only after other writes refuses: the items of a list
-// (checkBeforeSave of SettingsDynamicList) or the backend check of a changed
-// DPI strategy.
+// (checkBeforeSave of SettingsDynamicList).
 function inspectModalBeforeSave(modalMap) {
   const checks = [];
 
@@ -9790,7 +7471,6 @@ function refuseInvalidModalSave(modalMap) {
 
   modalMap.parse = function (...args) {
     clearModalSaveRefusal(this);
-    forgetUnavailableStrategyValidations();
 
     const { invalid, checks } = inspectModalBeforeSave(this);
 
@@ -9831,7 +7511,7 @@ function refuseInvalidModalSave(modalMap) {
         const { option, section_id } = checks[index];
         const error = invalidOptionError(option, section_id, results[index]);
 
-        // A strategy field shows its backend verdict itself.
+        // A field that shows its own verdict needs no second one.
         if (option.isValid(section_id)) {
           showModalSaveRefusal(this, error);
         }
@@ -9905,9 +7585,7 @@ function restoreStagedUciState(snapshot) {
   });
 }
 
-function configureSectionSection(sectionRef, options = {}) {
-  setActionProvidersAvailabilityLoader(options.loadActionProvidersAvailability);
-
+function configureSectionSection(sectionRef) {
   const addModalOptions = sectionRef.addModalOptions;
   sectionRef.addModalOptions = function (modalSection) {
     modalSection.map.forkopStagedUciState = captureStagedUciState();
@@ -9973,7 +7651,6 @@ function configureSectionSection(sectionRef, options = {}) {
 const EntryPoint = {
   configureSectionSection,
   createSectionContent,
-  setActionProvidersAvailabilityLoader,
 };
 
 return baseclass.extend(EntryPoint);

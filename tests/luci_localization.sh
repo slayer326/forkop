@@ -102,19 +102,4 @@ if grep -rn --include='*.ts' "'N/A'" "$ROOT_DIR/fe-app-forkop/src" | grep -v '/t
   fail "N/A is shown untranslated"
 fi
 
-# Manual autotune apply (6.9.1): the texts the operator relies on.
-for pair in \
-  'Strategy %s applied and checked.|Стратегия %s применена и проверена.' \
-  'Automatic recovery did not finish.|Автоматическое восстановление не завершилось.' \
-  'Action required|Требуется действие' \
-  'The recommendation is outdated: the configuration changed after the check. Run the check again.|Рекомендация устарела: конфигурация изменилась после проверки. Запустите проверку ещё раз.' \
-  'The new strategy did not pass the check. Forkop X restored the previous configuration automatically.|Новая стратегия не прошла проверку. Forkop X автоматически восстановил предыдущую конфигурацию.' \
-  'Autotune: %s applied manually|Автоподбор: %s применена вручную'; do
-  id="${pair%%|*}" str="${pair#*|}"
-  for po in "$SOURCE_PO" "$PACKAGE_PO"; do
-    grep -Fxq "msgid \"$id\"" "$po" && grep -A1 -Fx "msgid \"$id\"" "$po" | grep -Fxq "msgstr \"$str\"" ||
-      fail "$id must be translated as $str in $po"
-  done
-done
-
 printf 'LuCI localization checks passed\n'

@@ -18,8 +18,6 @@ const COMPONENT_ACTION_TRANSIENT_RPC_GRACE_MS = 30000;
 const COMPONENT_ACTION_STATE_DIR = '/var/run/forkop/component-actions';
 const GET_UI_STATE_RPC_TIMEOUT_MS = 3000;
 const SUPPORT_REPORT_RPC_TIMEOUT_MS = 60000;
-// Up to 16 targets, one DNS lookup (2 s timeout) each.
-const AUTOTUNE_GROUPS_RPC_TIMEOUT_MS = 45000;
 
 function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -234,18 +232,6 @@ export const ForkopShellMethods = {
     callBaseMethod<Forkop.NftRulesCheckResult>(
       Forkop.AvailableMethods.CHECK_NFT_RULES,
     ),
-  checkZapretRuntime: async () =>
-    callBaseMethod<Forkop.ZapretCheckResult>(
-      Forkop.AvailableMethods.CHECK_ZAPRET_RUNTIME,
-    ),
-  checkZapret2Runtime: async () =>
-    callBaseMethod<Forkop.Zapret2CheckResult>(
-      Forkop.AvailableMethods.CHECK_ZAPRET2_RUNTIME,
-    ),
-  checkByedpiRuntime: async () =>
-    callBaseMethod<Forkop.ByedpiCheckResult>(
-      Forkop.AvailableMethods.CHECK_BYEDPI_RUNTIME,
-    ),
   getStatus: async () =>
     callBaseMethod<Forkop.GetStatus>(Forkop.AvailableMethods.GET_STATUS),
   getReadonlyConfigSections: async () =>
@@ -268,18 +254,6 @@ export const ForkopShellMethods = {
   getSingBoxStatus: async () =>
     callBaseMethod<Forkop.GetSingBoxStatus>(
       Forkop.AvailableMethods.GET_SING_BOX_STATUS,
-    ),
-  getZapretStatus: async () =>
-    callBaseMethod<Forkop.GetZapretStatus>(
-      Forkop.AvailableMethods.GET_ZAPRET_STATUS,
-    ),
-  getZapret2Status: async () =>
-    callBaseMethod<Forkop.GetZapret2Status>(
-      Forkop.AvailableMethods.GET_ZAPRET2_STATUS,
-    ),
-  getByedpiStatus: async () =>
-    callBaseMethod<Forkop.GetByedpiStatus>(
-      Forkop.AvailableMethods.GET_BYEDPI_STATUS,
     ),
   getClashApiProxies: async () =>
     callBaseMethod<ClashAPI.Proxies>(Forkop.AvailableMethods.CLASH_API, [
@@ -373,96 +347,6 @@ export const ForkopShellMethods = {
     ),
   getHistory: async () =>
     callBaseMethod<Forkop.HistoryResult>(Forkop.AvailableMethods.GET_HISTORY),
-  // Autotune commands exit non-zero with a structured result (failed,
-  // refused, busy); keep it instead of a bare failure.
-  autotuneStatus: async () =>
-    callBaseMethod<Forkop.AutotuneStatus>(
-      Forkop.AvailableMethods.AUTOTUNE_STATUS,
-      [],
-      '/usr/bin/forkop',
-      { allowNonZeroWithStdout: true },
-    ),
-  // Resolves every target through the router DNS.
-  autotuneGroups: async () =>
-    callBaseMethod<Forkop.AutotuneGroups>(
-      Forkop.AvailableMethods.AUTOTUNE_GROUPS,
-      [],
-      '/usr/bin/forkop',
-      { allowNonZeroWithStdout: true, timeout: AUTOTUNE_GROUPS_RPC_TIMEOUT_MS },
-    ),
-  autotunePolicySet: async (option: string, value: string) =>
-    callBaseMethod<Forkop.AutotuneMutationResult>(
-      Forkop.AvailableMethods.AUTOTUNE_POLICY_SET,
-      [option, value],
-      '/usr/bin/forkop',
-      { allowNonZeroWithStdout: true },
-    ),
-  // A host target, or with an empty host a rule-list target: the sing-box
-  // rule set tag, how many domains are measured, pinned domains.
-  autotuneTargetSet: async (
-    id: string,
-    host: string,
-    enabled: boolean,
-    resolver: string,
-    list?: { ruleSet: string; sample: string; pins: string[] },
-  ) =>
-    callBaseMethod<Forkop.AutotuneMutationResult>(
-      Forkop.AvailableMethods.AUTOTUNE_TARGET_SET,
-      [
-        id,
-        host,
-        enabled ? '1' : '0',
-        resolver,
-        ...(list ? [list.ruleSet, list.sample, list.pins.join(',')] : []),
-      ],
-      '/usr/bin/forkop',
-      { allowNonZeroWithStdout: true },
-    ),
-  autotuneListDomains: async (ruleSet: string) =>
-    callBaseMethod<Forkop.AutotuneListDomains>(
-      Forkop.AvailableMethods.AUTOTUNE_LIST_DOMAINS,
-      [ruleSet],
-      '/usr/bin/forkop',
-      { allowNonZeroWithStdout: true },
-    ),
-  autotuneTargetRemove: async (id: string) =>
-    callBaseMethod<Forkop.AutotuneMutationResult>(
-      Forkop.AvailableMethods.AUTOTUNE_TARGET_REMOVE,
-      [id],
-      '/usr/bin/forkop',
-      { allowNonZeroWithStdout: true },
-    ),
-  autotuneRunAsync: async (scope: string) =>
-    callBaseMethod<Forkop.AutotuneMutationResult>(
-      Forkop.AvailableMethods.AUTOTUNE_RUN_ASYNC,
-      [scope],
-      '/usr/bin/forkop',
-      { allowNonZeroWithStdout: true },
-    ),
-  // Only the group is sent: the backend derives the candidate itself.
-  autotuneApplyAsync: async (group: string) =>
-    callBaseMethod<Forkop.AutotuneMutationResult>(
-      Forkop.AvailableMethods.AUTOTUNE_APPLY_ASYNC,
-      [group],
-      '/usr/bin/forkop',
-      { allowNonZeroWithStdout: true },
-    ),
-  // Restores the snapshot taken before the apply and reloads the service,
-  // like a snapshot restore.
-  autotuneRollback: async () =>
-    callBaseMethod<Forkop.AutotuneRollbackResult>(
-      Forkop.AvailableMethods.AUTOTUNE_ROLLBACK,
-      [],
-      '/usr/bin/forkop',
-      { timeout: 120000, allowNonZeroWithStdout: true },
-    ),
-  autotuneRunStatus: async (job: string) =>
-    callBaseMethod<Forkop.AutotuneJobStatus>(
-      Forkop.AvailableMethods.AUTOTUNE_RUN_STATUS,
-      [job],
-      '/usr/bin/forkop',
-      { allowNonZeroWithStdout: true },
-    ),
   routeTrace: async (
     target: string,
     source: string,
@@ -514,18 +398,6 @@ export const ForkopShellMethods = {
       [host, type, port],
       '/usr/bin/forkop',
       { timeout: 10000 },
-    ),
-  validateDpiStrategy: async (
-    provider: 'zapret' | 'zapret2' | 'byedpi',
-    strategy: string,
-  ) =>
-    callBaseMethod<unknown>(
-      provider === 'zapret'
-        ? Forkop.AvailableMethods.VALIDATE_NFQWS_STRATEGY_JSON
-        : provider === 'zapret2'
-          ? Forkop.AvailableMethods.VALIDATE_NFQWS2_STRATEGY_JSON
-          : Forkop.AvailableMethods.VALIDATE_BYEDPI_STRATEGY_JSON,
-      [strategy],
     ),
   serviceActionStart: async (action: Forkop.ServiceAction) => {
     const response = await executeShellCommand({

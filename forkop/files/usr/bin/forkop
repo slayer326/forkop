@@ -80,11 +80,6 @@ function show_help() {
     print("    check_logs              Show Forkop logs from system journal\n");
     print("    check_sing_box_logs     Show sing-box logs\n");
     print("    check_fakeip            Test sing-box FakeIP DNS\n");
-    print("    check_zapret_runtime    Check external zapret provider state\n");
-    print("    check_zapret2_runtime   Check external zapret2 provider state\n");
-    print("    check_byedpi_runtime    Check external ByeDPI provider state\n");
-    print("    neutralize_zapret_defaults\n");
-    print("                            Compatibility no-op; Forkop does not manage standalone zapret\n");
     print("    clash_api               Clash API interface for managing proxies and groups\n");
     print("    show_config             Display current Forkop configuration\n");
     print("    show_version            Show Forkop version\n");
@@ -95,9 +90,6 @@ function show_help() {
     print("    get_subscription_metadata\n");
     print("                            Get UI-only metadata for a subscription rule\n");
     print("    get_sing_box_status     Get sing-box service status\n");
-    print("    get_zapret_status       Get zapret provider and Forkop-managed nfqws status\n");
-    print("    get_zapret2_status      Get zapret2 provider and Forkop-managed nfqws2 status\n");
-    print("    get_byedpi_status       Get ByeDPI provider and Forkop-managed ciadpi status\n");
     print("    get_system_info         Get system information in JSON format\n");
     print("    get_ui_capabilities     Get lightweight UI capabilities in JSON format\n");
     print("    get_ui_state            Get lightweight UI service/action state in JSON format\n");
@@ -109,26 +101,12 @@ function show_help() {
     print("    config_snapshot_restore Restore a snapshot with reload and rollback\n");
     print("    config_snapshot_delete Delete a snapshot\n");
     print("    connectivity_test      Run a router-originated DNS/TCP probe\n");
-    print("    autotune_status         Get autotune policy, targets and cached results\n");
-    print("    autotune_target         Get the last full autotune result of a target\n");
-    print("    autotune_groups         Classify autotune targets into DPI groups\n");
-    print("    autotune_policy_set     Set an autotune policy option\n");
-    print("    autotune_target_set     Add or change an autotune target\n");
-    print("    autotune_target_remove  Remove an autotune target\n");
-    print("    autotune_list_domains   Domains of a DPI rule list, for choosing autotune targets\n");
-    print("    autotune_run            Tune the targets of all groups or one group now\n");
-    print("    autotune_run_async      Start an autotune run as a background job\n");
-    print("    autotune_run_status     Get the state and result of an autotune job\n");
-    print("    autotune_apply          Apply the confirmed recommendation of a group now\n");
-    print("    autotune_apply_async    Start a manual apply of a group as a background job\n");
-    print("    autotune_rollback       Roll back the last autotune apply to the configuration before it\n");
-    print("    autotune_if_due         Run the scheduled autotune when it is enabled and due\n");
     print("    service_action_async    Start a service action in the background\n");
     print("    service_action_status   Get background service action status\n");
     print("    latency_test_async      Start a dashboard latency test in the background\n");
     print("    latency_test_status     Get background latency test status\n");
     print("    ui_action_ack           Acknowledge a finished UI action state\n");
-    print("    component_action        Manage Forkop, sing-box, zapret, zapret2, and ByeDPI components\n");
+    print("    component_action        Manage Forkop and sing-box components\n");
     print("    component_action_async  Start a component action in the background\n");
     print("    component_action_status Get background component action status\n");
     print("    forkop_releases         List mirrored Forkop releases available for installation\n");
@@ -137,12 +115,6 @@ function show_help() {
     print("    check_dns_available     Check DNS server availability\n");
     print("    global_check            Run global system check\n");
     print("    support_report          Create a complete unmasked support report\n");
-    print("    validate_nfqws_strategy_json\n");
-    print("                            Validate an NFQWS strategy and print JSON result\n");
-    print("    validate_nfqws2_strategy_json\n");
-    print("                            Validate an NFQWS2 strategy and print JSON result\n");
-    print("    validate_byedpi_strategy_json\n");
-    print("                            Validate a ByeDPI ciadpi strategy and print JSON result\n");
 }
 
 function command_spec(command) {
@@ -178,10 +150,6 @@ function command_spec(command) {
         check_logs: [ "diagnostics/runtime.uc", "check-logs", 0 ],
         check_sing_box_logs: [ "diagnostics/runtime.uc", "check-sing-box-logs", 0 ],
         check_fakeip: [ "diagnostics/runtime.uc", "check-fakeip", 0 ],
-        check_zapret_runtime: [ "diagnostics/runtime.uc", "check-zapret-runtime", 0 ],
-        check_zapret2_runtime: [ "diagnostics/runtime.uc", "check-zapret2-runtime", 0 ],
-        check_byedpi_runtime: [ "diagnostics/runtime.uc", "check-byedpi-runtime", 0 ],
-        neutralize_zapret_defaults: [ "diagnostics/runtime.uc", "neutralize-zapret-defaults", 0 ],
         clash_api: [ "diagnostics/runtime.uc", "clash-api", 4 ],
         show_config: [ "diagnostics/runtime.uc", "show-config", 1 ],
         show_version: [ "diagnostics/runtime.uc", "show-version", 0 ],
@@ -191,9 +159,6 @@ function command_spec(command) {
         get_outbound_metadata: [ "diagnostics/runtime.uc", "get-outbound-metadata", 1 ],
         get_subscription_metadata: [ "diagnostics/runtime.uc", "get-subscription-metadata", 1 ],
         get_sing_box_status: [ "diagnostics/runtime.uc", "get-sing-box-status", 0 ],
-        get_zapret_status: [ "diagnostics/runtime.uc", "get-zapret-status", 0 ],
-        get_zapret2_status: [ "diagnostics/runtime.uc", "get-zapret2-status", 0 ],
-        get_byedpi_status: [ "diagnostics/runtime.uc", "get-byedpi-status", 0 ],
         get_system_info: [ "diagnostics/runtime.uc", "get-system-info", 0 ],
         get_ui_capabilities: [ "service/ui.uc", "get-ui-capabilities", 0 ],
         get_ui_state: [ "service/ui.uc", "get-ui-state", 0 ],
@@ -222,28 +187,11 @@ function command_spec(command) {
         check_dns_available: [ "diagnostics/runtime.uc", "check-dns-available", 0 ],
         global_check: [ "diagnostics/runtime.uc", "global-check", 2 ],
         support_report: [ "diagnostics/runtime.uc", "support-report", 0 ],
-        validate_nfqws_strategy_json: [ "diagnostics/runtime.uc", "validate-nfqws-strategy-json", 1 ],
-        validate_nfqws2_strategy_json: [ "diagnostics/runtime.uc", "validate-nfqws2-strategy-json", 1 ],
-        validate_byedpi_strategy_json: [ "providers/byedpi/validator.uc", "validate-json", 1 ],
         package_prerm: [ "service/package.uc", "prerm", 1 ],
         package_postinst: [ "service/package.uc", "postinst", 0 ],
         luci_postinst: [ "service/package.uc", "luci-postinst", 0 ],
         urltest_override_save: [ "config/urltest_override.uc", "save", 7 ],
-        urltest_override_reset: [ "config/urltest_override.uc", "reset", 2 ],
-        autotune_status: [ "autotune/manager.uc", "status", 0 ],
-        autotune_target: [ "autotune/manager.uc", "target", 1 ],
-        autotune_groups: [ "autotune/manager.uc", "groups", 0 ],
-        autotune_policy_set: [ "autotune/manager.uc", "policy-set", 2 ],
-        autotune_target_set: [ "autotune/manager.uc", "target-set", 7 ],
-        autotune_target_remove: [ "autotune/manager.uc", "target-remove", 1 ],
-        autotune_list_domains: [ "autotune/manager.uc", "list-domains", 1 ],
-        autotune_run: [ "autotune/manager.uc", "run", 1 ],
-        autotune_run_async: [ "autotune/manager.uc", "run-async", 1 ],
-        autotune_run_status: [ "autotune/manager.uc", "run-status", 1 ],
-        autotune_apply: [ "autotune/manager.uc", "apply", 1 ],
-        autotune_apply_async: [ "autotune/manager.uc", "apply-async", 1 ],
-        autotune_rollback: [ "autotune/manager.uc", "rollback", 0 ],
-        autotune_if_due: [ "autotune/manager.uc", "if-due", 0 ]
+        urltest_override_reset: [ "config/urltest_override.uc", "reset", 2 ]
     };
 
     return commands[as_string(command)];
@@ -270,9 +218,7 @@ function main() {
     if (fs.stat("/tmp/forkop-full-uninstall.lock") != null &&
         index([ "start", "main", "restart", "manual_restart", "reload", "enable", "service_action_async",
             "component_action", "component_action_async", "subscription_update",
-            "subscription_update_async", "subscription_update_if_due", "list_update", "list_update_if_due",
-            "autotune_run", "autotune_run_async", "autotune_if_due", "autotune_apply", "autotune_apply_async",
-            "autotune_rollback" ], command) >= 0) {
+            "subscription_update_async", "subscription_update_if_due", "list_update", "list_update_if_due" ], command) >= 0) {
         warn("Forkop full removal is in progress\n");
         return 1;
     }

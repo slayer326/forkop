@@ -47,9 +47,6 @@ const NFT_TABLE_NAME = getenv("NFT_TABLE_NAME") || "ForkopTable";
 const RT_TABLE_NAME = getenv("RT_TABLE_NAME") || "forkop";
 const NFT_FAKEIP_MARK = getenv("NFT_FAKEIP_MARK") || "0x04000000";
 const SB_DNS_INBOUND_ADDRESS = getenv("SB_DNS_INBOUND_ADDRESS") || "127.0.0.42";
-const ZAPRET_PROVIDER_NFQWS_BIN = getenv("ZAPRET_PROVIDER_NFQWS_BIN") || "/opt/zapret/nfq/nfqws";
-const ZAPRET2_PROVIDER_NFQWS2_BIN = getenv("ZAPRET2_PROVIDER_NFQWS2_BIN") || "/opt/zapret2/nfq2/nfqws2";
-const BYEDPI_BIN = getenv("BYEDPI_BIN") || "/usr/bin/ciadpi";
 
 function as_string(value) {
     return value == null ? "" : "" + value;
@@ -346,10 +343,7 @@ function ui_state_json() {
             sing_box_extended: arg_number(ARGV[8]),
             sing_box_tiny: arg_number(ARGV[9]),
             sing_box_compressed: arg_number(ARGV[10]),
-            sing_box_tailscale: arg_number(ARGV[11]),
-            zapret_installed: arg_number(ARGV[12]),
-            zapret2_installed: arg_number(ARGV[13]),
-            byedpi_installed: arg_number(ARGV[14])
+            sing_box_tailscale: arg_number(ARGV[11])
         },
         actions: action_state
     });
@@ -1033,10 +1027,7 @@ function capability_flags() {
         sing_box_tailscale: 0,
         sing_box_podkop_engine: 0,
         sing_box_podkop_engine_full: 0,
-        sing_box_package: "",
-        zapret_installed: file_executable(ZAPRET_PROVIDER_NFQWS_BIN) ? 1 : 0,
-        zapret2_installed: file_executable(ZAPRET2_PROVIDER_NFQWS2_BIN) ? 1 : 0,
-        byedpi_installed: file_executable(BYEDPI_BIN) ? 1 : 0
+        sing_box_package: ""
     };
 
     if (file_executable(SING_BOX_BIN_PATH)) {
@@ -1316,10 +1307,7 @@ function launch_worker(args) {
         NFT_TABLE_NAME,
         RT_TABLE_NAME,
         NFT_FAKEIP_MARK,
-        SB_DNS_INBOUND_ADDRESS,
-        ZAPRET_PROVIDER_NFQWS_BIN,
-        ZAPRET2_PROVIDER_NFQWS2_BIN,
-        BYEDPI_BIN
+        SB_DNS_INBOUND_ADDRESS
     }) + " " +
         command_from_args(command_args) +
         " >/dev/null 2>&1 1000>&- & echo $!";

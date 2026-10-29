@@ -21,7 +21,7 @@ interface IRenderAvailableActionsProps {
   supportReport: ActionProps;
 }
 
-// Engineering evidence under "Technical data". Service control lives on the
+// Engineering evidence: checks, logs, the sing-box config, the report. Service control lives on the
 // Overview page.
 export function renderAvailableActions({
   globalCheck,

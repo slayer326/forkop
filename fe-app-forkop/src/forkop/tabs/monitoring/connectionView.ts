@@ -10,22 +10,13 @@ export function trafficSortValue(
 }
 
 // Where a connection went. The route itself is observed (sing-box reports
-// the outbound chain); a DPI strategy name comes from the configuration.
-export type PathKind =
-  | 'dpi'
-  | 'connection'
-  | 'bypass'
-  | 'direct'
-  | 'block'
-  | 'unknown';
+// the outbound chain); the rule label comes from the configuration.
+export type PathKind = 'connection' | 'bypass' | 'direct' | 'block' | 'unknown';
 
 export interface RouteRule {
   name: string;
   label: string;
   action: string;
-  dpiProvider?: string;
-  dpiStrategy?: string;
-  dpiCustom?: boolean;
 }
 
 export interface ConnectionPath {
@@ -63,10 +54,6 @@ export function routeTagFromRule(rule?: string): string {
 
 function kindForAction(action: string): PathKind {
   switch (action) {
-    case 'zapret':
-    case 'zapret2':
-    case 'byedpi':
-      return 'dpi';
     case 'connection':
     case 'proxy':
     case 'outbound':
@@ -122,8 +109,6 @@ export function connectionPath(
 
 export function pathKindLabel(kind: PathKind) {
   switch (kind) {
-    case 'dpi':
-      return _('DPI');
     case 'connection':
       return _('Connection');
     case 'bypass':
@@ -137,26 +122,6 @@ export function pathKindLabel(kind: PathKind) {
   }
 }
 
-export function dpiProviderLabel(provider?: string) {
-  switch (provider) {
-    case 'zapret':
-      return 'Zapret';
-    case 'zapret2':
-      return 'Zapret2';
-    case 'byedpi':
-      return 'ByeDPI';
-    default:
-      return _('DPI');
-  }
-}
-
-// '' when the configuration did not say (e.g. an older backend).
-export function dpiStrategyLabel(rule: RouteRule) {
-  if (rule.dpiCustom) return _('custom strategy');
-  if (rule.dpiStrategy === 'default') return _('default strategy');
-  return rule.dpiStrategy || '';
-}
-
 export interface PathSummary {
   kind: PathKind;
   kindLabel: string;
@@ -166,16 +131,6 @@ export interface PathSummary {
 
 export function pathSummary(path: ConnectionPath): PathSummary {
   const base = { kind: path.kind, kindLabel: pathKindLabel(path.kind) };
-  if (path.rule && path.kind === 'dpi') {
-    const strategy = dpiStrategyLabel(path.rule);
-    return {
-      ...base,
-      primary: path.rule.label,
-      secondary: [dpiProviderLabel(path.rule.dpiProvider), strategy]
-        .filter(Boolean)
-        .join(' · '),
-    };
-  }
   if (path.rule)
     return { ...base, primary: path.rule.label, secondary: path.node };
   if (path.kind === 'direct')

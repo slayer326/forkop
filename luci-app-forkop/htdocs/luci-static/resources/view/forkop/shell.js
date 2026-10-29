@@ -4,7 +4,7 @@
 "require view.forkop.main as main";
 
 // Start-up of the Forkop X view (admin/services/forkop): access mode,
-// provider capabilities and the background services. The features are tabs of
+// sing-box capabilities and the background services. The features are tabs of
 // that one view, so this runs once for all of them.
 
 const UCI_PACKAGE = main.FORKOP_UCI_PACKAGE;
@@ -14,26 +14,11 @@ const uiCapabilities = {
   singBoxExtended: false,
   singBoxTiny: false,
   singBoxTailscale: true,
-  zapretInstalled: false,
-  zapret2Installed: false,
-  byedpiInstalled: false,
 };
 let uiCapabilitiesPromise = null;
 let coreStarted = false;
 
 function applyUiCapabilities() {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(
-      new CustomEvent(main.FORKOP_ACTION_PROVIDERS_AVAILABILITY_EVENT, {
-        detail: {
-          zapretInstalled: uiCapabilities.zapretInstalled,
-          zapret2Installed: uiCapabilities.zapret2Installed,
-          byedpiInstalled: uiCapabilities.byedpiInstalled,
-        },
-      }),
-    );
-  }
-
   if (main.store && typeof main.store.set === "function") {
     const currentSystemInfo = main.store.get().diagnosticsSystemInfo;
     main.store.set({
@@ -43,18 +28,6 @@ function applyUiCapabilities() {
         sing_box_extended: uiCapabilities.singBoxExtended ? 1 : 0,
         sing_box_tiny: uiCapabilities.singBoxTiny ? 1 : 0,
         sing_box_tailscale: uiCapabilities.singBoxTailscale ? 1 : 0,
-        zapret_installed: uiCapabilities.zapretInstalled ? 1 : 0,
-        zapret2_installed: uiCapabilities.zapret2Installed ? 1 : 0,
-        byedpi_installed: uiCapabilities.byedpiInstalled ? 1 : 0,
-        zapret_version: uiCapabilities.zapretInstalled
-          ? currentSystemInfo.zapret_version
-          : "not installed",
-        zapret2_version: uiCapabilities.zapret2Installed
-          ? currentSystemInfo.zapret2_version
-          : "not installed",
-        byedpi_version: uiCapabilities.byedpiInstalled
-          ? currentSystemInfo.byedpi_version
-          : "not installed",
       },
     });
   }
@@ -70,55 +43,9 @@ function updateUiCapabilities(data) {
     typeof data?.sing_box_tailscale === "undefined"
       ? true
       : Boolean(Number(data.sing_box_tailscale) === 1);
-  uiCapabilities.zapretInstalled = Boolean(
-    Number(data?.zapret_installed) === 1,
-  );
-  uiCapabilities.zapret2Installed = Boolean(
-    Number(data?.zapret2_installed) === 1,
-  );
-  uiCapabilities.byedpiInstalled = Boolean(
-    Number(data?.byedpi_installed) === 1,
-  );
   applyUiCapabilities();
 
   return uiCapabilities;
-}
-
-// Components installs and removes providers after the page has loaded; the
-// Settings page reads availability from uiCapabilities, so follow both the
-// availability event and the store refresh (UC-152).
-function refreshProviderCapabilities(next) {
-  ["zapretInstalled", "zapret2Installed", "byedpiInstalled"].forEach((key) => {
-    if (typeof next?.[key] !== "undefined") {
-      uiCapabilities[key] = Boolean(next[key]);
-    }
-  });
-}
-
-if (
-  typeof window !== "undefined" &&
-  typeof window.addEventListener === "function"
-) {
-  window.addEventListener(
-    main.FORKOP_ACTION_PROVIDERS_AVAILABILITY_EVENT,
-    (event) => refreshProviderCapabilities(event.detail),
-  );
-}
-
-if (main.store && typeof main.store.subscribe === "function") {
-  main.store.subscribe((next, _prev, diff) => {
-    const systemInfo = next?.diagnosticsSystemInfo;
-    if (
-      (!diff || diff.diagnosticsSystemInfo) &&
-      systemInfo?.providerInfoLoaded
-    ) {
-      refreshProviderCapabilities({
-        zapretInstalled: Number(systemInfo.zapret_installed) === 1,
-        zapret2Installed: Number(systemInfo.zapret2_installed) === 1,
-        byedpiInstalled: Number(systemInfo.byedpi_installed) === 1,
-      });
-    }
-  });
 }
 
 function applyUiState(data) {
@@ -148,44 +75,10 @@ function applyUiState(data) {
   return result;
 }
 
+// Without the capabilities call or the UI state the defaults stand: sing-box
+// is taken as the plain build.
 function loadFallbackUiCapabilities() {
-  return Promise.allSettled([
-    main.ForkopShellMethods.checkZapretRuntime(),
-    main.ForkopShellMethods.checkZapret2Runtime(),
-    main.ForkopShellMethods.checkByedpiRuntime(),
-  ]).then(
-    ([zapretRuntimeResult, zapret2RuntimeResult, byedpiRuntimeResult]) => {
-      const zapretRuntime =
-        zapretRuntimeResult.status === "fulfilled"
-          ? zapretRuntimeResult.value
-          : null;
-      const zapret2Runtime =
-        zapret2RuntimeResult.status === "fulfilled"
-          ? zapret2RuntimeResult.value
-          : null;
-      const byedpiRuntime =
-        byedpiRuntimeResult.status === "fulfilled"
-          ? byedpiRuntimeResult.value
-          : null;
-      return updateUiCapabilities({
-        zapret_installed:
-          zapretRuntime?.success &&
-          Number(zapretRuntime.data?.zapret_installed) === 1
-            ? 1
-            : 0,
-        zapret2_installed:
-          zapret2Runtime?.success &&
-          Number(zapret2Runtime.data?.zapret2_installed) === 1
-            ? 1
-            : 0,
-        byedpi_installed:
-          byedpiRuntime?.success &&
-          Number(byedpiRuntime.data?.byedpi_installed) === 1
-            ? 1
-            : 0,
-      });
-    },
-  );
+  return Promise.resolve(updateUiCapabilities({}));
 }
 
 function loadUiCapabilities() {

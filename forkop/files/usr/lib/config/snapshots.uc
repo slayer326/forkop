@@ -19,17 +19,8 @@ const RELOAD = getenv("FORKOP_RELOAD_COMMAND") || "/etc/init.d/forkop";
 const MAX_CONFIG = 2 * 1024 * 1024;
 const PENDING_RELOAD = getenv("FORKOP_PENDING_RELOAD_FILE") || "/var/run/forkop/reload.pending";
 const RELOAD_LOCK = getenv("FORKOP_RELOAD_LOCK_DIR") || "/var/run/forkop.reload.lock";
-// An explicit stop (service/initd.uc, service/lifecycle.uc): until an
-// explicit start no reload brings the runtime back (D-15, UC-056).
-const STOP_REQUESTED = getenv("FORKOP_STOP_REQUESTED_FILE") ||
-    (getenv("FORKOP_RUNTIME_STATE_DIR") || "/var/run/forkop") + "/stop.requested";
-// The record of the last DPI autotune apply (autotune/apply.uc) and the
-// phases in which that apply is finished.
-const AUTOTUNE_APPLY_STATE = getenv("FORKOP_AUTOTUNE_APPLY_STATE") || "/etc/forkop/autotune-apply.json";
-const AUTOTUNE_TERMINAL_PHASES = [ "applied", "rolled_back", "failed", "stale", "no_change_required", "needs_attention" ];
 // The save directory of `uci set` without a commit; libuci reads every
-// cursor through it (autotune/apply.uc and manager.uc check it too, with the
-// override FORKOP_AUTOTUNE_UCI_SAVEDIR). Tests that restore set it.
+// cursor through it. Tests that restore set it.
 const UCI_SAVEDIR = getenv("FORKOP_UCI_SAVEDIR") || "/tmp/.uci";
 const RETENTION = 10;
 const GUARD_SETTLE_SECONDS = int(getenv("FORKOP_RUNTIME_GUARD_SETTLE_SECONDS") || "30");
@@ -93,7 +84,7 @@ function owner_pid() {
 function active_entry(name) {
     let parsed = match(value(name), /^owner\.([1-9][0-9]*)\.([0-9]+)$/);
     if (parsed == null) return false;
-    for (let operation in [ "create", "create-rolling", "delete", "restore", "apply", "confirm-working" ])
+    for (let operation in [ "create", "create-rolling", "delete", "restore", "confirm-working" ])
         if (identity.matches_record({ pid: parsed[1], ticks: parsed[2] }, "ucode",
             [ "ucode", "-L", LIB_DIR, LIB_DIR + "/config/snapshots.uc", operation ], false, true) != "")
             return true;
@@ -171,32 +162,9 @@ function lkg_hash() {
     let item = read_snapshot(trim(value(fs.readfile(LKG))), false);
     return item != null ? item.config_hash : "";
 }
-// A completed autotune apply still offers an explicit rollback to its
-// pre-apply snapshot. Keep it until that record is replaced or rolled back.
-// An unreadable record may name a recovery point we cannot identify: refuse
-// pruning and deletion rather than silently losing it.
-function autotune_snapshot_protection(own_apply) {
-    if (fs.stat(AUTOTUNE_APPLY_STATE) == null) return { all: false, id: "" };
-    let record = null;
-    try { record = json(value(fs.readfile(AUTOTUNE_APPLY_STATE))); } catch (e) { record = null; }
-    if (type(record) != "object") return { all: true, id: "" };
-    // The apply records its pre-snapshot only after the snapshot transaction
-    // returns. During that narrow window, the record cannot identify it yet.
-    // This snapshots.uc process owns the apply lock and receives the older
-    // rollback id in `keep`. It may rotate unrelated automatic snapshots to
-    // make room for its new pre-apply snapshot. Other callers still fail
-    // closed while that id has not yet been recorded by autotune/apply.uc.
-    if (record.phase == "applying" && record.reload == null)
-        return own_apply ? { all: false, id: "" } : { all: true, id: "" };
-    if (record.reload == null || record.phase == "rolled_back") return { all: false, id: "" };
-    let id = value(record.pre_snapshot);
-    return valid_id(id) ? { all: false, id } : { all: true, id: "" };
-}
-function recovery_protects(protection, id) { return protection.all || protection.id == id; }
-function list_snapshots(own_apply) {
+function list_snapshots() {
     let result = [];
     let working = trim(value(fs.readfile(LKG)));
-    let protection = autotune_snapshot_protection(own_apply);
     for (let file in fs.lsdir(ROOT) || []) {
         let id = replace(file, /\.json$/, "");
         if (file != id + ".json" || !valid_id(id)) continue;
@@ -204,15 +172,13 @@ function list_snapshots(own_apply) {
         if (item == null) continue;
         let entry = metadata(item);
         entry.is_lkg = id == working;
-        entry.is_protected = recovery_protects(protection, id);
         push(result, entry);
     }
     result = sort(result, function(a, b) { return a.created_at - b.created_at; });
     return result;
 }
 // Once a new user snapshot is written and hash-verified, discard obsolete
-// history while retaining the last known working configuration and autotune
-// recovery point.
+// history while retaining the last known working configuration.
 // A candidate saved before its first successful reload is not an LKG yet, so
 // both snapshots may temporarily coexist. The lock serializes this with
 // restore and apply operations.
@@ -221,7 +187,7 @@ function rolling_candidates(keep_id) {
     if (read_snapshot(working, true) == null || read_snapshot(keep_id, true) == null) return null;
     let candidates = [];
     for (let item in list_snapshots())
-        if (item.id != working && item.id != keep_id && !item.is_protected)
+        if (item.id != working && item.id != keep_id)
             push(candidates, item);
     return candidates;
 }
@@ -238,36 +204,27 @@ function rolling_has_room() {
     let working = trim(value(fs.readfile(LKG)));
     if (read_snapshot(working, true) == null) return false;
     for (let item in list_snapshots())
-        if (item.id != working && !item.is_protected) return true;
+        if (item.id != working) return true;
     return false;
 }
 // Oldest automatic snapshots go first; manual ones, LKG and the ids the
 // running operation still needs (keep) are never removed.
-function trim_retention(keep, own_apply) {
-    let all = list_snapshots(own_apply);
+function trim_retention(keep) {
+    let all = list_snapshots();
     let working = trim(value(fs.readfile(LKG)));
     while (length(all) >= RETENTION) {
         let candidate = null;
         for (let item in all)
-            if (item.kind != "manual" && item.id != working && !item.is_protected && index(keep || [], item.id) < 0) { candidate = item; break; }
+            if (item.kind != "manual" && item.id != working && index(keep || [], item.id) < 0) { candidate = item; break; }
         if (candidate == null) return false;
         fs.unlink(snapshot_path(candidate.id));
-        all = list_snapshots(own_apply);
+        all = list_snapshots();
     }
     return true;
 }
-// Snapshots that can still be created without touching LKG, manual ones or keep.
-function headroom(keep, own_apply) {
-    let all = list_snapshots(own_apply);
-    let working = trim(value(fs.readfile(LKG)));
-    let free = RETENTION - length(all);
-    for (let item in all)
-        if (item.kind != "manual" && item.id != working && !item.is_protected && index(keep || [], item.id) < 0) free++;
-    return free;
-}
 // dedupe: true returns any snapshot that already holds the configuration, a
 // reason only one of that reason.
-function create(kind, reason, dedupe, keep, own_apply, rolling) {
+function create(kind, reason, dedupe, keep, rolling) {
     let content = read_config();
     if (content == null) return { status: "failed", reason: "config_unavailable" };
     let hash = sha(content);
@@ -280,7 +237,7 @@ function create(kind, reason, dedupe, keep, own_apply, rolling) {
     // exceed the normal cap unless a verified LKG and a removable old snapshot
     // make it possible to return below that cap immediately afterward.
     let can_replace = rolling && length(list_snapshots()) <= RETENTION && rolling_has_room();
-    if (!can_replace && !trim_retention(keep, own_apply))
+    if (!can_replace && !trim_retention(keep))
         return { status: "failed", reason: "retention_full" };
     let id = sprintf("%d_%d", clock()[0], clock()[1]);
     let version = trim(capture([ BIN, "show_version" ]));
@@ -500,7 +457,7 @@ function reload(reason) {
     return after != null && after != before ? "queued" : "ran";
 }
 // The user configuration, without the lifecycle's own shutdown_correctly
-// bookkeeping, hashed as autotune/apply.uc fingerprints it.
+// bookkeeping.
 function user_fingerprint(content) {
     let lines = [];
     for (let line in split(content, "\n"))
@@ -627,7 +584,7 @@ function config_holds(content) {
     return loaded != null && loaded == uci_canonical(content) && read_config() === current;
 }
 // A configuration that someone else wrote while a transaction owned the file
-// (a LuCI Save & Apply, an autotune policy change, a URLTest override: UCI
+// (a LuCI Save & Apply, a URLTest override: UCI
 // commits never take the snapshot lock). It stays in place and is saved as an
 // automatic snapshot (dedupe: once), so a later restore cannot discard it
 // either (UC-023, UC-017). Another kind of snapshot that happens to hold the
@@ -635,8 +592,8 @@ function config_holds(content) {
 // edit" one, as the page names it, and not, say, a pre-restore snapshot next
 // in line for retention. The id, or null when no snapshot could be written
 // (retention full of manual snapshots): the edit then lives in the file only.
-function save_concurrent_edit(keep, own_apply) {
-    let saved = create("automatic", "concurrent-change", "concurrent-change", keep, own_apply);
+function save_concurrent_edit(keep) {
+    let saved = create("automatic", "concurrent-change", "concurrent-change", keep);
     return saved.snapshot != null ? saved.snapshot.id : null;
 }
 // Replace the configuration with `content` under the restore guard, validate
@@ -646,13 +603,10 @@ function save_concurrent_edit(keep, own_apply) {
 // Only a reload that ran counts: after a queued one the configuration is put
 // back, and when the rollback reload is queued too nothing proves a coherent
 // runtime, so the guard stays and LKG is not touched.
-// apply_mode (autotune apply): the caller proved no guard was active and the
-// snapshot lock keeps restores out, so the guard is this call's own.
 // A configuration that is put back after the target failed reloaded
 // coherently, but that proves no more than it did before: last-known-working
 // moves to it (pre) only when it already was the last-known-working one. It
-// may be an unconfirmed edit, or an autotune candidate that has just failed
-// its production verification (UC-059).
+// may be an unconfirmed edit (UC-059).
 // A reload that an explicit stop, or the lack of an explicit start since
 // boot, skipped (D-15, UC-056) proves nothing and starts nothing. on_stopped
 // (a restore) keeps the validated configuration for the next explicit start;
@@ -670,17 +624,16 @@ function save_concurrent_edit(keep, own_apply) {
 // reload, the guard goes as described above (UC-023). After a reload that
 // ran, a restore does not know whether it loaded the snapshot or the edit:
 // the edit is saved the same way, the guard goes (the runtime is coherent)
-// and LKG does not move (on_success does not run). An apply's caller checks
-// the file itself before it confirms anything (autotune/apply.uc).
+// and LKG does not move (on_success does not run).
 // A reload proves nothing while a failed lifecycle transition keeps its
 // fail-closed guard (runtime_guard_settled): the transaction ends
 // needs_attention runtime_guard_active with the guard active and LKG where
 // it was; after a failed target `before` is put back without a rollback
 // reload, which the lifecycle would refuse until a restart (UC-019).
-function guarded_replace(before, content, pre, on_success, reason, apply_mode, on_stopped, keep) {
+function guarded_replace(before, content, pre, on_success, reason, on_stopped, keep) {
     // A guard left by an earlier needs_attention protects a runtime no reload
     // has proved yet: only this call's own guard may go without a reload.
-    let inherited = !apply_mode && restore_guard_state() != "absent";
+    let inherited = restore_guard_state() != "absent";
     if (!restore_guard(false)) return { status: "failed", reason: "guard_unavailable" };
     if (read_config() != before) {
         if (inherited) return { status: "failed", reason: "concurrent_change", guard: "active" };
@@ -701,14 +654,14 @@ function guarded_replace(before, content, pre, on_success, reason, apply_mode, o
     // does not move, and the result names the restart it needs (UC-019).
     let guarded = target != "stopped" && runtime_guard_settled();
     let holds = config_holds(content);
-    if (target == "ran" && !guarded && (holds || apply_mode)) {
+    if (target == "ran" && !guarded && holds) {
         if (!restore_guard(true)) result = { status: "needs_attention", reason: "guard_release_failed", guard: "active" };
         else result = on_success();
     }
-    else if (target == "ran" && (holds || apply_mode))
+    else if (target == "ran" && holds)
         result = { status: "needs_attention", reason: "runtime_guard_active", guard: "active" };
     else if (!holds) {
-        let saved = save_concurrent_edit([ pre.snapshot.id, ...(keep || []) ], apply_mode);
+        let saved = save_concurrent_edit([ pre.snapshot.id, ...(keep || []) ]);
         // A reload that ran proved a coherent runtime, and a stopped runtime
         // has nothing a guard could protect (see above).
         if ((target != "ran" || guarded) && target != "stopped")
@@ -748,63 +701,10 @@ function guarded_replace(before, content, pre, on_success, reason, apply_mode, o
     result.started = true;
     return result;
 }
-// Whether the rule an autotune apply changed (mutation: { section, option
-// "nfqws_opt", to }) still runs the candidate's strategy in `content`: an
-// enabled zapret rule whose nfqws_opt is the candidate's (whitespace as
-// autotune/apply.uc normalizes it; its status reports the same as
-// unverified_strategy). A configuration this reader cannot load might have
-// it (fail closed).
-function runs_strategy(content, mutation) {
-    if (type(mutation) != "object" || type(mutation.section) != "string" || type(mutation.to) != "string") return false;
-    let sections = uci_sections(content);
-    if (sections == null) return true;
-    let words = (v) => join(" ", filter(split(v, /[ \t\r\n]+/), (w) => w != ""));
-    for (let s in sections) {
-        if (s.type != "section" || s.name !== mutation.section) continue;
-        let opt = {};
-        for (let o in s.options) if (!o.list) opt[o.name] = o.value;
-        let enabled = opt.enabled == null || index([ "1", "true", "yes", "on" ], lc(opt.enabled)) >= 0;
-        return enabled && opt.action == "zapret" && opt.nfqws_opt != null && words(opt.nfqws_opt) == words(mutation.to);
-    }
-    return false;
-}
-// Why the configuration may not become last-known-working because of an
-// autotune apply, or null. A start or a reload proves that a configuration
-// runs, not that an autotune candidate works: a candidate is confirmed only
-// by the apply that verified it in production (confirm-working autotune).
-// Nothing else confirms while an apply is running, while its record cannot
-// be read (it may hide an unresolved apply), or while a record that still
-// waits for a decision names the configuration as its candidate: an
-// interrupted or crashed verification, a failed one whose rollback did not
-// finish (UC-020, UC-069). A configuration edited on top of a candidate
-// that never passed its verification (one kept by the automatic rollback
-// because it was edited during the check, UC-017) is no candidate any more,
-// but while the rule still runs the candidate's strategy it carries what
-// has not been, or has just failed to be, verified.
-function autotune_objection(content) {
-    if (fs.stat(AUTOTUNE_APPLY_STATE) == null) return null;
-    let record = null;
-    try { record = json(value(fs.readfile(AUTOTUNE_APPLY_STATE))); } catch (e) { record = null; }
-    if (type(record) != "object" || type(record.phase) != "string") return "autotune_apply_unreadable";
-    if (record.mutation == null) return null;
-    let finished = index(AUTOTUNE_TERMINAL_PHASES, record.phase) >= 0;
-    if (!finished && require("autotune.lock").held()) return "autotune_apply_in_progress";
-    // A decided record objects to nothing: nothing more is read or parsed
-    // (this runs in every start and reload).
-    let undecided = !finished || record.phase == "needs_attention" || (record.phase == "failed" && record.rollback_available === true);
-    if (!undecided) return null;
-    let hash = sha(content);
-    let candidate = hash != "" && (hash == record.candidate_hash ||
-        (record.candidate_fingerprint != null && user_fingerprint(content) == record.candidate_fingerprint));
-    if (!candidate && record.applied !== true) candidate = runs_strategy(content, record.mutation);
-    return candidate ? "autotune_apply_unresolved" : null;
-}
 // expected (optional): the hash, or the user fingerprint, of the
-// configuration the caller means to replace. The automatic rollback of
-// autotune passes its candidate's: a configuration edited since (during the
-// verification) is not the caller's to replace. It is kept, saved as a
-// snapshot, and the answer is needs_attention before anything changes
-// (UC-017).
+// configuration the caller means to replace: a configuration edited since is
+// not the caller's to replace. It is kept, saved as a snapshot, and the
+// answer is needs_attention before anything changes (UC-017).
 function do_restore(id, expected) {
     if (expected != "" && !valid_hash(expected)) return { status: "failed", reason: "invalid_expected_hash" };
     let target = read_snapshot(id, true);
@@ -830,48 +730,11 @@ function do_restore(id, expected) {
     return guarded_replace(before, target.content, pre, () => {
         if (!atomic(LKG, id + "\n")) return { status: "needs_attention", reason: "lkg_update_failed", guard: "inactive" };
         return { status: "success", snapshot: metadata(target), changes: diff(before, target.content) };
-    }, "config-restore", false, () => ({
+    }, "config-restore", () => ({
         // Replaced and validated; no runtime proved it, so LKG stays.
         status: "restored_not_started", reason: "service_stopped", guard: "inactive",
         snapshot: metadata(target), changes: diff(before, target.content)
     }), [ id ]);
-}
-// Apply a candidate configuration prepared elsewhere (DPI autotune stage 5)
-// through the same transaction as a restore. The current configuration must
-// still be the one the candidate was derived from (expected_hash), and it is
-// saved first as a "before-autotune" snapshot for the caller's rollback. LKG
-// is left untouched on success: the caller confirms it after its own checks.
-function do_apply(candidate_file, expected_hash, keep_id) {
-    let keep = valid_id(value(keep_id)) ? [ value(keep_id) ] : [];
-    let content = fs.readfile(value(candidate_file));
-    if (content == null || length(content) > MAX_CONFIG) return { status: "failed", reason: "candidate_unavailable" };
-    let before = read_config();
-    if (before == null) return { status: "failed", reason: "config_unavailable" };
-    if (sha(before) != value(expected_hash)) return { status: "stale", reason: "config_changed" };
-    if (content == before) return { status: "no_change", reason: "candidate_equals_config" };
-    // An apply never changes a runtime that an explicit stop holds down:
-    // nothing could verify the candidate (D-15, UC-056). One not started
-    // since boot is refused by the caller (autotune/apply.uc); here its
-    // reload answers "stopped" and the candidate is put back.
-    if (fs.stat(STOP_REQUESTED) != null) return { status: "stale", reason: "service_stopped" };
-    // A queued reload without a live owner is no refusal, as for a restore:
-    // the transaction's own reload drains it while the guard stands.
-    let action = service_action();
-    if (action != null) return { status: "stale", reason: action };
-    if (runtime_guard_kept())
-        return { status: "stale", reason: service_action() ?? "runtime_guard_active" };
-    // Room for the before-autotune snapshot and for the pre-restore snapshot
-    // of a later rollback, which may not remove the before-autotune one. A
-    // manual LKG stays protected after the candidate is confirmed, so it
-    // costs one more slot.
-    let working = read_snapshot(trim(value(fs.readfile(LKG))), false);
-    if (headroom(keep, true) < (working != null && working.kind == "manual" ? 3 : 2)) return { status: "failed", reason: "snapshot_retention_full" };
-    let pre = create("automatic", "before-autotune", false, keep, true);
-    if (pre.status != "created") return { status: "failed", reason: "pre_apply_snapshot_failed" };
-    if (sha(before) != sha(read_config())) return { status: "failed", reason: "concurrent_change", pre_snapshot: pre.snapshot.id };
-    let result = guarded_replace(before, content, pre, () => ({ status: "success", changes: diff(before, content) }), "autotune", true, null, keep);
-    result.pre_snapshot = pre.snapshot.id;
-    return result;
 }
 let mode = value(ARGV[0]);
 // The list is read-only output: the hash of the whole config (secrets
@@ -893,7 +756,7 @@ if (mode == "fixture-diff") {
     print(sprintf("%J\n", diff(value(fs.readfile(ARGV[1])), value(fs.readfile(ARGV[2])))));
     exit(0);
 }
-if (index([ "create", "create-rolling", "delete", "restore", "apply", "confirm-working" ], mode) < 0) exit(1);
+if (index([ "create", "create-rolling", "delete", "restore", "confirm-working" ], mode) < 0) exit(1);
 if (!acquire()) {
     print(sprintf("%J\n", lock_busy ?
         { status: "busy", reason: "snapshot_operation_in_progress" } :
@@ -905,7 +768,7 @@ if (mode == "create" || mode == "create-rolling") {
     let kind = value(ARGV[1] || "manual");
     if (index([ "manual", "automatic" ], kind) >= 0)
         answer = create(kind, kind == "manual" ? "manual" : "before-reload", kind == "automatic",
-            null, false, mode == "create-rolling" && kind == "manual");
+            null, mode == "create-rolling" && kind == "manual");
     if (mode == "create-rolling" && kind == "manual" && answer.status == "created") {
         let marked = atomic(ROLLING, answer.snapshot.id + "\n");
         // The same bytes were already confirmed in the running service: the
@@ -922,13 +785,10 @@ if (mode == "create" || mode == "create-rolling") {
 }
 else if (mode == "delete") {
     let id = value(ARGV[1]);
-    let protection = autotune_snapshot_protection();
-    if (valid_id(id) && !recovery_protects(protection, id) && id != trim(value(fs.readfile(LKG))) && read_snapshot(id, true) != null && fs.unlink(snapshot_path(id))) {
+    if (valid_id(id) && id != trim(value(fs.readfile(LKG))) && read_snapshot(id, true) != null && fs.unlink(snapshot_path(id))) {
         answer = { status: "deleted" };
         success([ "ucode", "-L", LIB_DIR, LIB_DIR + "/diagnostics/health.uc", "record", "snapshot_delete", "success" ]);
     }
-    else if (valid_id(id) && recovery_protects(protection, id))
-        answer = { status: "failed", reason: "protected_for_recovery" };
 }
 else if (mode == "restore") {
     answer = do_restore(value(ARGV[1]), value(ARGV[2]));
@@ -942,20 +802,9 @@ else if (mode == "restore") {
             answer.status == "success" ? "success" : answer.status == "recovered" ? "recovered" :
             answer.status == "restored_not_started" ? "not_started" : "failure" ]);
 }
-else if (mode == "apply") {
-    answer = do_apply(ARGV[1], ARGV[2], ARGV[3]);
-    // Health records a configuration transaction only when one was started.
-    if (answer.started)
-        success([ "ucode", "-L", LIB_DIR, LIB_DIR + "/diagnostics/health.uc", "record", "autotune_apply",
-            answer.status == "success" ? "success" : answer.status == "recovered" ? "recovered" : "failure" ]);
-}
 else if (mode == "confirm-working") {
-    // A start or reload of the lifecycle; "autotune": the apply that has
-    // just verified its candidate in production.
-    let content = read_config();
-    let objection = content == null || value(ARGV[1]) == "autotune" ? null : autotune_objection(content);
-    if (objection != null) answer = { status: "not_confirmed", reason: objection };
-    else {
+    // A start or reload of the lifecycle.
+    {
         let found = create("automatic", "last-known-working", true);
         if (found.snapshot != null &&
             (trim(value(fs.readfile(LKG))) == found.snapshot.id || atomic(LKG, found.snapshot.id + "\n")))
@@ -969,4 +818,4 @@ else if (mode == "confirm-working") {
 }
 release();
 print(sprintf("%J\n", answer));
-exit(index([ "failed", "needs_attention", "busy", "not_confirmed" ], answer.status) >= 0 ? 1 : 0);
+exit(index([ "failed", "needs_attention", "busy" ], answer.status) >= 0 ? 1 : 0);

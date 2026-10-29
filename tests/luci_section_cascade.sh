@@ -9,7 +9,7 @@ const assert = require('assert');
 
 const source = fs.readFileSync(process.argv[2], 'utf8');
 const match = source.match(
-  /function configureSectionSection\(sectionRef, options = \{\}\) \{[\s\S]*?\n\}\n\nconst EntryPoint/,
+  /function configureSectionSection\(sectionRef\) \{[\s\S]*?\n\}\n\nconst EntryPoint/,
 );
 assert(match, 'configureSectionSection not found');
 

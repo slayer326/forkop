@@ -281,9 +281,6 @@ function buildRouteDisplayNames(sections: Forkop.ConfigSection[]) {
         name: sectionName,
         label: displayName,
         action: normalizeString(section.action),
-        dpiProvider: section.dpi_provider,
-        dpiStrategy: section.dpi_strategy,
-        dpiCustom: section.dpi_strategy_custom,
       };
       rules.push(rule);
       routeSectionItems.push({ sectionName, displayName });
@@ -694,13 +691,7 @@ function renderDeviceFilterOptions() {
   select.value = selectedDeviceFilter;
 }
 
-const PATH_KINDS: PathKind[] = [
-  'dpi',
-  'connection',
-  'bypass',
-  'direct',
-  'block',
-];
+const PATH_KINDS: PathKind[] = ['connection', 'bypass', 'direct', 'block'];
 let lastPathFilterSignature = '';
 
 function renderPathFilterOptions() {
@@ -1233,18 +1224,6 @@ function renderConnectionDetailsPanel() {
             renderProvenance('observed'),
           ]),
         ),
-        ...(rawPath.kind === 'dpi' && path.secondary
-          ? [
-              detailRow(
-                _('DPI strategy'),
-                E('span', {}, [
-                  path.secondary,
-                  ' ',
-                  renderProvenance('configured'),
-                ]),
-              ),
-            ]
-          : []),
         detailRow(
           _('Traffic'),
           `\u2193 ${formatBytes(connection.download)} · \u2191 ${formatBytes(connection.upload)}`,
@@ -2004,8 +1983,8 @@ async function loadLocalDevices() {
   }
 }
 
-// Both roles read the same derived section view: rule labels plus the DPI
-// provider and strategy name, never the raw strategy options.
+// Both roles read the same derived section view: the rule labels, never the
+// raw section options.
 async function loadRouteDisplayNames() {
   try {
     const response = await ForkopShellMethods.getReadonlyConfigSections();

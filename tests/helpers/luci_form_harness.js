@@ -967,13 +967,10 @@ function loadModule(file, modules, globals) {
 }
 
 // Loads the real section.js for one UCI state. `version` is "24.10" or "25.12".
-// `providers` is what the DPI provider availability probe reports (all
-// installed by default); `fs` overrides methods of the LuCI fs stub.
+// `fs` overrides methods of the LuCI fs stub.
 function createEnvironment({
   version = "24.10",
   config = {},
-  providers = { zapretInstalled: true, zapret2Installed: true, byedpiInstalled: true },
-  providerAvailabilityLoader = null,
   fs: fsOverrides = {},
 } = {}) {
   const baseclass = createBaseclass();
@@ -1087,11 +1084,9 @@ function createEnvironment({
   let shellModule = null;
 
   // The rules grid as page/settings.js declares it.
-  const loadActionProvidersAvailability = providerAvailabilityLoader ||
-    (() => Promise.resolve(Object.assign({}, providers)));
   function rulesGrid(map) {
     const rules = map.section(form.GridSection, "section");
-    section.configureSectionSection(rules, { loadActionProvidersAvailability });
+    section.configureSectionSection(rules);
     section.createSectionContent(rules);
     return rules;
   }

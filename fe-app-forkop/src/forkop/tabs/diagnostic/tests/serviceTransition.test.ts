@@ -100,7 +100,7 @@ describe('diagnostic service transitions', () => {
     expect(
       hasComponentActionLoading({
         forkopCheck: { loading: false },
-        zapretInstall: { loading: true },
+        singBoxInstall: { loading: true },
       }),
     ).toBe(true);
   });

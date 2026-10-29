@@ -12,7 +12,6 @@
 "require view.forkop.diagnostic as diagnostic";
 "require view.forkop.updates as updates";
 "require view.forkop.history as history";
-"require view.forkop.autotune as autotune";
 
 // Forkop X is one LuCI view with tabs, not a page per feature. The tab
 // controllers decide whether to poll by asking isActiveLuciTab(), which reads
@@ -20,7 +19,7 @@
 // page registers none, and each controller runs only while its own tab is in
 // front. The section type is what CBI writes as data-tab, so it has to be the
 // id the controller asks about: dashboard, diagnostic, monitoring, updates,
-// history, autotune. The dashboard controller renders the overview summary,
+// history. The dashboard controller renders the overview summary,
 // so its tab is the one titled "Overview".
 function mountTab(map, type, title, mount) {
   const section = map.section(form.TypedSection, type, title);
@@ -56,7 +55,6 @@ function mountReadOnlyTabs(map) {
     _("History and recovery"),
     history.createHistoryContent,
   );
-  mountTab(map, "autotune", _("DPI autotune"), autotune.createAutotuneContent);
 }
 
 const EntryPoint = {
@@ -90,7 +88,6 @@ const EntryPoint = {
           diagnostic: {},
           monitoring: {},
           history: {},
-          autotune: {},
         },
         _("Forkop X Settings"),
       );
@@ -117,9 +114,7 @@ const EntryPoint = {
       _("Section"),
       _("Add a section"),
     );
-    section.configureSectionSection(rulesSection, {
-      loadActionProvidersAvailability: shell.loadUiCapabilities,
-    });
+    section.configureSectionSection(rulesSection);
     section.createSectionContent(rulesSection);
 
     // One Settings tab, as before: the four groups are laid out one after
@@ -135,15 +130,12 @@ const EntryPoint = {
     settingsSection.cfgsections = function () {
       return ["settings"];
     };
-    settings.createSettingsContent(
-      {
-        dns: settingsSection,
-        network: settingsSection,
-        lists: settingsSection,
-        service: settingsSection,
-      },
-      shell.uiCapabilities,
-    );
+    settings.createSettingsContent({
+      dns: settingsSection,
+      network: settingsSection,
+      lists: settingsSection,
+      service: settingsSection,
+    });
 
     mountTab(
       forkopMap,
@@ -168,12 +160,6 @@ const EntryPoint = {
       "history",
       _("History and recovery"),
       history.createHistoryContent,
-    );
-    mountTab(
-      forkopMap,
-      "autotune",
-      _("DPI autotune"),
-      autotune.createAutotuneContent,
     );
     mountTab(
       forkopMap,

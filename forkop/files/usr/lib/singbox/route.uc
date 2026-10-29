@@ -57,8 +57,7 @@ function config(settings, runtime) {
 
 function target(section, outbound_tag_name) {
     let action = option(section, "action", "");
-    if (connections.is_connections_action(action) ||
-        action == "byedpi" || action == "zapret" || action == "zapret2")
+    if (connections.is_connections_action(action))
         return { action: "route", outbound: outbound_tag_name };
     if (action == "bypass")
         return { action: "route", outbound: runtime_constants.BYPASS_OUTBOUND_TAG };
@@ -74,9 +73,8 @@ function has_resolve_matchers(rule) {
 
 function resolve_rule_for_section(section, route_rule) {
     let action = option(section, "action", "");
-    let should_resolve = action == "byedpi" ||
-        (connections.is_connections_action(action) &&
-            bool_option(section, "resolve_real_ip_for_routing", false));
+    let should_resolve = connections.is_connections_action(action) &&
+        bool_option(section, "resolve_real_ip_for_routing", false);
 
     if (!should_resolve)
         return null;

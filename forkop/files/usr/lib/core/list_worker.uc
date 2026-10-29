@@ -5,7 +5,7 @@
 // final reload, so init.d queues every reload that arrives meanwhile
 // (service/initd.uc), as when it held reload.lock for the whole update. A
 // caller whose reload has to run now treats a running worker like a live
-// reload.lock owner (config/snapshots.uc, autotune/apply.uc).
+// reload.lock owner (config/snapshots.uc).
 //
 // Only the list worker records this file, so any updates.uc process it
 // names is that worker, whatever its mode; a PID that a dead worker left

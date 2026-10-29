@@ -44,23 +44,6 @@ describe('observability CLI contracts', () => {
     );
   });
 
-  it('uses each existing provider validator without runtime mutation', async () => {
-    mocks.executeShellCommand.mockResolvedValue({
-      code: 0,
-      stdout: '{"valid":true}',
-      stderr: '',
-    });
-    for (const provider of ['zapret', 'zapret2', 'byedpi'] as const)
-      await ForkopShellMethods.validateDpiStrategy(provider, '--test');
-    expect(
-      mocks.executeShellCommand.mock.calls.map(([value]) => value.args[0]),
-    ).toEqual([
-      'validate_nfqws_strategy_json',
-      'validate_nfqws2_strategy_json',
-      'validate_byedpi_strategy_json',
-    ]);
-  });
-
   it('keeps the structured busy result of snapshot mutations that exit non-zero', async () => {
     mocks.executeShellCommand.mockResolvedValue({
       code: 1,

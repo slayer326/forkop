@@ -64,13 +64,17 @@ const retiredMissingCurrent = new Set([
   "tailscale_control_url", "tailscale_hostname", "tls_alpn", "tls_certificate_path",
   "tls_key_path", "tls_server_name", "transport", "transport_host", "transport_hosts",
   "transport_path", "transport_service_name", "transport_xhttp_mode", "vless_flow", "vmess_alter_id",
+  // Only the removed Zapret and ByeDPI runtimes read these: the domain lists
+  // fed their host lists, cmd_opts was the old ByeDPI strategy option. The
+  // validator still refuses local_domain_lists as an unsupported matcher.
+  "cmd_opts", "local_domain_lists", "user_domain_list_type", "user_domains", "user_domains_text",
 ]);
 const missing = matrix.fields.filter((field) => field.status === "missing_current" && !retiredMissingCurrent.has(field.name));
 if (missing.length) {
   fail(`stable config fields missing in current contract: ${missing.map((field) => field.name).join(", ")}`);
 }
 
-for (const name of ["dns_type", "subscription_urls", "selector_proxy_links", "action", "user_domains", "user_domains_text", "user_domain_list_type", "local_domain_lists", "remote_domain_lists", "remote_subnet_lists", "domain_ip_lists", "fully_routed_ips"]) {
+for (const name of ["dns_type", "subscription_urls", "selector_proxy_links", "action", "remote_domain_lists", "remote_subnet_lists", "domain_ip_lists", "fully_routed_ips"]) {
   const field = matrix.fields.find((item) => item.name === name);
   if (!field) fail(`expected config field is absent from matrix: ${name}`);
   if (field.status !== "supported" && field.status !== "migrated") {
@@ -114,7 +118,9 @@ function assertCurrentKeepsStableValues(name, required = [], retired = []) {
   }
 }
 
-assertCurrentKeepsStableValues("action", ["connection", "bypass", "block", "zapret", "zapret2", "byedpi", "dns"], ["direct", "proxy", "vpn", "outbound"]);
+// Zapret, Zapret2 and ByeDPI are retired: the migration turns their rules
+// into disabled bypass rules.
+assertCurrentKeepsStableValues("action", ["connection", "bypass", "block", "dns"], ["direct", "proxy", "vpn", "outbound", "zapret", "zapret2", "byedpi"]);
 assertCurrentKeepsStableValues("urltest_filter_mode", ["disabled", "exclude", "include", "mixed"]);
 assertCurrentKeepsStableValues("dns_type", ["doh", "dot", "doq", "udp"]);
 NODE

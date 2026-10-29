@@ -1,8 +1,8 @@
 // Runtime directory locks: reload.lock, subscription-update.lock, the latency
 // test and component update check locks. Global lock order: service/state.uc.
 //
-// Same owner-record scheme as the config snapshot lock (config/snapshots.uc)
-// and the autotune lock (autotune/lock.uc): the lock is a directory holding
+// Same owner-record scheme as the config snapshot lock (config/snapshots.uc):
+// the lock is a directory holding
 // one "owner.<pid>.<start ticks>" record. The record is written into a
 // private directory that an atomic rename then publishes as the lock, so no
 // one ever sees the lock without its owner. The owner is the process named

@@ -2,14 +2,12 @@
 set -euo pipefail
 
 # Settings "through a section" selects (DNS, lists and components downloads)
-# keep a saved section that is disabled, uses a DPI provider that is not
-# installed, or no longer exists: the value stays selected with a label and
-# Save is refused until the user picks another section, instead of silently
-# re-pointing to the first eligible rule (UC-008). The provider availability
-# the Settings page gets from shell.js follows availability updates after
-# Components installs or removes a provider (UC-152). Every selected section
-# is checked as the save leaves it: provider changes on the same page, the
-# Enable checkbox of its rules grid row, its removal. A rule removal that
+# keep a saved section that is disabled, still has a retired action (a
+# Zapret rule the migration has not turned into a bypass rule yet), or no
+# longer exists: the value stays selected with a label and Save is refused
+# until the user picks another section, instead of silently re-pointing to
+# the first eligible rule (UC-008). Every selected section is checked as the
+# save leaves it: the Enable checkbox of its rules grid row, its removal. A rule removal that
 # such a refusal blocks is undone and reported instead of failing silently
 # or staying staged for the next save.
 
@@ -33,8 +31,7 @@ function settingsConfig(values) {
       yacd_secret_key: 'secret-0123456789' }, values),
   });
 }
-const installed = { loaded: true, zapretInstalled: true, zapret2Installed: true, byedpiInstalled: true };
-const noZapret = Object.assign({}, installed, { zapretInstalled: false });
+const installed = { loaded: true };
 
 const failures = [];
 async function check(label, fn) {
@@ -54,13 +51,13 @@ const references = [
 (async () => {
   for (const version of ['24.10', '25.12']) {
     for (const [flag, option] of references)
-      for (const [label, value, capabilities, mark] of [
-        ['disabled section', 'off', installed, /^OFF \(disabled\)$/],
-        ['provider not installed', 'dpi', noZapret, /^DPI \(provider not installed\)$/],
-        ['deleted section', 'gone', installed, /^gone \(unavailable\)$/],
+      for (const [label, value, mark] of [
+        ['disabled section', 'off', /^OFF \(disabled\)$/],
+        ['retired action', 'dpi', /^DPI \(unavailable\)$/],
+        ['deleted section', 'gone', /^gone \(unavailable\)$/],
       ]) await check(`${version} ${option}: ${label}`, async () => {
         const env = createEnvironment({ version, config: settingsConfig({ [flag]: '1', [option]: value }) });
-        const settings = await env.openSettings(capabilities);
+        const settings = await env.openSettings(installed);
         const select = settings.option(option);
         assert.equal(select.formvalue('settings'), value, 'the widget must keep the saved section');
         assert.match(select.vallist[select.keylist.indexOf(value)], mark);
@@ -76,10 +73,10 @@ const references = [
     // An available saved section saves unchanged.
     await check(`${version} available section`, async () => {
       const env = createEnvironment({ version, config: settingsConfig({ dns_detour_enabled: '1',
-        dns_detour_section: 'dpi' }) });
+        dns_detour_section: 'vpn' }) });
       const settings = await env.openSettings(installed);
       await settings.save();
-      assert.equal(env.uci.data.settings.dns_detour_section, 'dpi');
+      assert.equal(env.uci.data.settings.dns_detour_section, 'vpn');
     });
 
     // The selected section is checked as this save leaves it, whether or not
@@ -113,25 +110,6 @@ const references = [
       assert.equal(env.uci.data.settings.dns_detour_section, value);
     });
 
-    // UC-152 both ways: Components removes the provider on the same page.
-    await check(`${version} provider removed on the same page`, async () => {
-      const env = createEnvironment({ version, config: settingsConfig({ dns_detour_enabled: '1',
-        dns_detour_section: 'dpi' }) });
-      const shell = env.shell();
-      env.main.ForkopShellMethods.getUiCapabilities = () => Promise.resolve({ success: true,
-        data: { zapret_installed: 1, zapret2_installed: 1, byedpi_installed: 1 } });
-      await shell.loadUiCapabilities();
-      const settings = await env.openSettings(shell.uiCapabilities);
-      env.window.dispatchEvent(new env.CustomEvent(env.main.FORKOP_ACTION_PROVIDERS_AVAILABILITY_EVENT,
-        { detail: { zapretInstalled: false, zapret2Installed: true, byedpiInstalled: true } }));
-      await assert.rejects(settings.save(), /The DPI provider of the selected section is not installed/);
-      assert.equal(env.uci.data.settings.dns_detour_section, 'dpi');
-
-      settings.option('dns_detour_section').getUIElement('settings').setValue('vpn');
-      await settings.save();
-      assert.equal(env.uci.data.settings.dns_detour_section, 'vpn');
-    });
-
     // Deleting the selected rule: the save that follows the removal is
     // refused and reported instead of leaving Settings pointing to a rule
     // that the backend then rejects as missing. The removal and the cleanup
@@ -154,7 +132,7 @@ const references = [
       assert.match(notifications[0].text, /The selected section no longer exists/);
       assert.deepEqual(env.uci.data, config, 'a refused removal stayed staged');
 
-      const modal = await env.openRule('dpi');
+      const modal = await env.openRule('off');
       await modal.saveButton();
       assert.deepEqual(env.uci.data.vpn, config.vpn, 'the next save applied the refused removal');
       assert.deepEqual(env.uci.data.vpnsub, config.vpnsub, 'the next save removed the child items');
@@ -186,41 +164,6 @@ const references = [
       assert.equal(notifications.length, 1, 'a saved removal must not report an error');
     });
 
-    // UC-152: shell.uiCapabilities (what page/settings.js passes to the
-    // Settings tabs) follows the provider availability event.
-    await check(`${version} shell capabilities follow availability updates`, async () => {
-      const env = createEnvironment({ version, config: settingsConfig({ dns_detour_enabled: '1',
-        dns_detour_section: 'dpi' }) });
-      const shell = env.shell();
-      env.main.ForkopShellMethods.getUiCapabilities = () => Promise.resolve({ success: true,
-        data: { zapret_installed: 0, zapret2_installed: 0, byedpi_installed: 0 } });
-      await shell.loadUiCapabilities();
-      assert.equal(shell.uiCapabilities.zapretInstalled, false);
-      let settings = await env.openSettings(shell.uiCapabilities);
-      await assert.rejects(settings.save(), /not installed/);
-
-      // Components installed Zapret.
-      env.window.dispatchEvent(new env.CustomEvent(env.main.FORKOP_ACTION_PROVIDERS_AVAILABILITY_EVENT,
-        { detail: { zapretInstalled: true, zapret2Installed: false, byedpiInstalled: false } }));
-      assert.equal(shell.uiCapabilities.zapretInstalled, true, 'shell capabilities were not refreshed');
-      // Components is a tab of the same page: Settings saves without a reload.
-      await settings.save();
-      assert.equal(env.uci.data.settings.dns_detour_section, 'dpi');
-
-      settings = await env.openSettings(shell.uiCapabilities);
-      const select = settings.option('dns_detour_section');
-      assert.equal(select.vallist[select.keylist.indexOf('dpi')], 'DPI');
-      await settings.save();
-      assert.equal(env.uci.data.settings.dns_detour_section, 'dpi');
-
-      // Status polling refreshes the store; a removal reaches the shell copy too.
-      const setZapret = (installed) => env.main.store.set({ diagnosticsSystemInfo: {
-        ...env.main.store.get().diagnosticsSystemInfo, providerInfoLoaded: true, zapret_installed: installed } });
-      setZapret(1);
-      assert.equal(shell.uiCapabilities.zapretInstalled, true);
-      setZapret(0);
-      assert.equal(shell.uiCapabilities.zapretInstalled, false, 'store update did not reach the shell');
-    });
   }
   if (failures.length) {
     console.error(failures.join('\n\n'));

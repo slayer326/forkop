@@ -1598,13 +1598,16 @@ function cron_refresh_plan(settings, sections, bin, list_marker, subscription_ma
 
 // Zapret-Manager's automatic strategy selection: the script's "zmsA
 // --auto-best" and the web version's "# zm-autobest" job. Each run restarts
-// zapret with one strategy after another and rewrites its NFQWS_OPT, which
-// Forkop manages, so Forkop keeps it off.
+// zapret with one strategy after another and rewrites its NFQWS_OPT; Forkop X
+// keeps automatic DPI strategy selection off.
 const ZAPRET_MANAGER_AUTOBEST_MARKERS = [ "zmsA --auto-best", "# zm-autobest" ];
+// The cron line of the removed DPI autotune.
+const RETIRED_AUTOTUNE_CRON_MARKER = "# forkop-autotune";
 
 function cron_refresh_apply_result(settings, sections, existing_crontab, bin, list_marker, subscription_marker, component_marker) {
     let plan = cron_refresh_plan_rows(settings, sections, bin, list_marker, subscription_marker, component_marker);
-    let filtered_crontab = filter_cron_markers_text(existing_crontab, [ list_marker, subscription_marker, component_marker ]);
+    let filtered_crontab = filter_cron_markers_text(existing_crontab,
+        [ list_marker, subscription_marker, component_marker, RETIRED_AUTOTUNE_CRON_MARKER ]);
     let cron_jobs = "";
     let logs = [ { level: "info", message: "The cron job removed" } ];
     let without_autobest = filter_cron_markers_text(filtered_crontab, ZAPRET_MANAGER_AUTOBEST_MARKERS);
@@ -2232,8 +2235,7 @@ function normalize_component_name(component) {
 
 function valid_component_name(component) {
     component = normalize_component_name(component);
-    return component == "forkop" || component == "sing_box" || component == "zapret" ||
-        component == "zapret2" || component == "byedpi" || component == "zapret_manager" ||
+    return component == "forkop" || component == "sing_box" || component == "zapret_manager" ||
         component == "packet_steering" || component == "direct_proxy" || component == "torrserver_direct";
 }
 
@@ -2340,7 +2342,7 @@ function component_update_check_cache() {
     let results = [];
 
     if (enabled) {
-        for (let component in [ "forkop", "sing_box", "zapret", "zapret2", "byedpi" ]) {
+        for (let component in [ "forkop", "sing_box" ]) {
             let value = read_json_file(component_update_check_cache_path(component));
             if (component_update_check_result_cacheable(value))
                 push(results, value);
@@ -2692,12 +2694,6 @@ function automatic_component_check_names() {
 
     if (fs.stat("/usr/bin/sing-box") != null)
         push(result, "sing_box");
-    if (module_success([ LIB_DIR + "/providers/zapret/runtime.uc", "installed" ]))
-        push(result, "zapret");
-    if (module_success([ LIB_DIR + "/providers/zapret2/runtime.uc", "installed" ]))
-        push(result, "zapret2");
-    if (module_success([ LIB_DIR + "/providers/byedpi/runtime.uc", "installed" ]))
-        push(result, "byedpi");
 
     return result;
 }
@@ -4659,8 +4655,8 @@ const SUBSCRIPTION_LOCK_WAIT_SECONDS = int(getenv("FORKOP_SUBSCRIPTION_LOCK_WAIT
 // holds it without reload.lock: the deferred subscription bootstrap retry
 // (subscription/cache.uc), which downloads under it for as long as its
 // requests take. A forced update does not wait for it inside reload.lock,
-// which would hold back a DNS failover switch, every reload, a restore and
-// an autotune apply meanwhile (UC-057). It releases reload.lock, waits until
+// which would hold back a DNS failover switch, every reload and a restore
+// meanwhile (UC-057). It releases reload.lock, waits until
 // subscription-update.lock is free while it holds nothing else (it takes the
 // lock and lets go of it at once), and takes both in order again. What the
 // update decides from the cache and the runtime it decides under both locks,

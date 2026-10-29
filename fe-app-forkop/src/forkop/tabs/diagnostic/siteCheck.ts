@@ -6,12 +6,7 @@ import {
 } from '../../helpers/navigation';
 import { Forkop } from '../../types';
 import { renderProvenance, type Provenance } from '../../ui/status';
-import {
-  dpiProviderLabel,
-  dpiStrategyLabel,
-  pathKindLabel,
-  type PathKind,
-} from '../monitoring/connectionView';
+import { pathKindLabel, type PathKind } from '../monitoring/connectionView';
 import { probe, resultView, type RowResult } from './connectivityMatrix';
 import type { StatusTone } from './statusLabels';
 
@@ -34,7 +29,7 @@ export function undecidedReasonText(reason?: string | null) {
       return _(
         'the sing-box configuration is not available; is Forkop X running?',
       );
-    // Reason codes of routing/resolve.uc (shared with autotune apply).
+    // Reason codes of routing/resolve.uc.
     case 'undecidable_matcher':
       return _(
         'an earlier rule uses a list or pattern whose contents cannot be checked here',
@@ -51,8 +46,6 @@ export function undecidedReasonText(reason?: string | null) {
 }
 
 function kindOf(action: string): PathKind {
-  if (action === 'zapret' || action === 'zapret2' || action === 'byedpi')
-    return 'dpi';
   if (['connection', 'bypass', 'block', 'direct'].includes(action))
     return action as PathKind;
   return 'unknown';
@@ -71,21 +64,6 @@ export function routeRow(trace: Forkop.RouteTrace): SiteRow {
   const kind = kindOf(action);
   const parts = [pathKindLabel(kind)];
   if (trace.rule.value) parts.push(`${_('rule')} «${trace.rule.value}»`);
-  if (kind === 'dpi')
-    parts.push(
-      [
-        dpiProviderLabel(String(trace.dpi.value || action)),
-        dpiStrategyLabel({
-          name: '',
-          label: '',
-          action,
-          dpiStrategy: trace.dpi.strategy,
-          dpiCustom: trace.dpi.strategy_custom,
-        }),
-      ]
-        .filter(Boolean)
-        .join(' · '),
-    );
   return {
     label: _('Route'),
     value: parts.join(' · '),
@@ -155,15 +133,11 @@ export function siteConclusion(trace: Forkop.RouteTrace, result: RowResult) {
       'The site opens from the router. If it does not open on a device, look at its real connections.',
     );
   const hint =
-    kindOf(action) === 'dpi'
-      ? _(
-          'For a DPI rule this can mean the strategy does not work with your provider.',
-        )
-      : action === 'connection'
-        ? _('Check the node of the rule in Monitoring → Nodes and groups.')
-        : action === 'direct'
-          ? _('No rule handles it; it may need to be added to a rule.')
-          : '';
+    action === 'connection'
+      ? _('Check the node of the rule in Monitoring → Nodes and groups.')
+      : action === 'direct'
+        ? _('No rule handles it; it may need to be added to a rule.')
+        : '';
   return [
     _(
       'The site did not open from the router. The router may take a different path than devices.',

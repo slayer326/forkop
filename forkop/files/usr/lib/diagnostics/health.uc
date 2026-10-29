@@ -8,8 +8,9 @@ const EVENT_FILE = RUNTIME_DIR + "/health-events.json";
 const PACKAGE_PENDING = getenv("FORKOP_OPKG_RECOVERY_DIR") || "/etc/forkop/opkg-package-set-recovery";
 const SNAPSHOT_LOCK = getenv("FORKOP_SNAPSHOT_LOCK_DIR") || "/var/run/forkop/config-snapshot.lock";
 // Significant events survive reboots in a small journal on flash. Only
-// recorded events land there (starts, reloads, restores, autotune applies,
-// manual snapshot changes), never probes or measurements. When the journal
+// recorded events land there (starts, reloads, restores, manual snapshot
+// changes; journals of older versions also hold autotune events), never
+// probes or measurements. When the journal
 // outgrows its cap it is rewritten once to the newest HISTORY_KEEP records.
 const HISTORY_FILE = getenv("FORKOP_HISTORY_FILE") || "/etc/forkop/history.jsonl";
 const HISTORY_MAX = 200;
@@ -150,9 +151,8 @@ function as_string(value) {
     return value == null ? "" : "" + value;
 }
 
-// A snapshot restore or autotune apply is running: its lock holds the owner
-// record of a live config/snapshots.uc process (as autotune/apply.uc reads
-// it; a crashed operation leaves a stale one).
+// A snapshot operation is running: its lock holds the owner record of a live
+// config/snapshots.uc process (a crashed operation leaves a stale one).
 function snapshot_operation_active() {
     let identity = require("core.process_identity");
     for (let name in fs.lsdir(SNAPSHOT_LOCK) || []) {
@@ -168,7 +168,7 @@ function snapshot_operation_active() {
 // failed lifecycle transition kept (ForkopTableDpiGuard, the
 // forkop_transition_guard chain); the lifecycle refuses start and reload
 // over it and only a restart removes it. restore: the guard of a snapshot
-// restore or an autotune apply (ForkopConfigRestoreDpiGuard); only a restore
+// restore (ForkopConfigRestoreDpiGuard); only a restore
 // of a snapshot releases one that such a transaction left. transaction: a
 // snapshot operation is running, whose own guard that may be (UC-019,
 // UC-066).
@@ -209,7 +209,6 @@ function health(ui, guards, package_pending, events) {
         },
         dns: { status: forkop.dns_configured == 0 ? "warning" : "unknown",
             configured: forkop.dns_configured == 1 },
-        dpi: { status: guard ? "transitioning" : "unknown" },
         lists: { status: "unknown" },
         guard: { active: guard, runtime: guards.runtime === true, restore: guards.restore === true },
         recovery: { pending: guard || failed, last_event: last, action },

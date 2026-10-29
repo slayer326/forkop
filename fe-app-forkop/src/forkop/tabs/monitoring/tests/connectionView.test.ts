@@ -13,22 +13,8 @@ import {
 const rules: Record<string, RouteRule> = {
   'main-out': { name: 'main', label: 'Main VPN', action: 'connection' },
   'main-urltest-out': { name: 'main', label: 'Main VPN', action: 'connection' },
-  'youtube-out': {
-    name: 'youtube',
-    label: 'YouTube',
-    action: 'zapret',
-    dpiProvider: 'zapret',
-    dpiStrategy: 'multisplit',
-    dpiCustom: false,
-  },
-  'discord-out': {
-    name: 'discord',
-    label: 'Discord',
-    action: 'byedpi',
-    dpiProvider: 'byedpi',
-    dpiStrategy: '',
-    dpiCustom: true,
-  },
+  'youtube-out': { name: 'youtube', label: 'YouTube', action: 'connection' },
+  'lan-out': { name: 'lan', label: 'LAN', action: 'bypass' },
 };
 const byTag = (tag: string) => rules[tag] || null;
 
@@ -48,17 +34,13 @@ describe('connection path', () => {
     });
   });
 
-  it('names the DPI provider and strategy, never raw options', () => {
-    expect(
-      pathSummary(connectionPath(['youtube-out'], '', byTag)),
-    ).toMatchObject({
-      kindLabel: 'DPI',
-      primary: 'YouTube',
-      secondary: 'Zapret · multisplit',
+  it('names the rule of a bypass section', () => {
+    expect(pathSummary(connectionPath(['lan-out'], '', byTag))).toEqual({
+      kind: 'bypass',
+      kindLabel: 'Bypass',
+      primary: 'LAN',
+      secondary: '',
     });
-    expect(
-      pathSummary(connectionPath(['discord-out'], '', byTag)).secondary,
-    ).toBe('ByeDPI · custom strategy');
   });
 
   it('falls back to the route() of the matched rule', () => {
@@ -88,8 +70,8 @@ describe('connection path', () => {
   it('filters by path kind or by rule', () => {
     const path = connectionPath(['youtube-out'], '', byTag);
     expect(matchesPathFilter(path, 'all')).toBe(true);
-    expect(matchesPathFilter(path, 'kind:dpi')).toBe(true);
-    expect(matchesPathFilter(path, 'kind:connection')).toBe(false);
+    expect(matchesPathFilter(path, 'kind:connection')).toBe(true);
+    expect(matchesPathFilter(path, 'kind:bypass')).toBe(false);
     expect(matchesPathFilter(path, 'rule:youtube')).toBe(true);
     expect(matchesPathFilter(path, 'rule:main')).toBe(false);
   });

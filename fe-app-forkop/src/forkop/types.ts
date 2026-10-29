@@ -37,11 +37,10 @@ export namespace Forkop {
     overall: HealthLevel;
     service: { forkop: HealthLevel; sing_box: HealthLevel };
     dns: { status: HealthLevel; configured?: boolean };
-    dpi: { status: HealthLevel };
     lists: { status: HealthLevel };
     // runtime: a guard that a failed lifecycle transition kept (only a
-    // restart removes it); restore: the guard of a snapshot restore or an
-    // autotune apply (diagnostics/health.uc, UC-019).
+    // restart removes it); restore: the guard of a snapshot restore
+    // (diagnostics/health.uc, UC-019).
     guard: { active: boolean; runtime?: boolean; restore?: boolean };
     recovery: {
       pending: boolean;
@@ -63,8 +62,6 @@ export namespace Forkop {
     // Why a stage is not determined, or what decided it (route_trace).
     reason?: string | null;
     section?: string;
-    strategy?: string;
-    strategy_custom?: boolean;
   }
   export interface RouteTrace {
     target: RouteTraceStage & {
@@ -77,7 +74,6 @@ export namespace Forkop {
     rule: RouteTraceStage;
     action: RouteTraceStage;
     outbound: RouteTraceStage;
-    dpi: RouteTraceStage;
     interface: RouteTraceStage;
     runtime: RouteTraceStage;
   }
@@ -88,16 +84,12 @@ export namespace Forkop {
     reason: string;
     forkop_version: string;
     is_lkg?: boolean;
-    is_protected?: boolean;
   }
 
   export interface HistoryEvent {
     kind: string;
     status: string;
     timestamp: number;
-    // autotune_apply only: who started it and the catalog candidate id.
-    trigger?: 'manual' | 'automatic';
-    candidate?: string;
   }
 
   export interface HistoryResult {
@@ -105,289 +97,6 @@ export namespace Forkop {
     persistent: boolean;
     events: HistoryEvent[];
   }
-  // autotune/manager.uc: policy, targets and cached results. Strategy
-  // identities are catalog candidate ids, never raw strategies.
-  export type AutotuneMode = 'off' | 'recommend';
-
-  export interface AutotunePolicy {
-    mode: AutotuneMode;
-    interval: string;
-    confirmations: number;
-    min_confidence: 'medium' | 'high';
-    max_applies_per_day: number;
-    cooldown: string;
-    probes: number;
-    interval_seconds?: number | null;
-    cooldown_seconds?: number | null;
-  }
-
-  export interface AutotuneCandidateSummary {
-    id: string;
-    stability?: string;
-    success?: number;
-    attempted?: number;
-    success_ratio?: number | null;
-    median_tls_ms?: number | null;
-    failure_classes?: string[];
-  }
-
-  export interface AutotuneTargetSummary {
-    at: number;
-    status: string;
-    reason: string | null;
-    selected: string | null;
-    confidence: string | null;
-    leading?: string | null;
-    host?: string | null;
-    group?: string | null;
-    candidates: AutotuneCandidateSummary[];
-  }
-
-  // A rule-list target (autotune/lists.uc): the domains measured this time
-  // and why none could be taken.
-  export interface AutotuneListView {
-    tag: string;
-    total: number;
-    skipped: number;
-    pinned: boolean;
-    members: string[];
-    missing: string[];
-    error: string | null;
-  }
-
-  // A host target, a rule-list target (rule_set, host null) or a member of
-  // a rule-list target (parent: the list target's id).
-  export interface AutotuneTarget {
-    id: string;
-    host: string | null;
-    enabled: boolean;
-    resolver: string | null;
-    last: AutotuneTargetSummary | null;
-    rule_set?: string;
-    sample?: number;
-    pins?: string[];
-    list?: AutotuneListView | null;
-    parent?: string;
-  }
-
-  // A local list the routing sends to a DPI rule, for the target editor.
-  // The domains of a DPI rule list, for choosing pinned domains.
-  export interface AutotuneListDomains {
-    status: 'ok' | 'failed';
-    reason?: string;
-    rule_set?: string;
-    total?: number;
-    skipped?: number;
-    truncated?: boolean;
-    domains?: string[];
-  }
-
-  export interface AutotuneRuleList {
-    tag: string;
-    rule: string;
-    label: string;
-  }
-
-  export interface AutotuneGroupResult {
-    status: string;
-    candidate: string | null;
-    confidence: string | null;
-    representative?: string | null;
-    reason: string | null;
-    conflict?: { target: string; selected: string }[];
-  }
-
-  export interface AutotuneApplyRecord {
-    at: number;
-    group: string;
-    candidate: string | null;
-    status: string;
-    reason: string | null;
-    // Counted against the daily limit of automatic applies.
-    counted?: boolean;
-    trigger?: 'manual' | 'automatic';
-  }
-
-  // Hysteresis state of a group, written by the worker.
-  export interface AutotuneGroupState {
-    source_scoped?: boolean;
-    pending: {
-      candidate: string;
-      count: number;
-      confidence?: string | null;
-      first_seen?: number;
-      last_seen?: number;
-      inconclusive_streak?: number;
-    } | null;
-    last?: {
-      status: string;
-      candidate: string | null;
-      confidence: string | null;
-      reason: string | null;
-      at: number;
-    } | null;
-    cooldowns?: Record<string, number>;
-    last_apply?: AutotuneApplyRecord | null;
-    label?: string | null;
-    targets?: string[];
-    current?: string | null;
-    ready?: boolean;
-    required?: number;
-    result?: AutotuneGroupResult | null;
-    decision?: { reason: string | null; at: number } | null;
-  }
-
-  export interface AutotuneWorker {
-    state: 'running' | 'finished' | 'crashed' | string;
-    trigger?: string;
-    scope?: string;
-    started_at?: number;
-    finished_at?: number;
-    phase?: string;
-    result?: string;
-    reason?: string | null;
-    applied?: string | null;
-    // A manual apply: kind "apply", its background job, group and candidate.
-    kind?: string;
-    job?: string | null;
-    group?: string;
-    candidate?: string;
-    // A running check: its targets in order and the phase of the one
-    // measured now (autotune/manager.uc, autotune/isolation.uc progress).
-    progress?: AutotuneRunProgress;
-    tune?: AutotuneTuneProgress | null;
-  }
-
-  export interface AutotuneRunItem {
-    id: string;
-    host: string;
-    parent?: string | null;
-    group: string;
-    state: string;
-    expected_s: number;
-    started_at?: number;
-    finished_at?: number;
-    status?: string;
-    selected?: string | null;
-    confidence?: string | null;
-    reason?: string | null;
-  }
-
-  export interface AutotuneRunProgress {
-    started_at: number;
-    total: number;
-    done: number;
-    items: AutotuneRunItem[];
-  }
-
-  export interface AutotuneTuneProgress {
-    phase: string;
-    at?: number;
-    done?: number;
-    total?: number;
-    waited_s?: number;
-    timeout_s?: number;
-  }
-
-  export interface AutotuneStatus {
-    status: 'ok' | 'failed';
-    reason?: string;
-    policy: AutotunePolicy;
-    errors: { option?: string; target?: string; error: string }[];
-    targets: AutotuneTarget[];
-    lists?: AutotuneRuleList[];
-    groups: Record<string, AutotuneGroupState>;
-    next_run_at: number | null;
-    worker: AutotuneWorker | null;
-    recovered_at: number | null;
-    state_recovered: string | null;
-    // The recorded Stage 5 apply; null when none was recorded.
-    apply?: AutotuneRecordedApply | null;
-  }
-
-  // What the last Stage 5 apply changed, whether it still waits for a
-  // decision (resolved: false; null when unknown) and whether an
-  // administrator can roll it back now.
-  export interface AutotuneRecordedApply {
-    phase: string | null;
-    reason: string | null;
-    group: string | null;
-    candidate: string | null;
-    finished_at: number | null;
-    resolved: boolean | null;
-    diagnosis: string | null;
-    in_progress: boolean;
-    rollback: boolean;
-    // The configuration was edited since, and the rule still runs the
-    // candidate's strategy, which never passed its check: nothing confirms
-    // the configuration as last known working, so applies wait.
-    unverified_strategy?: boolean;
-  }
-
-  export interface AutotuneRollbackResult {
-    status: 'ok' | 'failed' | 'busy';
-    result?: string;
-    reason?: string | null;
-    group?: string | null;
-    candidate?: string | null;
-    // The configuration was replaced; false when a damaged record was only
-    // set aside because the configuration already was the last known
-    // working one.
-    restored?: boolean;
-  }
-
-  // Membership calculated from the routing now (DNS lookups on the router).
-  export interface AutotuneLiveGroup {
-    label: string | null;
-    targets: string[];
-    current: string | null;
-    custom: boolean | null;
-    // The rule is limited to devices (source_ip_cidr): it owns the targets
-    // for those devices only.
-    source_scoped?: boolean;
-    result: AutotuneGroupResult | null;
-  }
-
-  export interface AutotuneGroups {
-    status: 'ok' | 'failed';
-    reason?: string;
-    groups: Record<string, AutotuneLiveGroup>;
-    outside: {
-      id: string;
-      host: string;
-      reason: string;
-      detail: string | null;
-    }[];
-  }
-
-  export interface AutotuneMutationResult {
-    status: 'ok' | 'failed' | 'refused' | 'busy';
-    reason?: string;
-    job?: string;
-  }
-
-  export interface AutotuneJob {
-    id: string;
-    kind?: 'run' | 'apply';
-    scope: string;
-    state: 'starting' | 'running' | 'finished' | 'lost';
-    result: {
-      status: string;
-      result?: string;
-      reason?: string | null;
-      group?: string;
-      candidate?: string;
-    } | null;
-    // Manual apply: the worker phase and the Stage 5 transaction phase.
-    progress?: { phase: string; apply_phase: string | null };
-  }
-
-  export interface AutotuneJobStatus {
-    status: 'ok' | 'failed';
-    reason?: string;
-    job?: AutotuneJob;
-  }
-
   // `section` is a section name or, for an anonymous section, libuci's
   // @type[n]. null: the option is not set on that side; '***' is a value
   // that exists but is hidden (D-2).
@@ -429,7 +138,7 @@ export namespace Forkop {
     // "stopped": an explicit stop held the runtime down; nothing was
     // reloaded or started.
     runtime?: 'stopped';
-    // The DPI guard of the restore after an unfinished one.
+    // The fail-closed guard of the restore after an unfinished one.
     guard?: 'active' | 'inactive';
     // An edit committed during the transaction was kept: the id of the
     // "Concurrent edit" snapshot that holds it, null when none could be
@@ -489,16 +198,10 @@ export namespace Forkop {
     CHECK_DNS_AVAILABLE = 'check_dns_available',
     CHECK_FAKEIP = 'check_fakeip',
     CHECK_NFT_RULES = 'check_nft_rules',
-    CHECK_ZAPRET_RUNTIME = 'check_zapret_runtime',
-    CHECK_ZAPRET2_RUNTIME = 'check_zapret2_runtime',
-    CHECK_BYEDPI_RUNTIME = 'check_byedpi_runtime',
     GET_STATUS = 'get_status',
     GET_SUBSCRIPTION_METADATA = 'get_subscription_metadata',
     CHECK_SING_BOX = 'check_sing_box',
     GET_SING_BOX_STATUS = 'get_sing_box_status',
-    GET_ZAPRET_STATUS = 'get_zapret_status',
-    GET_ZAPRET2_STATUS = 'get_zapret2_status',
-    GET_BYEDPI_STATUS = 'get_byedpi_status',
     CLASH_API = 'clash_api',
     ENABLE = 'enable',
     DISABLE = 'disable',
@@ -518,9 +221,6 @@ export namespace Forkop {
     CONFIG_SNAPSHOT_RESTORE = 'config_snapshot_restore',
     CONFIG_SNAPSHOT_DELETE = 'config_snapshot_delete',
     CONNECTIVITY_TEST = 'connectivity_test',
-    VALIDATE_NFQWS_STRATEGY_JSON = 'validate_nfqws_strategy_json',
-    VALIDATE_NFQWS2_STRATEGY_JSON = 'validate_nfqws2_strategy_json',
-    VALIDATE_BYEDPI_STRATEGY_JSON = 'validate_byedpi_strategy_json',
     GET_READONLY_CONFIG_SECTIONS = 'get_readonly_config_sections',
     GET_DASHBOARD_RUNTIME_METADATA = 'get_dashboard_runtime_metadata',
     SERVICE_ACTION_ASYNC = 'service_action_async',
@@ -533,16 +233,6 @@ export namespace Forkop {
     COMPONENT_UPDATE_CHECK_CACHE = 'component_update_check_cache',
     SUBSCRIPTION_UPDATE_ASYNC = 'subscription_update_async',
     SUBSCRIPTION_UPDATE_STATUS = 'subscription_update_status',
-    AUTOTUNE_STATUS = 'autotune_status',
-    AUTOTUNE_GROUPS = 'autotune_groups',
-    AUTOTUNE_POLICY_SET = 'autotune_policy_set',
-    AUTOTUNE_TARGET_SET = 'autotune_target_set',
-    AUTOTUNE_TARGET_REMOVE = 'autotune_target_remove',
-    AUTOTUNE_LIST_DOMAINS = 'autotune_list_domains',
-    AUTOTUNE_RUN_ASYNC = 'autotune_run_async',
-    AUTOTUNE_APPLY_ASYNC = 'autotune_apply_async',
-    AUTOTUNE_ROLLBACK = 'autotune_rollback',
-    AUTOTUNE_RUN_STATUS = 'autotune_run_status',
   }
 
   export enum AvailableClashAPIMethods {
@@ -666,10 +356,7 @@ export namespace Forkop {
     | 'outbound'
     | 'vpn'
     | 'bypass'
-    | 'block'
-    | 'zapret'
-    | 'zapret2'
-    | 'byedpi';
+    | 'block';
   type LegacyConnectionType = 'proxy' | 'vpn' | 'block' | 'exclusion';
   type ProxyConfigType =
     | 'urltest'
@@ -705,13 +392,6 @@ export namespace Forkop {
     ports?: string[];
     update_interval?: string;
     proxy_string?: string;
-    nfqws_opt?: string;
-    nfqws2_opt?: string;
-    byedpi_cmd_opts?: string;
-    // Derived read-only strategy view (get_readonly_config_sections).
-    dpi_provider?: string;
-    dpi_strategy?: string;
-    dpi_strategy_custom?: boolean;
     cmd_opts?: string;
     selector_proxy_links?: string[];
     subscription_urls?: string[];
@@ -883,12 +563,6 @@ export namespace Forkop {
     sing_box_tailscale: 0 | 1;
     sing_box_podkop_engine?: 0 | 1;
     sing_box_podkop_engine_full?: 0 | 1;
-    zapret_version: string;
-    zapret_installed: 0 | 1;
-    zapret2_version: string;
-    zapret2_installed: 0 | 1;
-    byedpi_version: string;
-    byedpi_installed: 0 | 1;
     zapret_manager_installed: 0 | 1;
     packet_steering_mode: string;
     direct_proxy_enabled: 0 | 1;
@@ -910,9 +584,6 @@ export namespace Forkop {
     sing_box_tailscale: 0 | 1;
     sing_box_podkop_engine?: 0 | 1;
     sing_box_podkop_engine_full?: 0 | 1;
-    zapret_installed: 0 | 1;
-    zapret2_installed: 0 | 1;
-    byedpi_installed: 0 | 1;
   }
 
   export type ServiceAction = 'start' | 'stop' | 'restart' | 'reload';
@@ -969,9 +640,6 @@ export namespace Forkop {
   export type ComponentName =
     | 'forkop'
     | 'sing_box'
-    | 'zapret'
-    | 'zapret2'
-    | 'byedpi'
     | 'zapret_manager'
     | 'packet_steering'
     | 'direct_proxy'
@@ -1030,107 +698,6 @@ export namespace Forkop {
     started_at?: number;
     exit_code?: number | null;
     updated_at?: number | null;
-  }
-
-  export interface GetZapretStatus {
-    installed: 0 | 1;
-    package_installed: 0 | 1;
-    provider_available: 0 | 1;
-    provider_path: string;
-    files_available: 0 | 1;
-    ipset_available: 0 | 1;
-    version: string;
-    configured: 0 | 1;
-    enabled_rule_count: number;
-    expected_process_count: number;
-    running_process_count: number;
-    supervisor_process_count: number;
-    restart_count: number;
-    runtime_unstable: 0 | 1;
-    standalone_service_enabled: 0 | 1;
-    standalone_service_running: 0 | 1;
-    standalone_config_present: 0 | 1;
-    standalone_conflict: 0 | 1;
-    luci_app_installed: 0 | 1;
-    queue_base: number;
-    queue_range_end: number;
-    queue_overlap: 0 | 1;
-    legacy_runtime_present: 0 | 1;
-    ready: 0 | 1;
-    conflict: 0 | 1;
-    outbounds_configured: 0 | 1;
-    routes_configured: 0 | 1;
-    status_message: string;
-  }
-
-  export interface ZapretCheckResult {
-    zapret_installed: 0 | 1;
-    zapret_package_installed: 0 | 1;
-    zapret_provider_path: string;
-  }
-
-  export interface GetZapret2Status {
-    installed: 0 | 1;
-    package_installed: 0 | 1;
-    provider_available: 0 | 1;
-    provider_path: string;
-    files_available: 0 | 1;
-    ipset_available: 0 | 1;
-    version: string;
-    configured: 0 | 1;
-    enabled_rule_count: number;
-    expected_process_count: number;
-    running_process_count: number;
-    supervisor_process_count: number;
-    standalone_service_enabled: 0 | 1;
-    standalone_service_running: 0 | 1;
-    standalone_config_present: 0 | 1;
-    standalone_conflict: 0 | 1;
-    luci_app_installed: 0 | 1;
-    queue_base: number;
-    queue_range_end: number;
-    queue_overlap: 0 | 1;
-    ready: 0 | 1;
-    conflict: 0 | 1;
-    outbounds_configured: 0 | 1;
-    routes_configured: 0 | 1;
-    status_message: string;
-  }
-
-  export interface Zapret2CheckResult {
-    zapret2_installed: 0 | 1;
-    zapret2_package_installed: 0 | 1;
-    zapret2_provider_path: string;
-  }
-
-  export interface GetByedpiStatus {
-    installed: 0 | 1;
-    package_installed: 0 | 1;
-    provider_available: 0 | 1;
-    provider_path: string;
-    version: string;
-    configured: 0 | 1;
-    enabled_rule_count: number;
-    expected_process_count: number;
-    running_process_count: number;
-    supervisor_process_count: number;
-    restart_count: number;
-    runtime_unstable: 0 | 1;
-    standalone_service_enabled: 0 | 1;
-    standalone_service_running: 0 | 1;
-    listen_address: string;
-    port_base: number;
-    outbounds_configured: 0 | 1;
-    routes_configured: 0 | 1;
-    ready: 0 | 1;
-    conflict: 0 | 1;
-    status_message: string;
-  }
-
-  export interface ByedpiCheckResult {
-    byedpi_installed: 0 | 1;
-    byedpi_package_installed: 0 | 1;
-    byedpi_provider_path: string;
   }
 
   export interface GetClashApiProxyLatency {

@@ -35,9 +35,6 @@ const SB_SERVICE_MIXED_INBOUND_ADDRESS = getenv("SB_SERVICE_MIXED_INBOUND_ADDRES
 const SB_SERVICE_MIXED_INBOUND_PORT = getenv("SB_SERVICE_MIXED_INBOUND_PORT") || "4534";
 const SB_VARIANT_STATE_FILE = getenv("SB_VARIANT_STATE_FILE") || "/etc/forkop/sing-box-variant";
 const SB_VERSION_STATE_FILE = getenv("SB_VERSION_STATE_FILE") || "/etc/forkop/sing-box-version";
-const ZAPRET_PROVIDER_NFQWS_BIN = getenv("ZAPRET_PROVIDER_NFQWS_BIN") || "/opt/zapret/nfq/nfqws";
-const ZAPRET2_PROVIDER_NFQWS2_BIN = getenv("ZAPRET2_PROVIDER_NFQWS2_BIN") || "/opt/zapret2/nfq2/nfqws2";
-const BYEDPI_BIN = getenv("BYEDPI_BIN") || "/usr/bin/ciadpi";
 // Responses a subscription update fetched before it took reload.lock
 // (prefetch-request, UC-057); the update-request under the lock takes them
 // from here instead of the network.
@@ -894,26 +891,8 @@ function find_section(sections, name) {
     return {};
 }
 
-function file_executable(path) {
-    let stat = fs.stat(as_string(path));
-    if (stat == null || stat.mode == null)
-        return false;
-
-    return (int(stat.mode) & 73) != 0;
-}
-
 function sing_box_service_running() {
     return command_success_from_args([ "ucode", "-L", LIB_DIR, LIB_DIR + "/service/state.uc", "sing-box-service-running" ]);
-}
-
-function provider_action_is_available(action) {
-    if (action == "byedpi")
-        return file_executable(BYEDPI_BIN);
-    if (action == "zapret")
-        return file_executable(ZAPRET_PROVIDER_NFQWS_BIN);
-    if (action == "zapret2")
-        return file_executable(ZAPRET2_PROVIDER_NFQWS2_BIN);
-    return false;
 }
 
 function section_current_usable_cache_by_name(sections, section, default_user_agent) {
@@ -935,17 +914,12 @@ function subscription_download_target_section_is_ready(sections, download_sectio
     if (!bool_option(section, "enabled", true))
         return false;
 
-    let action = option(section, "action", "");
-    if (connections.is_connections_action(action)) {
-        if (section_has_non_subscription_connection_sources(section))
-            return true;
-        if (section_current_usable_cache_by_name(sections, download_section, default_user_agent))
-            return true;
-
+    if (!connections.is_connections_action(option(section, "action", "")))
         return false;
-    }
+    if (section_has_non_subscription_connection_sources(section))
+        return true;
 
-    return provider_action_is_available(action);
+    return section_current_usable_cache_by_name(sections, download_section, default_user_agent) ? true : false;
 }
 
 // A cacheless subscription-only section may download through another
@@ -2692,10 +2666,7 @@ function worker_env() {
         SB_SERVICE_MIXED_INBOUND_ADDRESS,
         SB_SERVICE_MIXED_INBOUND_PORT,
         SB_VARIANT_STATE_FILE,
-        SB_VERSION_STATE_FILE,
-        ZAPRET_PROVIDER_NFQWS_BIN,
-        ZAPRET2_PROVIDER_NFQWS2_BIN,
-        BYEDPI_BIN
+        SB_VERSION_STATE_FILE
     };
 }
 

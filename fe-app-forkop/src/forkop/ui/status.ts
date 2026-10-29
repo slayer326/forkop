@@ -36,11 +36,7 @@ export type StatusDomain =
   // component check_update result status
   | 'component'
   // config/snapshots.uc mutation results
-  | 'snapshot'
-  // autotune select.uc stability and catalog candidate state
-  | 'autotune_candidate'
-  // autotune apply.uc phases and results
-  | 'autotune_apply';
+  | 'snapshot';
 
 const DOMAIN_MAP: Record<StatusDomain, Record<string, SemanticStatus>> = {
   health: {
@@ -106,25 +102,6 @@ const DOMAIN_MAP: Record<StatusDomain, Record<string, SemanticStatus>> = {
     failed: 'error',
     needs_attention: 'needs_attention',
   },
-  autotune_candidate: {
-    stable: 'healthy',
-    unstable: 'warning',
-    failed: 'error',
-    supported: 'not_checked',
-    unsupported: 'unsupported',
-  },
-  autotune_apply: {
-    applied: 'healthy',
-    no_change_required: 'healthy',
-    checking: 'busy',
-    applying: 'busy',
-    verifying: 'busy',
-    rolling_back: 'busy',
-    rolled_back: 'warning',
-    stale: 'not_checked',
-    failed: 'error',
-    needs_attention: 'needs_attention',
-  },
 };
 
 // Labels that say more than the generic semantic label for a raw value.
@@ -141,9 +118,6 @@ const CONTEXT_LABELS: Partial<
   },
   snapshot: {
     recovered: () => _('Recovered'),
-  },
-  autotune_apply: {
-    rolled_back: () => _('Rolled back'),
   },
 };
 
@@ -278,6 +252,7 @@ export function eventKindLabel(kind: string): string {
       return _('Snapshot restore');
     case 'recovery':
       return _('Recovery');
+    // Kept in journals written before automatic DPI selection was removed.
     case 'autotune_apply':
       return _('Autotune apply');
     case 'autotune_mode':

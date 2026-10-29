@@ -13,7 +13,6 @@
 // The only command it runs is "sing-box rule-set match" on a local list file.
 let fs = require("fs");
 let constants = require("core.constants");
-let dpi_strategy = require("core.dpi_strategy");
 
 const TPROXY_INBOUND = constants.SB_TPROXY_INBOUND_TAG || "tproxy-in";
 const DIRECT_OUTBOUND = constants.SB_DIRECT_OUTBOUND_TAG || "direct-out";
@@ -28,18 +27,6 @@ function list_of(v) { return v == null ? [] : type(v) == "array" ? v : [ v ]; }
 function words(value) {
     value = trim(replace(as_string(value), /[ \t\r\n]+/g, " "));
     return value == "" ? [] : split(value, " ");
-}
-function number(value) {
-    let text = lc(trim(as_string(value)));
-    if (match(text, /^[0-9]+$/) != null) return int(text);
-    if (substr(text, 0, 2) != "0x") return null;
-    let result = 0;
-    for (let i = 2; i < length(text); i++) {
-        let d = index("0123456789abcdef", substr(text, i, 1));
-        if (d < 0) return null;
-        result = result * 16 + d;
-    }
-    return result;
 }
 
 // ---- Forkop UCI config ----------------------------------------------------
@@ -96,9 +83,6 @@ function enabled(section) {
 function find_section(sections, name) {
     for (let s in sections) if (s.type == "section" && s.name == name) return s;
     return null;
-}
-function zapret_sections(sections) {
-    return filter(sections, (s) => s.type == "section" && enabled(s) && s.options.action == "zapret");
 }
 function settings_of(sections) {
     for (let s in sections) if (s.type == "settings") return s.options;
@@ -317,24 +301,6 @@ function route_owner(config, t) {
     return { decided: true, kind: "final", outbound: config.route.final || null, rule: null };
 }
 
-// The zapret rule behind a sing-box outbound: a direct outbound whose
-// routing mark is the rule's route mark (base + position among enabled
-// zapret rules), cross-checked against the outbound tag convention.
-function zapret_owner(config, sections, outbound) {
-    let base = number(constants.ZAPRET_ROUTE_MARK_BASE), queue_base = int(constants.ZAPRET_QUEUE_BASE);
-    for (let o in list_of(config.outbounds)) {
-        if (type(o) != "object" || o.tag != outbound || o.type != "direct" || o.routing_mark == null) continue;
-        let index_value = int(o.routing_mark) - base;
-        let zs = zapret_sections(sections);
-        if (index_value < 1 || index_value > length(zs)) return null;
-        let s = zs[index_value - 1];
-        if (o.tag != s.name + "-out" && o.tag != s.name + "-out-1") return null;
-        return { section: s.name, index: index_value, mark: sprintf("0x%08x", int(o.routing_mark)),
-            mark_value: int(o.routing_mark), queue: queue_base + index_value - 1 };
-    }
-    return null;
-}
-
 // The enabled Forkop rule (config section) behind an outbound tag:
 // <name>-out, <name>-out-<n>, <name>-urltest[-<id>]-out, <name>-<n>-out, ...
 function section_for_outbound(sections, tag) {
@@ -371,8 +337,7 @@ function status_for(reason) {
 // Structured answer for (config, sections, target):
 // { status: decided|undecidable|unsupported|unavailable, reason,
 //   route: outbound|reject|final, route_rule, kind: rule|bypass|block|direct|outbound,
-//   section, label, action, outbound, dpi: { provider, strategy, custom },
-//   zapret: { section, index, mark, mark_value, queue }, scope, provenance,
+//   section, label, action, outbound, scope, provenance,
 //   source_scope: null | { source, assumed } — the owner is a source-scoped
 //   rule; assumed: the answer holds for the rule's own devices only (the
 //   target asked with assume_rule_source and named no source) }
@@ -383,7 +348,7 @@ function resolve(config, sections, t) {
         if (assumed != null) route = route_owner(config, { ...t, source: assumed });
     }
     let result = { status: "decided", reason: null, route: null, route_rule: route.rule, kind: null,
-        section: null, label: null, action: null, outbound: null, dpi: null, zapret: null, scope: null,
+        section: null, label: null, action: null, outbound: null, scope: null,
         provenance: "simulated", source_scope: null };
     if (!route.decided) {
         result.status = status_for(route.reason);
@@ -394,9 +359,6 @@ function resolve(config, sections, t) {
     result.route = route.kind;
     result.outbound = route.outbound || null;
     if (route.source_scoped === true) result.source_scope = { source: assumed != null ? assumed : t.source, assumed: assumed != null };
-    // Zapret identity (route mark and queue) is proven from the outbound
-    // itself, exactly as autotune apply checks it.
-    if (route.kind == "outbound") result.zapret = zapret_owner(config, sections, route.outbound);
     if (route.kind == "reject") { result.kind = "block"; result.action = "block"; return result; }
     if (result.outbound == BYPASS_OUTBOUND) { result.kind = "bypass"; result.action = "bypass"; return result; }
     if (route.kind == "final" && (result.outbound == null || result.outbound == DIRECT_OUTBOUND)) {
@@ -415,14 +377,10 @@ function resolve(config, sections, t) {
     result.label = as_string(section.options.label) || section.name;
     result.action = action;
     result.scope = { rule: section.name, matchers: rule_scope(section) };
-    if (dpi_strategy.is_dpi_action(action)) {
-        let view = dpi_strategy.view(section.options);
-        result.dpi = { provider: view.dpi_provider, strategy: view.dpi_strategy, custom: view.dpi_strategy_custom };
-    }
     return result;
 }
 
 return {
-    parse_config, enabled, find_section, zapret_sections, settings_of, singbox_config_path, load_json,
-    rule_scope, is_fakeip, target, rule_matches, route_owner, zapret_owner, section_for_outbound, resolve
+    parse_config, enabled, find_section, settings_of, singbox_config_path, load_json,
+    rule_scope, is_fakeip, target, rule_matches, route_owner, section_for_outbound, resolve
 };

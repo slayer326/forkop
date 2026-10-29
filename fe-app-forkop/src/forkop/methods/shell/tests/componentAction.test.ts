@@ -87,7 +87,7 @@ describe('ForkopShellMethods.componentAction', () => {
     });
 
     await expect(
-      ForkopShellMethods.componentActionStart('zapret', 'install'),
+      ForkopShellMethods.componentActionStart('sing_box', 'install'),
     ).resolves.toEqual({
       success: false,
       error: 'Another component action is already running',
@@ -218,9 +218,6 @@ describe('ForkopShellMethods.componentAction', () => {
               sing_box_tiny: 1,
               sing_box_compressed: 0,
               sing_box_tailscale: 0,
-              zapret_installed: 1,
-              zapret2_installed: 1,
-              byedpi_installed: 0,
             },
             actions: {
               service: [],
@@ -286,9 +283,9 @@ describe('ForkopShellMethods.componentAction', () => {
         JSON.stringify({
           success: true,
           running: false,
-          component: 'zapret',
+          component: 'sing_box',
           action: 'check_update',
-          message: 'zapret is up to date',
+          message: 'sing-box is up to date',
           current_version: '70.2',
           latest_version: '70.2',
           changed: false,
@@ -322,7 +319,7 @@ describe('ForkopShellMethods.componentAction', () => {
 
     const responsePromise = ForkopShellMethods.waitComponentActionJob(
       'job-1',
-      'zapret',
+      'sing_box',
       'check_update',
     );
 
@@ -333,9 +330,9 @@ describe('ForkopShellMethods.componentAction', () => {
       data: {
         success: true,
         running: false,
-        component: 'zapret',
+        component: 'sing_box',
         action: 'check_update',
-        message: 'zapret is up to date',
+        message: 'sing-box is up to date',
         current_version: '70.2',
         latest_version: '70.2',
         changed: false,

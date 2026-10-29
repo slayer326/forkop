@@ -608,23 +608,6 @@ cat >"$WORK_DIR/manual-http-fixture.json" <<'JSON'
 }
 JSON
 
-cat >"$WORK_DIR/provider-actions-fixture.json" <<'JSON'
-{
-  "settings": {
-    ".name": "settings",
-    ".type": "settings",
-    "config_path": "/tmp/sing-box/config.json",
-    "dns_server": "1.1.1.1",
-    "service_listen_address": "127.0.0.1"
-  },
-  "section": [
-    { ".name": "zap", ".type": "section", "enabled": "1", "action": "zapret", "domain_suffix": [ "zap.example" ] },
-    { ".name": "zap2", ".type": "section", "enabled": "1", "action": "zapret2", "domain_suffix": [ "zap2.example" ] },
-    { ".name": "bye", ".type": "section", "enabled": "1", "action": "byedpi", "domain_suffix": [ "bye.example" ] }
-  ]
-}
-JSON
-
 cat >"$WORK_DIR/manual-transport-fixture.json" <<'JSON'
 {
   "settings": {
@@ -1195,7 +1178,6 @@ if generate_config "$WORK_DIR/manual-http-fixture.json" "$WORK_DIR/manual-http.j
 fi
 grep -Fxq 'manual proxy link scheme is not supported by sing-box config generation yet' "$WORK_DIR/manual-http.stderr" ||
   fail "native HTTP connection URL failure should identify the unsupported scheme"
-generate_config "$WORK_DIR/provider-actions-fixture.json" "$WORK_DIR/providers.json"
 generate_config "$WORK_DIR/manual-transport-fixture.json" "$WORK_DIR/manual.json"
 generate_config "$WORK_DIR/vpn-interface-fixture.json" "$WORK_DIR/vpn.json"
 generate_config "$WORK_DIR/download-via-proxy-fixture.json" "$WORK_DIR/download.json"
@@ -1522,11 +1504,6 @@ let urltest_out = outbound(urltest, "proxy-urltest-out");
 assert(urltest_out && length(urltest_out.outbounds) == 1 && urltest_out.outbounds[0] == "Keep", "URLTest include filter");
 assert(outbound(urltest, "Keep").type == "http", "HTTP JSON outbound remains supported");
 assert(outbound(urltest, "proxy-out").default == "proxy-urltest-out", "selector defaults to URLTest");
-
-let providers = cfg("providers");
-assert(outbound(providers, "zap-out").routing_mark == 0x01000001, "Zapret mark");
-assert(outbound(providers, "zap2-out").routing_mark == 0x02000001, "Zapret2 mark");
-assert(outbound(providers, "bye-out").type == "socks" && outbound(providers, "bye-out").server_port == 1080, "ByeDPI outbound");
 
 let manual = cfg("manual");
 let vless = outbound(manual, "proxy-1-out");
