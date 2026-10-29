@@ -168,4 +168,18 @@ assert_absent 'dhcp.@dnsmasq[0].forkop_noresolv'
 assert_absent 'dhcp.@dnsmasq[0].forkop_cachesize'
 assert_log_contains 'commit dhcp'
 
+# Nothing of Forkop is left: the failsafe neither commits nor restarts
+# dnsmasq a second time after the regular restore.
+cat >"$STATE" <<'EOF_STATE'
+dhcp.@dnsmasq[0].server=9.9.9.9
+dhcp.@dnsmasq[0].noresolv=0
+forkop.settings.dont_touch_dhcp=0
+EOF_STATE
+
+: > "$DNSMASQ_LOG"
+run_restore
+assert_value 'dhcp.@dnsmasq[0].server' '9.9.9.9'
+assert_log_empty
+[ ! -s "$DNSMASQ_LOG" ] || fail "dnsmasq was restarted with nothing to roll back"
+
 printf 'DNS apply checks passed\n'

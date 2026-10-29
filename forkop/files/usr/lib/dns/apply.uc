@@ -279,6 +279,11 @@ function failsafe_restore() {
 
         log("Rolling back previous Forkop dnsmasq changes because dont_touch_dhcp is enabled", "warn");
     }
+    else if (!dnsmasq_has_forkop_dns() && !dnsmasq_has_forkop_managed_state()) {
+        // Nothing to roll back: a restore would only restart dnsmasq again
+        // right after the restore that ran before it.
+        return true;
+    }
     else {
         log("Rolling back Forkop DNS changes in dnsmasq", "warn");
     }
