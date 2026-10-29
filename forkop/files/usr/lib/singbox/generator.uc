@@ -3305,6 +3305,62 @@ function add_route_for_section(config, section) {
         add_combined_route_for_section(config, section);
 }
 
+function rule_set_tag_list(value) {
+    if (value == null)
+        return [];
+    return type(value) == "array" ? value : [ value ];
+}
+
+// Tags of the rule-sets that DNS rules match against the response.
+function response_ruleset_tags(rules, response, tags) {
+    for (let rule in rules || []) {
+        if (type(rule) != "object")
+            continue;
+        let matched = response || rule.match_response === true;
+        if (matched)
+            for (let tag in rule_set_tag_list(rule.rule_set))
+                tags[as_string(tag)] = true;
+        response_ruleset_tags(rule.rules, matched, tags);
+    }
+    return tags;
+}
+
+function route_rule_uses_tags(rule, tags) {
+    if (type(rule) != "object")
+        return false;
+    for (let tag in rule_set_tag_list(rule.rule_set))
+        if (tags[as_string(tag)])
+            return true;
+    for (let child in rule.rules || [])
+        if (route_rule_uses_tags(child, tags))
+            return true;
+    return false;
+}
+
+// A domain whose real answer falls into an address rule-set gets a FakeIP
+// address (add_response_ruleset_dns_rule), so its connection reaches the
+// route with the domain only, and the address rule-set that chose it cannot
+// match: the connection fell through to route.final, direct. A site that only
+// the cloudflare list covers left the router directly and timed out. Resolving
+// the domain before the first route rule with such a rule-set gives these
+// rules its addresses; the answer is the one the DNS evaluate just cached. A
+// connection to a real address has nothing to resolve.
+function add_response_ruleset_route_resolve(config) {
+    let tags = response_ruleset_tags(config.dns.rules, false, {});
+    if (length(tags) == 0)
+        return;
+    for (let i = 0; i < length(config.route.rules); i++) {
+        if (!route_rule_uses_tags(config.route.rules[i], tags))
+            continue;
+        splice(config.route.rules, i, 0, {
+            inbound: tproxy_inbound_matcher(),
+            action: "resolve",
+            server: runtime_constants.DNS_SERVER_TAG
+        });
+        return;
+    }
+}
+
 function add_service_route_rules(config, sections) {
     let first = null;
     for (let section in sections) {
@@ -3661,6 +3717,7 @@ function generate_config(output_path, service_address, mwan3_active, supports_xh
         add_service_route_rules(config, sections);
         for (let section in sections)
             add_route_for_section(config, section);
+        add_response_ruleset_route_resolve(config);
         add_source_aware_dns_fallback(config, source_aware_dns);
         add_service_mixed_proxy(config, settings, sections, all_configured_sections);
         for (let section in sections)
