@@ -771,6 +771,26 @@ function sing_box_check(config_path, output_path) {
     return { status, reason };
 }
 
+// The lifecycle checks a stage once more before it publishes it: a manual
+// restart before it touches the running runtime, a bootstrap start before its
+// first commit. prepare-config-stage already checked the generated file, so
+// this runs after that check, never alongside it.
+function validate_config_stage(stage_path) {
+    let check_log = temp_path();
+    if (as_string(stage_path) == "" || check_log == "") {
+        remove_file(check_log);
+        return false;
+    }
+
+    let result = SINGBOX_CONFIG_FAIL_PHASE == "check"
+        ? { status: 1, reason: "injected sing-box configuration check failure" }
+        : sing_box_check(stage_path, check_log);
+    if (result.status != 0)
+        log_message("Staged sing-box configuration is invalid: " + result.reason + ". Aborted.", "fatal");
+    remove_file(check_log);
+    return result.status == 0;
+}
+
 function prepare_subscription_caches(prepared, no_refresh) {
     let result = subscription_cache_capture([ "prepare-caches", "runtime", prepared ? "1" : "0", no_refresh ? "1" : "0" ]);
     if (result.status != 0) {
@@ -1242,6 +1262,8 @@ else if (mode == "discard-config-stage")
     exit(discard_config_stage(ARGV[1] || "") ? 0 : 1);
 else if (mode == "publish-section-cache")
     exit(publish_section_cache(ARGV[1] || "") ? 0 : 1);
+else if (mode == "validate-config-stage")
+    exit(validate_config_stage(ARGV[1] || "") ? 0 : 1);
 else if (mode == "save-config-file-fixture")
     exit(save_config_file(ARGV[1] || "", ARGV[2] || "") ? 0 : 1);
 else if (mode == "publish-section-cache-fixture")

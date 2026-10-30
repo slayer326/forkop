@@ -139,6 +139,33 @@ grep -Fq 'FATAL[0000] route: missing outbound tag' "$WORK_DIR/sing-box-check.rea
 grep -Fq 'Generated sing-box configuration is invalid: " + check_result.reason' "$SINGBOX_RUNTIME_UC" ||
   fail "generated config failure must include the captured sing-box check diagnostic"
 
+# A manual restart and both bootstrap starts check their stage through
+# validate-config-stage. Without the mode every one of them failed on the
+# usage error, whatever the configuration.
+cat >"$WORK_DIR/check-bin/logger" <<'EOF_LOGGER'
+#!/bin/sh
+printf '%s\n' "$*" >>"$FORKOP_TEST_LOGGER_LOG"
+EOF_LOGGER
+chmod +x "$WORK_DIR/check-bin/logger"
+if FORKOP_TEST_LOGGER_LOG="$WORK_DIR/stage-check.log" PATH="$WORK_DIR/check-bin:$PATH" \
+  ucode -L "$FORKOP_LIB" "$SINGBOX_RUNTIME_UC" validate-config-stage "$WORK_DIR/invalid-config.json" \
+  >"$WORK_DIR/stage-check.out" 2>&1; then
+  fail "validate-config-stage accepted a stage sing-box rejected"
+fi
+grep -Fq 'Usage:' "$WORK_DIR/stage-check.out" &&
+  fail "singbox/runtime.uc does not dispatch validate-config-stage"
+grep -Fq 'Staged sing-box configuration is invalid: ' "$WORK_DIR/stage-check.log" ||
+  fail "a rejected stage must be logged"
+grep -Fq 'FATAL[0000] route: missing outbound tag' "$WORK_DIR/stage-check.log" ||
+  fail "a rejected stage must be logged with sing-box's diagnostic"
+mkdir -p "$WORK_DIR/check-ok-bin"
+printf '#!/bin/sh\nexit 0\n' >"$WORK_DIR/check-ok-bin/sing-box"
+cp "$WORK_DIR/check-bin/logger" "$WORK_DIR/check-ok-bin/logger"
+chmod +x "$WORK_DIR/check-ok-bin/sing-box"
+FORKOP_TEST_LOGGER_LOG="$WORK_DIR/stage-ok.log" PATH="$WORK_DIR/check-ok-bin:$PATH" \
+  ucode -L "$FORKOP_LIB" "$SINGBOX_RUNTIME_UC" validate-config-stage "$WORK_DIR/invalid-config.json" ||
+  fail "validate-config-stage rejected a stage sing-box accepted"
+
 cat >"$WORK_DIR/generator-failure.log" <<'EOF_GENERATOR_FAILURE'
 skipped incompatible subscription outbound for rule 'only_xhttp': Only XHTTP node (XHTTP requires sing-box-extended)
 connection section has no usable outbounds
