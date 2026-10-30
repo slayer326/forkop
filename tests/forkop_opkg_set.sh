@@ -47,6 +47,7 @@ let downloads = [];
 let recovery_dir = false;
 let marker = "";
 let marker_tmp = "";
+function as_string(value) { return value == null ? "" : "" + value; }
 function file_exists(path) { return path == FORKOP_OPKG_RECOVERY_DIR ? recovery_dir : marker != ""; }
 function file_nonempty(path) { return index(downloads, path) >= 0; }
 function read_file(path) { return marker; }

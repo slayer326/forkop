@@ -1806,6 +1806,77 @@ function latency_test_url() {
     return value == "" ? DEFAULT_LATENCY_TEST_URL : value;
 }
 
+function latency_probe_concurrency() {
+    let configured = trim(as_string(getenv("FORKOP_LATENCY_PROBE_CONCURRENCY") || ""));
+    let value = match(configured, /^[0-9]+$/) != null ? int(configured) : 4;
+    if (value < 1)
+        value = 1;
+    return value > 8 ? 8 : value;
+}
+
+function latency_probe_command(plan, proxy_tag) {
+    let args = clash_curl(clash_delay_max_time(plan.timeout, plan.proxies[proxy_tag]));
+    push(args, "-G", clash_latency_endpoint(plan.base_url, proxy_tag, plan.proxy_types[proxy_tag]));
+    for (let item in plan.auth) push(args, item);
+    push(args, "--data-urlencode");
+    push(args, "url=" + plan.test_url);
+    push(args, "--data-urlencode");
+    push(args, "timeout=" + plan.timeout);
+    return command_from_args(args);
+}
+
+// One curl per proxy, as before, but several of them in flight: the core
+// probes concurrently inside a single group request anyway, while this sweep
+// paid the full per-proxy timeout once per member, holding the latency lock
+// for minutes on a large proxy list. Callers pass the phases apart, so a
+// urltest group is still measured after its own members.
+// FORKOP_LATENCY_PROBE_CONCURRENCY=1 restores the strictly sequential sweep.
+function probe_proxy_latencies(plan, proxy_tags, progress) {
+    let concurrency = latency_probe_concurrency();
+    let next = 0;
+
+    while (next < length(proxy_tags)) {
+        let batch = [];
+        while (length(batch) < concurrency && next < length(proxy_tags)) {
+            push(batch, proxy_tags[next]);
+            next++;
+        }
+
+        let probes = [];
+        let script = "";
+        for (let proxy_tag in batch) {
+            let command = latency_probe_command(plan, proxy_tag);
+            let path = length(batch) > 1 ? trim(command_output_from_args([ "mktemp" ])) : "";
+            if (path == "") {
+                // Alone in its batch, or without a temporary file: capture it
+                // directly, which is what the sequential sweep always did.
+                push(probes, { path: "", output: command_output(command) });
+                continue;
+            }
+            push(probes, { path, output: "" });
+            script += command + " >" + shell_quote(path) + " 2>/dev/null & ";
+        }
+        if (script != "")
+            command_status(script + "wait");
+
+        for (let probe in probes) {
+            let output = probe.output;
+            if (probe.path != "") {
+                output = as_string(fs.readfile(probe.path));
+                fs.unlink(probe.path);
+            }
+            if (status_capture([ "stdin-json" ], output).status != 0)
+                progress.failed++;
+            progress.completed++;
+            if (progress.path != "")
+                module_success(SERVICE_UI_UC, [ "latency-progress-state", progress.path,
+                    progress.completed, progress.total, progress.failed ]);
+        }
+    }
+
+    return progress;
+}
+
 function clash_api_request(action, arg1, arg2, arg3, auth) {
     let base_url = clash_api_url();
     let test_url = latency_test_url();
@@ -1960,77 +2031,6 @@ function clash_api_request(action, arg1, arg2, arg3, auth) {
     if (unknown.output != "")
         print(unknown.output);
     return 1;
-}
-
-function latency_probe_concurrency() {
-    let configured = trim(as_string(getenv("FORKOP_LATENCY_PROBE_CONCURRENCY") || ""));
-    let value = match(configured, /^[0-9]+$/) != null ? int(configured) : 4;
-    if (value < 1)
-        value = 1;
-    return value > 8 ? 8 : value;
-}
-
-function latency_probe_command(plan, proxy_tag) {
-    let args = clash_curl(clash_delay_max_time(plan.timeout, plan.proxies[proxy_tag]));
-    push(args, "-G", clash_latency_endpoint(plan.base_url, proxy_tag, plan.proxy_types[proxy_tag]));
-    for (let item in plan.auth) push(args, item);
-    push(args, "--data-urlencode");
-    push(args, "url=" + plan.test_url);
-    push(args, "--data-urlencode");
-    push(args, "timeout=" + plan.timeout);
-    return command_from_args(args);
-}
-
-// One curl per proxy, as before, but several of them in flight: the core
-// probes concurrently inside a single group request anyway, while this sweep
-// paid the full per-proxy timeout once per member, holding the latency lock
-// for minutes on a large proxy list. Callers pass the phases apart, so a
-// urltest group is still measured after its own members.
-// FORKOP_LATENCY_PROBE_CONCURRENCY=1 restores the strictly sequential sweep.
-function probe_proxy_latencies(plan, proxy_tags, progress) {
-    let concurrency = latency_probe_concurrency();
-    let next = 0;
-
-    while (next < length(proxy_tags)) {
-        let batch = [];
-        while (length(batch) < concurrency && next < length(proxy_tags)) {
-            push(batch, proxy_tags[next]);
-            next++;
-        }
-
-        let probes = [];
-        let script = "";
-        for (let proxy_tag in batch) {
-            let command = latency_probe_command(plan, proxy_tag);
-            let path = length(batch) > 1 ? trim(command_output_from_args([ "mktemp" ])) : "";
-            if (path == "") {
-                // Alone in its batch, or without a temporary file: capture it
-                // directly, which is what the sequential sweep always did.
-                push(probes, { path: "", output: command_output(command) });
-                continue;
-            }
-            push(probes, { path, output: "" });
-            script += command + " >" + shell_quote(path) + " 2>/dev/null & ";
-        }
-        if (script != "")
-            command_status(script + "wait");
-
-        for (let probe in probes) {
-            let output = probe.output;
-            if (probe.path != "") {
-                output = as_string(fs.readfile(probe.path));
-                fs.unlink(probe.path);
-            }
-            if (status_capture([ "stdin-json" ], output).status != 0)
-                progress.failed++;
-            progress.completed++;
-            if (progress.path != "")
-                module_success(SERVICE_UI_UC, [ "latency-progress-state", progress.path,
-                    progress.completed, progress.total, progress.failed ]);
-        }
-    }
-
-    return progress;
 }
 
 function clash_api(action, arg1, arg2, arg3) {
