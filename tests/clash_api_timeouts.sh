@@ -217,14 +217,14 @@ LATE_GROUP_PORT="$CONTROLLER_PORT"
 
 mkdir -p "$WORK_DIR/bin" "$WORK_DIR/etc"
 # Records each command line on one line (a newline inside an argument, as in
-# -w '\n%{http_code}', becomes a space), then runs the real curl.
+# -w '\n%{http_code}', becomes a space), then runs the real curl. The line is
+# appended in one write: the latency sweep runs several delay requests at once,
+# and piecemeal writes would interleave their arguments.
 cat >"$WORK_DIR/bin/curl" <<'SH'
 #!/bin/sh
-{
-  printf 'ARGV:'
-  for arg in "$@"; do printf ' %s' "$(printf '%s' "$arg" | tr '\n' ' ')"; done
-  printf '\n'
-} >>"${CLASH_TEST_CURL_LOG:?}"
+line='ARGV:'
+for arg in "$@"; do line="$line $(printf '%s' "$arg" | tr '\n' ' ')"; done
+printf '%s\n' "$line" >>"${CLASH_TEST_CURL_LOG:?}"
 exec "${CLASH_TEST_REAL_CURL:?}" "$@"
 SH
 cat >"$WORK_DIR/bin/logger" <<'SH'
