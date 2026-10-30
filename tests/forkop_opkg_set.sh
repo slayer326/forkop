@@ -11,7 +11,9 @@ import re
 import sys
 
 source = (pathlib.Path(sys.argv[1]) / 'forkop/files/usr/lib/components/action.uc').read_text()
-names = ('forkop_release_matches', 'opkg_forkop_set_versions_match',
+names = ('forkop_release_version_matches', 'forkop_release_matches',
+         'forkop_set_package_names', 'opkg_forkop_set_versions_match',
+         'forkop_installed_version_mismatch',
          'pkg_set_extension', 'pkg_forkop_set_command', 'forkop_recovery_files',
          'restore_forkop_opkg_service', 'finish_forkop_opkg_recovery',
          'recover_forkop_opkg_set', 'forkop_package_set_space_error',
@@ -37,6 +39,9 @@ let failure = "";
 let uncommitted = "";
 let rollback_failure = "";
 let checksummed_previous = false;
+// Packages whose version query fails once their new version is installed:
+// opkg refuses even read-only queries while another invocation holds its lock.
+let query_errors = {};
 let events = [];
 let downloads = [];
 let recovery_dir = false;
@@ -63,7 +68,12 @@ function command_success_from_args(args) {
     check(false, "unexpected filesystem command");
 }
 function check(ok, message) { if (!ok) { warn("FAIL: " + message + "\n"); exit(1); } }
-function installed_package_version(name) { return versions[name] || ""; }
+function read_installed_package_version(name) {
+    if (query_errors[name] && versions[name] == "1.1.0-r1")
+        return { state: "error", version: "", error: "opkg_conf_load: Could not lock /var/lock/opkg.lock: Resource temporarily unavailable." };
+    return versions[name] ? { state: "found", version: versions[name], error: "" } :
+        { state: "missing", version: "", error: "" };
+}
 function forkop_status_running_with_timeout() { return service_running; }
 function previous_forkop_release(version) {
     check(version == FORKOP_VERSION, "wrong previous release");
@@ -130,6 +140,7 @@ function reset() {
     forkop_stopped_for_release_upgrade = false;
     service_running = true;
     service_restart_fail = false;
+    query_errors = {};
 }
 for (let target in [ "", "forkop", "luci-app-forkop", "luci-i18n-forkop-ru" ]) {
     reset(); failure = target;
@@ -166,6 +177,24 @@ check(index(error, "archives retained") >= 0 && marker != "" && recovery_dir,
 rollback_failure = ""; failure = "";
 check(recover_forkop_opkg_set() == "" && opkg_forkop_set_versions_match("1.0.0", true) && marker == "",
     "pending recovery did not restore previous package set");
+reset(); query_errors = { "luci-app-forkop": true };
+let busy_error = install_forkop_package_set("1.1.0", "/new/forkop_1.1.0.ipk",
+    "/new/luci-app-forkop_1.1.0.ipk", "/new/luci-i18n-forkop-ru_1.1.0.ipk");
+check(busy_error == "", "a failed version query rolled back a good upgrade: " + busy_error);
+check(versions["luci-app-forkop"] == "1.1.0-r1" && marker == "", "a failed version query left the upgrade unfinished");
+let busy_logged = false;
+for (let event in events) {
+    if (index(event, "Restoring Forkop release package ") == 0) check(false, "a failed version query restored the old set");
+    if (index(event, "Could not read the installed version of luci-app-forkop after installation: opkg_conf_load") == 0) busy_logged = true;
+}
+check(busy_logged, "the failed version query was not logged");
+reset(); uncommitted = "luci-i18n-forkop-ru";
+install_forkop_package_set("1.1.0", "/new/forkop_1.1.0.ipk",
+    "/new/luci-app-forkop_1.1.0.ipk", "/new/luci-i18n-forkop-ru_1.1.0.ipk");
+let named = false;
+for (let event in events)
+    if (event == "Forkop package versions disagree after installation (expected 1.1.0, installed luci-i18n-forkop-ru 1.0.0-r1)") named = true;
+check(named, "a version that disagrees was not named with what was read");
 reset(); failure = "";
 versions["luci-i18n-forkop-ru"] = "";
 check(install_forkop_package_set("1.1.0", "/new/forkop_1.1.0.ipk",

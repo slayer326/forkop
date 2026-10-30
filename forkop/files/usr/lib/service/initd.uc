@@ -83,6 +83,9 @@ const STOP_ACK_REASONS = [ "config-restore" ];
 
 const DNS_APPLY_UC = LIB_DIR + "/dns/apply.uc";
 const UI_UC = LIB_DIR + "/service/ui.uc";
+// Loaded only by the WAN-up hook, and only to put back the routing of a
+// runtime that is otherwise still there; the status and trigger hooks do not.
+const LIFECYCLE_UC = LIB_DIR + "/service/lifecycle.uc";
 
 function shell_quote(value) {
     return "'" + replace(as_string(value), /'/g, "'\\''") + "'";
@@ -762,8 +765,28 @@ function badwan_interface_monitored(settings, interface_name) {
     return false;
 }
 
-function wan_up_action(runtime_running_value, service_enabled_value, retry_pending_value, monitoring_value, stop_requested_value) {
+// netifd flushes every ip rule when it starts and the devices it takes down
+// lose their routes, so a network restart can leave the core and the nft table
+// running with nothing routing to them. That is not a failed start and must
+// not be answered with one.
+function wan_up_restore_routing_action(runtime_running_value, service_enabled_value, stop_requested_value) {
     if (bool_text(runtime_running_value))
+        return "skip_running";
+    if (bool_text(stop_requested_value))
+        return "skip_stopped";
+    if (!bool_text(service_enabled_value))
+        return "skip_disabled";
+    return "restore_routing";
+}
+
+// Lifecycle decides under its own lock whether anything is missing, and leaves
+// the core alone either way.
+function restore_lost_routing() {
+    return module_status(LIFECYCLE_UC, [ "restore-routing" ]) == 0;
+}
+
+function wan_up_action(runtime_running_value, service_enabled_value, retry_pending_value, monitoring_value, stop_requested_value, routing_restored_value) {
+    if (bool_text(runtime_running_value) || bool_text(routing_restored_value))
         return bool_text(monitoring_value) ? "reload" : "skip_running";
     return retry_start_on_wan_up_action(runtime_running_value, service_enabled_value, retry_pending_value, stop_requested_value);
 }
@@ -771,12 +794,17 @@ function wan_up_action(runtime_running_value, service_enabled_value, retry_pendi
 function handle_wan_up(owner_pid) {
     let settings = uci_settings();
     let running = runtime_is_running() ? "1" : "0";
+    let enabled = service_is_enabled() ? "1" : "0";
+    let stop_requested = start_retry_stop_requested() ? "1" : "0";
+    let restored = wan_up_restore_routing_action(running, enabled, stop_requested) == "restore_routing" &&
+        restore_lost_routing() ? "1" : "0";
     let action = wan_up_action(
         running,
-        (deferred_start_stop_request() != null || service_is_enabled()) ? "1" : "0",
+        (deferred_start_stop_request() != null || enabled == "1") ? "1" : "0",
         start_retry_pending(START_RETRY_FILE) ? "1" : "0",
         badwan_interface_monitored(settings, "wan") ? "1" : "0",
-        start_retry_stop_requested() ? "1" : "0"
+        stop_requested,
+        restored
     );
 
     if (action == "reload") {
@@ -1313,7 +1341,9 @@ else if (mode == "handle-wan-up")
 else if (mode == "retry-start-on-wan-up-action")
     print(retry_start_on_wan_up_action(ARGV[1], ARGV[2], ARGV[3], ARGV[4]), "\n");
 else if (mode == "wan-up-action")
-    print(wan_up_action(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5]), "\n");
+    print(wan_up_action(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5], ARGV[6]), "\n");
+else if (mode == "wan-up-restore-routing-action")
+    print(wan_up_restore_routing_action(ARGV[1], ARGV[2], ARGV[3]), "\n");
 else if (mode == "service-enabled")
     exit(service_is_enabled() ? 0 : 1);
 else if (mode == "mark-start-retry")

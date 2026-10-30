@@ -1554,6 +1554,46 @@ function cleanup_failed_runtime() {
     return status;
 }
 
+// netifd flushes every ip rule when it starts, and a device it takes down loses
+// its routes. After /etc/init.d/network restart the rule at priority 105 and
+// the local routes of the Forkop table are gone in both families while the core
+// and the nft table keep running: what the table marks finds no route to the
+// core, and nothing used to bring the routing back. A network reload, which is
+// how LuCI applies network settings, flushes nothing.
+function routing_lost() {
+    return command_success_from_args([ "nft", "list", "table", "inet", NFT_TABLE_NAME ]) &&
+        !module_success(NFT_UC, [ "transition-guard-present", NFT_TABLE_NAME ]) &&
+        module_success(STATE_UC, [ "sing-box-service-running" ]) &&
+        !module_success(NFT_UC, [ "tproxy-route-rule-present", RT_TABLE_NAME, NFT_FAKEIP_MARK ]);
+}
+
+// Restores the routing of a runtime that is otherwise intact. The core keeps
+// running and is never restarted; the reload lock keeps this away from a
+// lifecycle action, and the table check from a stop, which deletes the table
+// before the routing.
+// Status 0 restored the routing, 1 means a lifecycle action holds the lock,
+// 2 that there was nothing to restore, 3 that the attempt failed.
+function restore_routing() {
+    if (!module_success(STATE_UC, [ "acquire-runtime-dir-lock", RELOAD_LOCK_DIR, owner_pid() ]))
+        return 1;
+
+    let status = 2;
+    if (routing_lost()) {
+        module_success(NFT_UC, [ "ensure-tproxy-route-rule", RT_TABLE_NAME, NFT_FAKEIP_MARK ]);
+        if (module_success(NFT_UC, [ "tproxy-route-rule-present", RT_TABLE_NAME, NFT_FAKEIP_MARK ])) {
+            log_message("The WAN came up without Forkop's routing; restored it", "info");
+            status = 0;
+        }
+        else {
+            log_message("The WAN came up without Forkop's routing and it could not be restored", "error");
+            status = 3;
+        }
+    }
+
+    release_reload_lock();
+    return status;
+}
+
 // The reload gives way to a stop (reload_gives_way_to_stop): sing-box stays
 // stopped, the fail-closed guards and the rest of the teardown are left to
 // the stop, and nothing this reload prepared is kept. Not a failure: the next
@@ -2820,6 +2860,8 @@ else if (mode == "reload-reason-fixture") {
     reload_reason_fixture(ARGV[1] || "");
     status = 0;
 }
+else if (mode == "restore-routing")
+    status = restore_routing();
 else if (mode == "dns-failover-apply")
     status = dns_failover_apply(ARGV[1] || "");
 else if (mode == "restart")

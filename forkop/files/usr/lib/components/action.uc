@@ -384,17 +384,91 @@ function installed_package_version(package_name) {
     return trim(module_output([ LIB_DIR + "/core/packages.uc", "opkg-version", package_name ]));
 }
 
-function forkop_release_matches(package_name, version) {
-    let installed = installed_package_version(package_name);
+// installed_package_version() reports an unanswered query and a package that
+// is not installed as the same empty string. Verification after an upgrade
+// must tell them apart: opkg fails read-only queries while its global lock is
+// busy, apk can fail without a word, and neither is a reason to discard a good
+// installation. core/packages.uc falls back to the package databases, which
+// answer without the lock.
+function read_installed_package_version(package_name) {
+    package_name = as_string(package_name);
+    let output_file = make_tmp_file("version");
+    if (output_file == "")
+        output_file = "/tmp/forkop-updates-version." + owner_pid();
+
+    let state;
+    for (let attempt = 0; attempt <= 2; attempt++) {
+        let status = command_status(module_command([ LIB_DIR + "/core/packages.uc",
+            "installed-version", package_name ]) + " >" + shell_quote(output_file) + " 2>&1");
+        let line = trim(as_string(split(read_file(output_file), "\n")[0] || ""));
+        if (substr(line, 0, 6) == "found ")
+            state = { state: "found", version: trim(substr(line, 6)), error: "" };
+        else if (line == "missing")
+            state = { state: "missing", version: "", error: "" };
+        else
+            state = { state: "error", version: "", error:
+                substr(line, 0, 6) == "error " ? trim(substr(line, 6)) :
+                (line != "" ? line : "the version query failed with exit code " + status) };
+        if (state.state != "error" || attempt == 2)
+            break;
+        updates_log("Retrying the installed version query for " + package_name +
+            ": " + state.error, "warn");
+        command_success_from_args([ "sleep", "1" ]);
+    }
+    remove_file(output_file);
+    return state;
+}
+
+function forkop_release_version_matches(installed, version) {
+    installed = as_string(installed);
+    version = as_string(version);
     let revision_prefix = version + "-r";
     return installed == version || (substr(installed, 0, length(revision_prefix)) == revision_prefix &&
         match(substr(installed, length(revision_prefix)), /^[0-9]+$/) != null);
 }
 
+function forkop_release_matches(package_name, version) {
+    let state = read_installed_package_version(package_name);
+    return state.state == "found" && forkop_release_version_matches(state.version, version);
+}
+
+function forkop_set_package_names(with_i18n) {
+    let names = [ "forkop", "luci-app-forkop" ];
+    if (with_i18n)
+        push(names, "luci-i18n-forkop-ru");
+    return names;
+}
+
 function opkg_forkop_set_versions_match(version, with_i18n) {
-    return forkop_release_matches("forkop", version) &&
-        forkop_release_matches("luci-app-forkop", version) &&
-        (!with_i18n || forkop_release_matches("luci-i18n-forkop-ru", version));
+    for (let name in forkop_set_package_names(with_i18n))
+        if (!forkop_release_matches(name, version))
+            return false;
+    return true;
+}
+
+// The check after a package set was installed and every install command
+// reported success. Only a version actually read can disagree: a query that
+// still fails after its retries is logged instead of rolling a good
+// installation back. Returns "" or the disagreement, with the values read.
+function forkop_installed_version_mismatch(expected, with_i18n) {
+    expected = as_string(expected);
+    let mismatched = [];
+    for (let name in forkop_set_package_names(with_i18n)) {
+        let state = read_installed_package_version(name);
+        if (state.state == "found" && forkop_release_version_matches(state.version, expected))
+            continue;
+        if (state.state == "found")
+            push(mismatched, name + " " + state.version);
+        else if (state.state == "missing")
+            push(mismatched, name + " not installed");
+        else
+            updates_log("Could not read the installed version of " + name +
+                " after installation: " + state.error, "warn");
+    }
+    if (length(mismatched) == 0)
+        return "";
+    return "Forkop package versions disagree after installation (expected " +
+        expected + ", installed " + join("; ", mismatched) + ")";
 }
 
 function upgrade_sing_box_ticks(pid) {
@@ -542,6 +616,54 @@ function array_has(values, needle) {
     return false;
 }
 
+// The packages that own /usr/bin/sing-box. A variant switch removes every one
+// of them but the target before it installs the target.
+const SING_BOX_VARIANT_PACKAGE_NAMES = [ "sing-box", "sing-box-tiny", "sing-box-extended", "podkop-engine", "podkop-engine-full" ];
+
+// The packages an opkg dry run names as conflicting with the one it installs.
+// opkg prints a heading and then every name behind a message prefix of its
+// own, which can leave several on one line:
+//  * check_conflicts_for: The following packages conflict with podkop-engine-full:
+//  * check_conflicts_for: <TAB>sing-box-tiny *
+function opkg_dry_run_conflicts(output) {
+    let conflicts = [];
+    for (let line in split(as_string(output), "\n")) {
+        let parts = split(as_string(line), "check_conflicts_for:");
+        for (let i = 1; i < length(parts); i++) {
+            let parsed = match(parts[i], /^[ \t]+([A-Za-z0-9][A-Za-z0-9._+-]*)[ \t*]*$/);
+            if (parsed != null && !array_has(conflicts, parsed[1]))
+                push(conflicts, parsed[1]);
+        }
+    }
+    return conflicts;
+}
+
+// True when a dry run failed only because another sing-box variant is
+// installed: podkop-engine-full, for one, conflicts with sing-box-tiny. opkg
+// checks conflicts before dependencies, so such a run says nothing about them.
+function opkg_dry_run_blocked_by_variant(output) {
+    if (index(as_string(output), "Cannot satisfy the following dependencies") >= 0)
+        return false;
+    let conflicts = opkg_dry_run_conflicts(output);
+    if (length(conflicts) == 0)
+        return false;
+    for (let name in conflicts)
+        if (!array_has(SING_BOX_VARIANT_PACKAGE_NAMES, name))
+            return false;
+    return true;
+}
+
+// The dependencies a successful dry run would install with the package.
+function opkg_dry_run_dependencies(output, package_name) {
+    let dependencies = [];
+    for (let line in split(as_string(output), "\n")) {
+        let parsed = match(trim(line), /^Installing ([A-Za-z0-9][A-Za-z0-9._+-]*) \(/);
+        if (parsed != null && parsed[1] != as_string(package_name) && !array_has(dependencies, parsed[1]))
+            push(dependencies, parsed[1]);
+    }
+    return dependencies;
+}
+
 // opkg refuses a package whose dependencies are not installed yet, and the
 // sing-box variant switch removes the current package first. Resolve the
 // dependencies from a dry run and install them while the old variant is still
@@ -554,7 +676,22 @@ function opkg_sing_box_dependencies_to_install(package_path, package_name) {
     let simulation = command_from_args([
         "opkg", "--noaction", "--force-space", "install", "--force-overwrite", "--force-downgrade", package_path
     ]);
-    if (!run_logged("Checking sing-box package dependencies", simulation)) {
+    let passed = run_logged("Checking sing-box package dependencies", simulation);
+    if (!passed && opkg_dry_run_blocked_by_variant(last_logged_output)) {
+        // The switch removes the conflicting variant itself. Here
+        // --force-depends only skips the conflict check: a dependency opkg
+        // cannot find is still printed, and is still a failure.
+        updates_log("The installed sing-box variant conflicts with " + as_string(package_name) +
+            ", which replaces it; checking the dependencies without it");
+        let without_conflicts = command_from_args([
+            "opkg", "--noaction", "--force-space", "--force-depends", "install", "--force-overwrite", "--force-downgrade", package_path
+        ]);
+        if (!run_logged("Checking sing-box package dependencies", without_conflicts) ||
+            index(last_logged_output, "Cannot satisfy the following dependencies") >= 0)
+            return null;
+        return opkg_dry_run_dependencies(last_logged_output, package_name);
+    }
+    if (!passed) {
         let pending = "";
         let missing = [];
         for (let line in split(last_logged_output, "\n")) {
@@ -570,13 +707,7 @@ function opkg_sing_box_dependencies_to_install(package_path, package_name) {
         return length(missing) > 0 ? missing : null;
     }
 
-    let dependencies = [];
-    for (let line in split(last_logged_output, "\n")) {
-        let parsed = match(trim(line), /^Installing ([A-Za-z0-9][A-Za-z0-9._+-]*) \(/);
-        if (parsed != null && parsed[1] != as_string(package_name) && !array_has(dependencies, parsed[1]))
-            push(dependencies, parsed[1]);
-    }
-    return dependencies;
+    return opkg_dry_run_dependencies(last_logged_output, package_name);
 }
 
 function install_opkg_sing_box_dependencies(package_path, package_name) {
@@ -2881,9 +3012,12 @@ function install_forkop_package_set(latest_version, backend_file, app_file, i18n
             }
         }
     }
-    if (!failed && opkg_forkop_set_versions_match(latest_version, with_i18n)) {
+    let version_mismatch = failed ? "" : forkop_installed_version_mismatch(latest_version, with_i18n);
+    if (!failed && version_mismatch == "") {
         return finish_forkop_opkg_recovery(forkop_was_running ? "1" : "0");
     }
+    if (version_mismatch != "")
+        updates_log(version_mismatch, "warn");
 
     if (opkg_forkop_set_versions_match(latest_version, with_i18n)) {
         let recovery_error = finish_forkop_opkg_recovery(forkop_was_running ? "1" : "0");
