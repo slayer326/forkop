@@ -86,6 +86,10 @@ function run_logged(description, command) {
     let output_file = ARGV[2];
     let status = system(as_string(command) + " >" + shell_quote(output_file) + " 2>&1");
     last_logged_output = as_string(readfile(output_file));
+    push(switch_notes, "$ " + as_string(command) + " -> exit " + status);
+    for (let line in split(last_logged_output, "
+"))
+        if (trim(line) != "") push(switch_notes, "  " + line);
     return status == 0;
 }
 UCODE
