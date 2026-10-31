@@ -1,0 +1,87 @@
+name: OpenWrt compatibility
+
+# Installs the built packages into official OpenWrt rootfs images and checks
+# them with each release's own ucode, busybox, package manager and package
+# database (tests/openwrt/compat_check.sh). The oldest image of a series keeps
+# the ucode its firmware shipped with, as a router that never upgraded it does.
+
+on:
+  workflow_call:
+    inputs:
+      artifact:
+        description: Name of the uploaded artifact holding the .ipk and .apk packages
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Published release whose packages are checked
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  compat:
+    name: OpenWrt ${{ matrix.release }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        release:
+          - '24.10.1'
+          - '24.10.8'
+          - '25.12.0'
+          - '25.12.6'
+    steps:
+      - uses: actions/checkout@v5.0.0
+
+      - name: Download the built packages
+        if: inputs.artifact != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact }}
+          path: ./compat-packages
+
+      - name: Download the release packages
+        if: inputs.artifact == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --dir ./compat-packages --pattern '*.ipk' --pattern '*.apk'
+
+      # The package's postinst moves the feeds to the Forkop mirror and refuses
+      # a platform the mirror's index does not list; the mirror carries no x86
+      # packages. A local stand-in lists the image's platform and serves an
+      # APK key, so the migration runs for real against the image's feeds.
+      - name: Serve a stand-in Forkop mirror
+        env:
+          RELEASE: ${{ matrix.release }}
+        run: |
+          mkdir -p ./compat-mirror/openwrt ./compat-mirror/forkop
+          printf 'x86/64\tx86_64\t%s\tipk\nx86/64\tx86_64\t%s\tapk\n' "$RELEASE" "$RELEASE" \
+            > ./compat-mirror/openwrt/forkop-platforms.tsv
+          openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out ./compat-mirror/key.pem
+          openssl pkey -in ./compat-mirror/key.pem -pubout -out ./compat-mirror/forkop/forkop-apk.pem
+          rm ./compat-mirror/key.pem
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory ./compat-mirror >/dev/null 2>&1 &
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            curl -fsS http://127.0.0.1:8765/openwrt/forkop-platforms.tsv && break
+            sleep 1
+          done
+
+      - name: Check the packages on OpenWrt ${{ matrix.release }}
+        env:
+          IMAGE: openwrt/rootfs:x86-64-${{ matrix.release }}
+        run: |
+          ls -l ./compat-packages
+          docker pull --quiet "$IMAGE"
+          docker run --rm --network host \
+            -e FORKOP_MIRROR_BASE_URL=http://127.0.0.1:8765 \
+            -v "$PWD:/src:ro" \
+            -v "$PWD/compat-packages:/packages:ro" \
+            "$IMAGE" /bin/sh /src/tests/openwrt/compat_check.sh /packages /src
