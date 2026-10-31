@@ -1304,7 +1304,47 @@ function global_nft_other_mark_exists() {
     exit(type(value) == "object" && flag_is_one(value.rules_other_mark_exist) ? 0 : 1);
 }
 
-function nft_ruleset_other_mark_lines(table_name) {
+function mark_number(value) {
+    value = lc(as_string(value));
+    if (match(value, /^0x[0-9a-f]+$/) != null)
+        return int(substr(value, 2), 16);
+    if (match(value, /^[0-9]+$/) != null)
+        return int(value);
+    return null;
+}
+
+// Whether an nft rule line can set or clear Forkop's mark bit. Another
+// add-on's rule that only combines its own bits into the packet mark, such as
+// a DPI bypass's "meta mark set meta mark | 0x20000000", leaves Forkop's
+// traffic alone. Any other new mark (a constant, ct mark, ...) may change it.
+function mark_rule_changes_bit(line, bit_value) {
+    let bit = mark_number(bit_value);
+    let found = match(as_string(line), /meta mark set (.*)$/);
+    if (found == null)
+        return false;
+    if (bit == null)
+        return true;
+    let tokens = split(trim(found[1]), /[ \t]+/);
+    if (length(tokens) < 2 || tokens[0] != "meta" || tokens[1] != "mark")
+        return true;
+    for (let i = 2; i + 1 < length(tokens); i += 2) {
+        let operand = mark_number(tokens[i + 1]);
+        if (index([ "&", "|", "^" ], tokens[i]) < 0 || operand == null)
+            break;
+        if ((tokens[i] == "&" && (operand & bit) == 0) || (tokens[i] != "&" && (operand & bit) != 0))
+            return true;
+    }
+    return false;
+}
+
+function nft_mark_rules_change_bit(bit_value) {
+    for (let line in split(read_stdin(), "\n"))
+        if (mark_rule_changes_bit(line, bit_value))
+            exit(0);
+    exit(1);
+}
+
+function nft_ruleset_other_mark_lines(table_name, bit_value) {
     table_name = as_string(table_name);
     let in_forkop_table = false;
 
@@ -1318,7 +1358,7 @@ function nft_ruleset_other_mark_lines(table_name) {
         if (match(line, /^table/) != null)
             in_forkop_table = false;
 
-        if (!in_forkop_table && (index(line, "mark set") >= 0 || index(line, "meta mark") >= 0))
+        if (!in_forkop_table && mark_rule_changes_bit(line, bit_value))
             print_line(line);
     }
 }
@@ -1808,7 +1848,9 @@ else if (mode == "global-nft-check")
 else if (mode == "global-nft-other-mark-exists")
     global_nft_other_mark_exists();
 else if (mode == "nft-ruleset-other-mark-lines")
-    nft_ruleset_other_mark_lines(ARGV[1]);
+    nft_ruleset_other_mark_lines(ARGV[1], ARGV[2]);
+else if (mode == "nft-mark-rules-change-bit")
+    nft_mark_rules_change_bit(ARGV[1]);
 else if (mode == "nft-set-element-count")
     nft_set_element_count();
 else if (mode == "nft-chain-config-blocks")

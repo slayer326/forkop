@@ -2611,7 +2611,11 @@ function launch_component_worker(args) {
 
 function component_action_worker(state_file, output_file, component, action, version) {
     component = normalize_component_name(component);
-    let command = command_env(component_worker_env()) + " " +
+    // rpcd runs with umask 0077. An installer run from the panel then
+    // created /opt as 0700, and a daemon that drops to an unprivileged user
+    // could no longer read its own files there. Install as from a root
+    // console; the job's output file is still opened under the old umask.
+    let command = "(umask 022 && " + command_env(component_worker_env()) + " " +
         command_from_args([
             "ucode",
             "-L", LIB_DIR,
@@ -2620,7 +2624,7 @@ function component_action_worker(state_file, output_file, component, action, ver
             as_string(component),
             as_string(action),
             as_string(version)
-        ]) + " >" + shell_quote(output_file) + " 2>&1";
+        ]) + ") >" + shell_quote(output_file) + " 2>&1";
     let status = command_status(command);
 
     finish_component_job(state_file, component, action, status, output_file);

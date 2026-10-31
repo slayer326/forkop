@@ -210,7 +210,11 @@ function run_spec(command, spec, user_args) {
     for (let i = 0; i < count; i++)
         push(args, user_args[i] || "");
 
-    return normalize_status(system(command_from_args(args)));
+    // rpcd runs the panel's commands with umask 0077, so a directory an
+    // installer or update created from the panel, such as /opt, was closed to
+    // daemons that drop root. Run every command as the service and a root
+    // console do; private files are created with explicit modes.
+    return normalize_status(system("umask 022 && " + command_from_args(args)));
 }
 
 function main() {

@@ -80,6 +80,16 @@ component_updates_out="$(FORKOP_LIB="$fake_lib" ucode "$FORKOP_BIN" component_up
 [ "$component_updates_out" = $'updates\tcomponent-updates-if-due\t\t' ] ||
   fail "component_updates_if_due must dispatch through components/updates.uc"
 
+# rpcd starts the panel's commands with umask 0077; what they create must stay
+# readable to daemons that drop root, as it is from a root console.
+cat >"$fake_lib/components/action.uc" <<'UCODE'
+#!/usr/bin/env ucode
+system("umask");
+UCODE
+umask_out="$(umask 077 && FORKOP_LIB="$fake_lib" ucode "$FORKOP_BIN" component_action zapret_manager install)"
+[ "$umask_out" = "0022" ] ||
+  fail "a command started from the panel must run with umask 0022, not $umask_out"
+
 rm -f "$fake_lib/service/lifecycle.uc"
 set +e
 FORKOP_TEST_DNS_RESTORE_MARKER="$WORK_DIR/dns-restore.marker" FORKOP_LIB="$fake_lib" \

@@ -937,10 +937,11 @@ function zapret_manager_launcher_installed(path) {
         match(source, /https:\/\/raw\.githubusercontent\.com\/(StressOzz|Screamshow)\/Zapret-Manager\/main\/Zapret-Manager\.sh([ \t\r\n"')]|$)/) != null;
 }
 
-// zms alone: Forkop no longer installs zmsA, the launcher of Zapret-Manager's
-// automatic strategy selection (components/action.uc).
+// The panel's backend, or zms: zmsA, the launcher of Zapret-Manager's
+// automatic strategy selection, alone does not count.
 function zapret_manager_is_installed() {
-    return zapret_manager_launcher_installed("/usr/bin/zms");
+    return file_executable("/opt/zapret-manager-luci/backend.sh") ||
+        zapret_manager_launcher_installed("/usr/bin/zms");
 }
 
 function system_info_cache_is_valid() {
@@ -1397,7 +1398,7 @@ function nft_chain_counter_status(chain) {
 
 function nft_table_has_other_mark_rules(family, table_name) {
     let output = command_output_from_args([ "nft", "list", "table", family, table_name ]);
-    return status_success([ "stdin-contains", "meta mark set" ], output);
+    return status_success([ "nft-mark-rules-change-bit", NFT_FAKEIP_MARK ], output);
 }
 
 function check_nft_rules() {
@@ -2268,7 +2269,7 @@ function global_check(arg1, arg2) {
     if (nft_check_json != "") {
         let nft_render = render_or_fail([ "global-nft-check" ], nft_check_json, "❌ Failed to parse NFT rules info", [ 0 ]);
         if (nft_render == 0 && status_success([ "global-nft-other-mark-exists" ], nft_check_json))
-            print(status_output([ "nft-ruleset-other-mark-lines", NFT_TABLE_NAME ], command_output_from_args([ "nft", "list", "ruleset" ])));
+            print(status_output([ "nft-ruleset-other-mark-lines", NFT_TABLE_NAME, NFT_FAKEIP_MARK ], command_output_from_args([ "nft", "list", "ruleset" ])));
     }
     else
         print_global("❌ Failed to get NFT rules info");

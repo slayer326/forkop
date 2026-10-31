@@ -24,11 +24,13 @@ RUNTIME="$ROOT_DIR/forkop/files/usr/lib/diagnostics/runtime.uc"
     '  { name: "without zmsA", zms: mirror, expected: true },' \
     '  { name: "zmsA only", auto: official, expected: false },' \
     '  { name: "unrelated", zms: "#!/bin/sh\necho hello\n", auto: official, expected: false },' \
-    '  { name: "wrong file", zms: official + ".old", auto: official, expected: false }' \
+    '  { name: "wrong file", zms: official + ".old", auto: official, expected: false },' \
+    '  { name: "panel only", panel: true, expected: true }' \
     '];' \
     'for (let test in cases) {' \
     '  sources = { "/usr/bin/zms": test.zms, "/usr/bin/zmsA": test.auto };' \
-    '  executable = { "/usr/bin/zms": test.zms != null, "/usr/bin/zmsA": test.auto != null };' \
+    '  executable = { "/usr/bin/zms": test.zms != null, "/usr/bin/zmsA": test.auto != null,' \
+    '    "/opt/zapret-manager-luci/backend.sh": test.panel == true };' \
     '  if (zapret_manager_is_installed() != test.expected) die("FAIL: " + test.name + "\n");' \
     '}' \
     'print("Zapret-Manager launcher detection passed\n");'
