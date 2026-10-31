@@ -937,10 +937,11 @@ function zapret_manager_launcher_installed(path) {
         match(source, /https:\/\/raw\.githubusercontent\.com\/(StressOzz|Screamshow)\/Zapret-Manager\/main\/Zapret-Manager\.sh([ \t\r\n"')]|$)/) != null;
 }
 
-// zms alone: Forkop no longer installs zmsA, the launcher of Zapret-Manager's
-// automatic strategy selection (components/action.uc).
+// The panel's backend, or zms: zmsA, the launcher of Zapret-Manager's
+// automatic strategy selection, alone does not count.
 function zapret_manager_is_installed() {
-    return zapret_manager_launcher_installed("/usr/bin/zms");
+    return file_executable("/opt/zapret-manager-luci/backend.sh") ||
+        zapret_manager_launcher_installed("/usr/bin/zms");
 }
 
 function system_info_cache_is_valid() {
