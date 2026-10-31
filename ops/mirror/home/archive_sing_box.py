@@ -1,8 +1,8 @@
 """Keep verified sing-box packages after rolling OpenWrt feeds change.
 
-Only packages from complete, published feed snapshots are archived. The
-catalog and blobs are immutable from a router's perspective; a changed
-upstream package becomes a new SHA-256-addressed entry.
+Only packages from complete, published feed snapshots are archived. A
+changed upstream package becomes a new SHA-256-addressed entry; a rebuild of
+the same version supersedes the previous one once the feeds no longer serve it.
 """
 
 import argparse
@@ -81,6 +81,7 @@ def collect(public, snapshots, destination):
         key = tuple(row[k] for k in ('package', 'version', 'arch', 'format', 'sha256'))
         entries[key] = row
 
+    served = set()
     for relative, arch, feed in published_feeds(public, snapshots):
         for path in feed.iterdir():
             if path.is_symlink() or not path.is_file():
@@ -90,6 +91,7 @@ def collect(public, snapshots, destination):
                 continue
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
             key = tuple(identity[k] for k in ('package', 'version', 'arch', 'format')) + (digest,)
+            served.add(key)
             if key in entries:
                 continue
             blob = destination / 'blobs' / digest / path.name
@@ -109,6 +111,20 @@ def collect(public, snapshots, destination):
                             'url': f'/forkop/sing-box-archive/blobs/{digest}/{path.name}',
                             'source': '/openwrt/' + relative.as_posix() + '/' + path.name}
 
+    # The rolling feeds rebuild the same version daily under a new digest.
+    # Keep the builds the feeds serve now, or else the newest archived one.
+    builds = {}
+    for key in entries:
+        builds.setdefault(key[:4], []).append(key)
+    superseded = []
+    for keys in builds.values():
+        kept = [key for key in keys if key in served]
+        if not kept:
+            kept = [max(keys, key=lambda key: (destination / 'blobs' / key[4] /
+                                               entries[key]['filename']).stat().st_mtime)]
+        superseded += [key for key in keys if key not in kept]
+    removed = [entries.pop(key) for key in superseded]
+
     result = {'schema': 1, 'packages': [entries[k] for k in sorted(entries)]}
     temporary = catalog_path.with_name('.packages.json.next')
     with temporary.open('w') as output:
@@ -118,6 +134,12 @@ def collect(public, snapshots, destination):
         os.fsync(output.fileno())
     temporary.chmod(0o644)
     os.replace(temporary, catalog_path)
+    # Only after the catalog stopped listing them.
+    for row in removed:
+        blob = destination / 'blobs' / row['sha256'] / row['filename']
+        blob.unlink(missing_ok=True)
+        if not any(blob.parent.iterdir()):
+            blob.parent.rmdir()
     return len(entries)
 
 

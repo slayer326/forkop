@@ -106,7 +106,9 @@ the same rule runs before each scheduled sync so abandoned attempts cannot
 accumulate indefinitely. Unreferenced dated list snapshots are removed after
 the next list snapshot is published; a broken or missing public list target
 blocks their cleanup. Published sing-box releases remain intact. Unlinked
-content-addressed objects are removed too.
+content-addressed objects are removed too. The synchronizer's own cleanup also
+removes the conditional-request records under `data/requests/` whose object is
+gone, since a download never reuses their validators.
 Run it without arguments for a dry-run; `--apply` performs cleanup under the
 same lock as the synchronizer. The deployed synchronizer also runs this cleanup
 before each daily refresh, so no separate cleanup timer is needed.
@@ -128,7 +130,10 @@ After OpenWrt feed work, `home/archive_sing_box.py` retains `sing-box` and
 `sing-box-tiny` IPK/APK packages from complete published feeds under
 `/forkop/sing-box-archive/blobs/<sha256>/`. Its atomic `packages.json` catalog
 lists the exact version, architecture, format and hash. Existing archived
-versions remain available when an upstream feed rotates; corrupt blobs stop
+versions remain available when an upstream feed rotates. The rolling feeds
+rebuild the same version under a new hash every day, so each version keeps
+only the builds the published feeds serve, or else its newest archived build;
+the catalog drops a superseded build before its blob is removed. Corrupt blobs stop
 archive publication without replacing the last catalog. The archive is not
 used as a rollback source on routers until the matching client-side change has
 passed package and router validation. Include `test_archive_sing_box` in the

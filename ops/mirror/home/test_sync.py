@@ -309,7 +309,7 @@ class MirrorTests(unittest.TestCase):
         m.deferred = []
         m.status = {}
         order = []
-        empty = {'snapshots': 0, 'incomplete': 0, 'objects': 0, 'bytes': 0}
+        empty = {'snapshots': 0, 'incomplete': 0, 'objects': 0, 'bytes': 0, 'requests': 0}
         with patch.object(m, 'openwrt', side_effect=lambda: order.append('openwrt')), \
                 patch.object(sync, 'collect_sing_box_archive',
                              side_effect=lambda *args: order.append('archive') or 0), \
@@ -365,10 +365,25 @@ class MirrorTests(unittest.TestCase):
                 public = root / 'public/openwrt/releases/1/packages'
                 public.parent.mkdir(parents=True)
                 public.symlink_to(os.path.relpath(current, public.parent), target_is_directory=True)
+                requests = root / 'requests'
+                requests.mkdir()
+                current_request = requests / (hashlib.sha256(b'current').hexdigest() + '.json')
+                stale_request = requests / (hashlib.sha256(b'stale').hexdigest() + '.json')
+                corrupt_request = requests / (hashlib.sha256(b'corrupt').hexdigest() + '.json')
+                other_file = requests / 'notes.txt'
+                current_request.write_text(json.dumps({'sha256': current_object.name, 'etag': '"a"'}))
+                stale_request.write_text(json.dumps({'sha256': stale_object.name, 'etag': '"b"'}))
+                corrupt_request.write_text('{')
+                other_file.write_text('kept')
 
                 result = sync.prune_openwrt_snapshots()
                 self.assertEqual(result['snapshots'], 1)
                 self.assertEqual(result['objects'], 1)
+                self.assertEqual(result['requests'], 2)
+                self.assertTrue(current_request.is_file())
+                self.assertFalse(stale_request.exists())
+                self.assertFalse(corrupt_request.exists())
+                self.assertTrue(other_file.is_file())
                 self.assertTrue(current.is_dir())
                 self.assertTrue(incomplete.is_dir())
                 self.assertFalse(stale.exists())

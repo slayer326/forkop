@@ -43,6 +43,41 @@ class SingBoxArchiveTests(unittest.TestCase):
             self.assertEqual(collect(public, snapshots, archive), 1)
             self.assertEqual(blob.read_bytes(), content)
 
+    def test_rebuild_of_a_version_supersedes_the_unserved_build(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            public = root / 'public'
+            archive = public / 'forkop' / 'sing-box-archive'
+            snapshots = root / 'snapshots' / 'openwrt'
+            link = public / 'openwrt' / 'releases' / 'packages-25.12' / 'aarch64_generic' / 'packages'
+            link.parent.mkdir(parents=True)
+            name = 'sing-box-1.14.0-r1.apk'
+
+            def publish_build(snapshot, content):
+                feed = snapshots / 'feed' / snapshot
+                feed.mkdir(parents=True)
+                (feed / '.complete').write_text('done')
+                (feed / name).write_bytes(content)
+                link.unlink(missing_ok=True)
+                link.symlink_to(feed, target_is_directory=True)
+                return archive / 'blobs' / hashlib.sha256(content).hexdigest() / name
+
+            first = publish_build('first', b'first build')
+            self.assertEqual(collect(public, snapshots, archive), 1)
+            second = publish_build('second', b'second build')
+            self.assertEqual(collect(public, snapshots, archive), 1)
+            self.assertFalse(first.exists())
+            self.assertFalse(first.parent.exists())
+            self.assertEqual(second.read_bytes(), b'second build')
+            catalog = json.loads((archive / 'packages.json').read_text())
+            self.assertEqual([row['sha256'] for row in catalog['packages']],
+                             [hashlib.sha256(b'second build').hexdigest()])
+
+            # A version the feeds no longer serve keeps its newest build.
+            link.unlink()
+            self.assertEqual(collect(public, snapshots, archive), 1)
+            self.assertEqual(second.read_bytes(), b'second build')
+
     def test_rejects_corrupted_existing_blob_without_replacing_catalog(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

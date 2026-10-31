@@ -107,7 +107,7 @@ def prune_openwrt_snapshots():
     """
     snapshot_root = DATA / 'snapshots' / 'openwrt'
     if not snapshot_root.exists():
-        return {'snapshots': 0, 'incomplete': 0, 'objects': 0, 'bytes': 0}
+        return {'snapshots': 0, 'incomplete': 0, 'objects': 0, 'bytes': 0, 'requests': 0}
     snapshot_root = snapshot_root.resolve()
 
     published = set()
@@ -170,8 +170,25 @@ def prune_openwrt_snapshots():
                 reclaimed += details.st_size
                 item.unlink()
                 objects += 1
+
+    # fetch() ignores the validators of a request whose object is gone, so
+    # such a record only grows the directory with every feed rotation.
+    requests = 0
+    request_root = DATA / 'requests'
+    if request_root.exists():
+        for item in request_root.iterdir():
+            if item.is_symlink() or not item.is_file() or not re.fullmatch(r'[0-9a-f]{64}\.json', item.name):
+                continue
+            try:
+                digest = json.loads(item.read_text()).get('sha256')
+            except (ValueError, AttributeError):
+                digest = None
+            if not isinstance(digest, str) or not re.fullmatch(r'[0-9a-f]{64}', digest) or \
+                    not (object_root / digest).is_file():
+                item.unlink()
+                requests += 1
     return {'snapshots': len(stale), 'incomplete': len(old_partials),
-            'objects': objects, 'bytes': reclaimed}
+            'objects': objects, 'bytes': reclaimed, 'requests': requests}
 
 
 class Links(html.parser.HTMLParser):
@@ -232,10 +249,11 @@ class Mirror:
         for name in ['objects', 'requests', 'snapshots', 'staging', 'public']:
             (DATA / name).mkdir(exist_ok=True)
         pruned = prune_openwrt_snapshots()
-        if pruned['snapshots'] or pruned['incomplete'] or pruned['objects']:
+        if pruned['snapshots'] or pruned['incomplete'] or pruned['objects'] or pruned['requests']:
             print(stamp(), 'pruned stale OpenWrt snapshots=' + str(pruned['snapshots']),
                   'incomplete=' + str(pruned['incomplete']),
-                  'objects=' + str(pruned['objects']), 'bytes=' + str(pruned['bytes']), flush=True)
+                  'objects=' + str(pruned['objects']), 'bytes=' + str(pruned['bytes']),
+                  'requests=' + str(pruned['requests']), flush=True)
         lists_pruned = cleanup_lists(DATA, apply=True)
         if lists_pruned:
             print(stamp(), 'pruned unreferenced list snapshots=' + str(lists_pruned), flush=True)
@@ -643,10 +661,11 @@ class Mirror:
                     # only snapshots no longer referenced by published feeds.
                     try:
                         pruned = prune_openwrt_snapshots()
-                        if pruned['snapshots'] or pruned['incomplete'] or pruned['objects']:
+                        if pruned['snapshots'] or pruned['incomplete'] or pruned['objects'] or pruned['requests']:
                             self.report('pruned superseded OpenWrt snapshots=' + str(pruned['snapshots']) +
                                         ' incomplete=' + str(pruned['incomplete']) +
-                                        ' objects=' + str(pruned['objects']))
+                                        ' objects=' + str(pruned['objects']) +
+                                        ' requests=' + str(pruned['requests']))
                     except (OSError, RuntimeError, ValueError) as error:
                         # Publication is already complete; failed housekeeping
                         # must never replace a working mirror with a failed run.
