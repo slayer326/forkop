@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-29 09:54+0300\n"
-"PO-Revision-Date: 2026-10-29 09:54+0300\n"
+"POT-Creation-Date: 2026-10-31 20:32+0300\n"
+"PO-Revision-Date: 2026-10-31 20:32+0300\n"
 "Last-Translator: slayer <greatmetall326@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -646,7 +646,7 @@ msgstr ""
 msgid "Check timeout after which the server is considered dead"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:746
+#: src/forkop/tabs/updates/initController.ts:719
 msgid "Check update"
 msgstr ""
 
@@ -702,7 +702,7 @@ msgstr ""
 msgid "Choose Forkop X version"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:1152
+#: src/forkop/tabs/updates/initController.ts:1090
 msgid "Choose version"
 msgstr ""
 
@@ -780,7 +780,7 @@ msgstr ""
 msgid "Component update check interval"
 msgstr ""
 
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/forkop.js:170
+#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/forkop.js:167
 msgid "Components"
 msgstr ""
 
@@ -890,7 +890,7 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:1199
+#: src/forkop/tabs/updates/initController.ts:1122
 msgid "Copy address"
 msgstr ""
 
@@ -985,7 +985,7 @@ msgstr ""
 msgid "Debug"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:969
+#: src/forkop/tabs/updates/initController.ts:910
 msgid "Dedicated cgroup unavailable"
 msgstr ""
 
@@ -1101,7 +1101,7 @@ msgid "DHCP is managed manually"
 msgstr ""
 
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/forkop.js:43
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/forkop.js:146
+#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/forkop.js:143
 #: src/forkop/tabs/dashboard/overviewCards.ts:201
 msgid "Diagnostics"
 msgstr ""
@@ -1122,12 +1122,12 @@ msgstr ""
 msgid "Direct connection"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:939
+#: src/forkop/tabs/updates/initController.ts:880
 msgid "Direct Proxy"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:948
-#: src/forkop/tabs/updates/initController.ts:979
+#: src/forkop/tabs/updates/initController.ts:889
+#: src/forkop/tabs/updates/initController.ts:920
 msgid "Disable"
 msgstr ""
 
@@ -1145,8 +1145,8 @@ msgid "Disable the QUIC protocol to improve compatibility or fix issues with vid
 msgstr ""
 
 #: src/forkop/ui/status.ts:146
-#: src/forkop/tabs/updates/initController.ts:942
-#: src/forkop/tabs/updates/initController.ts:974
+#: src/forkop/tabs/updates/initController.ts:883
+#: src/forkop/tabs/updates/initController.ts:915
 msgid "Disabled"
 msgstr ""
 
@@ -1410,8 +1410,8 @@ msgid "Edit URLTest"
 msgstr ""
 
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:6315
-#: src/forkop/tabs/updates/initController.ts:955
-#: src/forkop/tabs/updates/initController.ts:986
+#: src/forkop/tabs/updates/initController.ts:896
+#: src/forkop/tabs/updates/initController.ts:927
 msgid "Enable"
 msgstr ""
 
@@ -1440,7 +1440,7 @@ msgstr ""
 msgid "Enable Mixed Proxy Authentication"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:929
+#: src/forkop/tabs/updates/initController.ts:870
 msgid "Enable mode 2"
 msgstr ""
 
@@ -1456,8 +1456,8 @@ msgstr ""
 msgid "Enable YACD WAN Access"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:941
-#: src/forkop/tabs/updates/initController.ts:971
+#: src/forkop/tabs/updates/initController.ts:882
+#: src/forkop/tabs/updates/initController.ts:912
 msgid "Enabled"
 msgstr ""
 
@@ -1601,10 +1601,10 @@ msgstr ""
 
 #: src/forkop/methods/shell/index.ts:185
 #: src/forkop/methods/shell/index.ts:192
-#: src/forkop/tabs/updates/initController.ts:492
-#: src/forkop/tabs/updates/initController.ts:493
-#: src/forkop/tabs/updates/initController.ts:553
-#: src/forkop/tabs/updates/initController.ts:725
+#: src/forkop/tabs/updates/initController.ts:486
+#: src/forkop/tabs/updates/initController.ts:487
+#: src/forkop/tabs/updates/initController.ts:547
+#: src/forkop/tabs/updates/initController.ts:698
 msgid "Failed to execute"
 msgstr ""
 
@@ -1831,7 +1831,7 @@ msgid "History"
 msgstr ""
 
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/forkop.js:55
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/forkop.js:164
+#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/forkop.js:161
 msgid "History and recovery"
 msgstr ""
 
@@ -1955,26 +1955,25 @@ msgstr ""
 msgid "Info"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:760
-#: src/forkop/tabs/updates/initController.ts:872
-#: src/forkop/tabs/updates/initController.ts:1159
+#: src/forkop/tabs/updates/initController.ts:733
+#: src/forkop/tabs/updates/initController.ts:1097
 #: src/forkop/tabs/updates/releaseSelector.ts:52
 msgid "Install"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:1229
+#: src/forkop/tabs/updates/initController.ts:1152
 msgid "Install another build:"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:834
+#: src/forkop/tabs/updates/initController.ts:806
 msgid "Install Extended build"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:843
+#: src/forkop/tabs/updates/initController.ts:815
 msgid "Install podkop-engine"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:852
+#: src/forkop/tabs/updates/initController.ts:824
 msgid "Install podkop-engine-full"
 msgstr ""
 
@@ -1982,7 +1981,7 @@ msgstr ""
 msgid "Install selected version"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:825
+#: src/forkop/tabs/updates/initController.ts:797
 msgid "Install Tiny build"
 msgstr ""
 
@@ -1990,12 +1989,8 @@ msgstr ""
 msgid "Installed"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:907
-msgid "Installed (Mirror edition)"
-msgstr ""
-
-#: src/forkop/tabs/updates/initController.ts:294
-#: src/forkop/tabs/updates/initController.ts:1050
+#: src/forkop/tabs/updates/initController.ts:293
+#: src/forkop/tabs/updates/initController.ts:991
 msgid "Installed version is newer than release"
 msgstr ""
 
@@ -2354,12 +2349,12 @@ msgstr ""
 msgid "Latency test URL"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:297
-#: src/forkop/tabs/updates/initController.ts:1048
+#: src/forkop/tabs/updates/initController.ts:296
+#: src/forkop/tabs/updates/initController.ts:989
 msgid "Latest version is installed"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:1050
+#: src/forkop/tabs/updates/initController.ts:991
 msgid "Latest version:"
 msgstr ""
 
@@ -2396,8 +2391,8 @@ msgstr ""
 msgid "Loading connections"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:885
-#: src/forkop/tabs/updates/initController.ts:896
+#: src/forkop/tabs/updates/initController.ts:837
+#: src/forkop/tabs/updates/initController.ts:848
 msgid "Loading..."
 msgstr ""
 
@@ -2462,7 +2457,7 @@ msgstr ""
 msgid "Mixed Proxy Username"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:917
+#: src/forkop/tabs/updates/initController.ts:858
 msgid "Mode 2 enabled"
 msgstr ""
 
@@ -2471,7 +2466,7 @@ msgid "Monitored Interfaces"
 msgstr ""
 
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/forkop.js:49
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/forkop.js:158
+#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/forkop.js:155
 msgid "Monitoring"
 msgstr ""
 
@@ -2649,7 +2644,7 @@ msgstr ""
 msgid "Nodes and groups"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:917
+#: src/forkop/tabs/updates/initController.ts:858
 msgid "Normal mode"
 msgstr ""
 
@@ -2677,7 +2672,6 @@ msgstr ""
 #: src/forkop/helpers/singBoxVariant.ts:36
 #: src/forkop/helpers/singBoxVariant.ts:44
 #: src/forkop/tabs/diagnostic/initController.ts:754
-#: src/forkop/tabs/updates/initController.ts:908
 msgid "Not installed"
 msgstr ""
 
@@ -2702,7 +2696,7 @@ msgid "Not responding"
 msgstr ""
 
 #: src/forkop/tabs/dashboard/overview.ts:205
-#: src/forkop/tabs/diagnostic/diagnostic.store.ts:111
+#: src/forkop/tabs/diagnostic/diagnostic.store.ts:110
 #: src/forkop/tabs/diagnostic/initController.ts:96
 msgid "Not running"
 msgstr ""
@@ -2783,8 +2777,8 @@ msgstr ""
 msgid "Only: %d"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:1041
-#: src/forkop/tabs/updates/initController.ts:1063
+#: src/forkop/tabs/updates/initController.ts:982
+#: src/forkop/tabs/updates/initController.ts:1004
 msgid "Open"
 msgstr ""
 
@@ -2852,7 +2846,7 @@ msgid "Output Network Interface"
 msgstr ""
 
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/forkop.js:39
-#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/forkop.js:152
+#: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/forkop.js:149
 #: src/forkop/tabs/diagnostic/partials/renderCheckSection.ts:99
 msgid "Overview"
 msgstr ""
@@ -3079,8 +3073,6 @@ msgstr ""
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:4694
 #: src/forkop/tabs/diagnostic/connectivityMatrix.ts:279
 #: src/forkop/tabs/diagnostic/connectivityMatrix.ts:280
-#: src/forkop/tabs/updates/initController.ts:661
-#: src/forkop/tabs/updates/initController.ts:863
 msgid "Remove"
 msgstr ""
 
@@ -3090,10 +3082,6 @@ msgstr ""
 
 #: ../luci-app-forkop/htdocs/luci-static/resources/view/forkop/section.js:4689
 msgid "Remove %s from this rule? When you save the rule, it matches without them and the configuration can be applied again. Nothing else in the rule changes."
-msgstr ""
-
-#: src/forkop/tabs/updates/initController.ts:659
-msgid "Remove %s?"
 msgstr ""
 
 #: src/forkop/tabs/updates/fullUninstall.ts:128
@@ -3208,7 +3196,7 @@ msgstr ""
 msgid "Restore failed; previous configuration and runtime recovered"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:922
+#: src/forkop/tabs/updates/initController.ts:863
 msgid "Restore normal mode"
 msgstr ""
 
@@ -3918,10 +3906,6 @@ msgstr ""
 msgid "The name does not resolve on the router, so no rule can open it. Check the DNS results above."
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:660
-msgid "The package is removed from the router."
-msgstr ""
-
 #: src/forkop/tabs/diagnostic/siteCheck.ts:181
 msgid "The route check did not complete. Try again."
 msgstr ""
@@ -4087,11 +4071,11 @@ msgstr ""
 msgid "Top level has the highest priority; lower levels are used as fallback"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:965
+#: src/forkop/tabs/updates/initController.ts:906
 msgid "TorrServer Direct"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:967
+#: src/forkop/tabs/updates/initController.ts:908
 msgid "TorrServer not found"
 msgstr ""
 
@@ -4175,10 +4159,10 @@ msgstr ""
 #: src/forkop/services/systemInfo.service.ts:11
 #: src/forkop/services/systemInfo.service.ts:12
 #: src/forkop/services/systemInfo.service.ts:13
+#: src/forkop/services/systemInfo.service.ts:28
 #: src/forkop/services/systemInfo.service.ts:29
-#: src/forkop/services/systemInfo.service.ts:30
 #: src/forkop/tabs/diagnostic/initController.ts:750
-#: src/forkop/tabs/updates/initController.ts:314
+#: src/forkop/tabs/updates/initController.ts:313
 msgid "unknown"
 msgstr ""
 
@@ -4200,7 +4184,7 @@ msgstr ""
 msgid "Unspecified IP address is not allowed"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:760
+#: src/forkop/tabs/updates/initController.ts:733
 msgid "Update"
 msgstr ""
 
@@ -4210,11 +4194,11 @@ msgstr ""
 msgid "Update all subscriptions"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:290
+#: src/forkop/tabs/updates/initController.ts:289
 msgid "Update is available"
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:1027
+#: src/forkop/tabs/updates/initController.ts:968
 msgid "Update is available:"
 msgstr ""
 
@@ -4371,7 +4355,7 @@ msgstr ""
 msgid "Waiting for the service action to finish."
 msgstr ""
 
-#: src/forkop/tabs/updates/initController.ts:973
+#: src/forkop/tabs/updates/initController.ts:914
 msgid "Waiting for TorrServer"
 msgstr ""
 

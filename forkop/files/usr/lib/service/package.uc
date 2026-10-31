@@ -222,15 +222,6 @@ function prerm_cleanup(action) {
     return remove_rt_tables_entry();
 }
 
-// An upgrade brings the Zapret Manager panel to the Forkop flavour and
-// repairs its launchers; components/action.uc changes nothing when none is
-// installed. The worker waits for a component action that runs this upgrade
-// to release its lock.
-function queue_zapret_manager_migration() {
-    if (!PACKAGE_TEST_MODE)
-        command_success_from_args([ "sh", "/usr/share/forkop/zapret-manager-upgrade.sh", "queue" ]);
-}
-
 function postinst_restore() {
     if (env("IPKG_INSTROOT", "") != "")
         return true;
@@ -271,7 +262,6 @@ function postinst_restore() {
     let initd_module = LIB_DIR + "/service/initd.uc";
     if (!path_exists(PACKAGE_UPGRADE_STATE)) {
         command_success_from_args([ "ucode", "-L", LIB_DIR, initd_module, "mark-explicit-start", "if-running" ]);
-        queue_zapret_manager_migration();
         return true;
     }
     command_success_from_args([ "ucode", "-L", LIB_DIR, initd_module, "mark-explicit-start" ]);
@@ -300,7 +290,6 @@ function postinst_restore() {
         warn("Forkop is still starting after the package upgrade; see the Forkop log for its outcome.\n");
     else if (started.status != 0)
         warn("Forkop did not start after the package upgrade; see the Forkop log.\n");
-    queue_zapret_manager_migration();
     return true;
 }
 

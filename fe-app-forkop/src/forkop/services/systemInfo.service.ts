@@ -17,7 +17,6 @@ const UNKNOWN_SYSTEM_INFO: StoreType['diagnosticsSystemInfo'] = {
   sing_box_tailscale: 1,
   sing_box_podkop_engine: 0,
   sing_box_podkop_engine_full: 0,
-  zapret_manager_installed: 0,
   packet_steering_mode: '',
   direct_proxy_enabled: 0,
   direct_proxy_address: '',

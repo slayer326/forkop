@@ -563,7 +563,6 @@ export namespace Forkop {
     sing_box_tailscale: 0 | 1;
     sing_box_podkop_engine?: 0 | 1;
     sing_box_podkop_engine_full?: 0 | 1;
-    zapret_manager_installed: 0 | 1;
     packet_steering_mode: string;
     direct_proxy_enabled: 0 | 1;
     direct_proxy_address: string;
@@ -640,7 +639,6 @@ export namespace Forkop {
   export type ComponentName =
     | 'forkop'
     | 'sing_box'
-    | 'zapret_manager'
     | 'packet_steering'
     | 'direct_proxy'
     | 'torrserver_direct';
@@ -648,7 +646,6 @@ export namespace Forkop {
   export type ComponentAction =
     | 'check_update'
     | 'install'
-    | 'remove'
     | 'install_extended'
     | 'install_extended_compressed'
     | 'install_tiny'

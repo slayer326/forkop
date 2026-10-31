@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-29 12:54+0300\n"
-"PO-Revision-Date: 2026-10-29 12:54+0300\n"
+"POT-Creation-Date: 2026-10-31 23:32+0300\n"
+"PO-Revision-Date: 2026-10-31 23:32+0300\n"
 "Last-Translator: slayer\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -1370,9 +1370,6 @@ msgstr "Установить сборку Tiny"
 msgid "Installed"
 msgstr "установлена"
 
-msgid "Installed (Mirror edition)"
-msgstr "Установлен (Mirror edition)"
-
 msgid "Installed version is newer than release"
 msgstr "Установлена версия новее релиза"
 
@@ -2120,9 +2117,6 @@ msgstr "удалить %s"
 msgid "Remove %s from this rule? When you save the rule, it matches without them and the configuration can be applied again. Nothing else in the rule changes."
 msgstr "Удалить %s из этого правила? При сохранении правило будет работать без них, и конфигурацию снова можно будет применить. Остальное в правиле не изменится."
 
-msgid "Remove %s?"
-msgstr "Удалить %s?"
-
 msgid "Remove Forkop X and sing-box with their settings and restore the original device repositories."
 msgstr "Удалить Forkop X и sing-box вместе с настройками и восстановить исходные репозитории устройства."
 
@@ -2707,9 +2701,6 @@ msgstr "Устаревшие настройки конвертированы. С
 
 msgid "The name does not resolve on the router, so no rule can open it. Check the DNS results above."
 msgstr "Имя не разрешается на роутере, поэтому ни одно правило его не откроет. Посмотрите результат DNS выше."
-
-msgid "The package is removed from the router."
-msgstr "Пакет будет удалён с роутера."
 
 msgid "The route check did not complete. Try again."
 msgstr "Проверка маршрута не завершилась. Повторите попытку."

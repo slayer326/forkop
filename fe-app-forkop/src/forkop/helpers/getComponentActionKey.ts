@@ -14,8 +14,6 @@ const componentActionKeyMap: Record<string, UpdatesActionKey> = {
   'sing_box:install_stable': 'singBoxInstallStable',
   'sing_box:install_podkop_engine': 'singBoxInstallPodkopEngine',
   'sing_box:install_podkop_engine_full': 'singBoxInstallPodkopEngineFull',
-  'zapret_manager:install': 'zapretManagerInstall',
-  'zapret_manager:remove': 'zapretManagerRemove',
   'packet_steering:enable': 'packetSteeringEnable',
   'packet_steering:restore': 'packetSteeringRestore',
   'direct_proxy:enable': 'directProxyEnable',

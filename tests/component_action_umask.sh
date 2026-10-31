@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # rpcd runs with umask 0077 and the panel's component actions inherited it.
-# The Zapret-Manager web installer then created /opt as 0700, and Zapret2's
-# nfqws2, which drops to the daemon user, could no longer read its own files
-# and exited at every start. A component action must install with umask 022,
-# while its job output stays private.
+# An installer started from the panel then created /opt as 0700, and a
+# service under /opt that drops to the daemon user could no longer read its
+# own files and exited at every start. A component action must install with
+# umask 022, while its job output stays private.
 set -eo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -53,14 +53,14 @@ UCODE
 
 # Stands in for an installer: records the umask and the mode of the job
 # output file it writes to, and creates a missing parent directory the way
-# `mkdir -p /opt/zapret-manager-luci` does. The worker removes the output
-# file once the job state holds the result.
+# `mkdir -p /opt/example` does. The worker removes the output file once the
+# job state holds the result.
 cat >"$fake_lib/components/action.uc" <<'UCODE'
 #!/usr/bin/env ucode
 let root = getenv("TEST_INSTALL_ROOT");
 // $PPID is this ucode process; the shell's own fd 1 is already redirected.
 system("umask >'" + root + "/umask'; stat -L -c %a /proc/$PPID/fd/1 >'" + root + "/output-mode'; " +
-    "mkdir -p '" + root + "/opt/zapret-manager-luci'");
+    "mkdir -p '" + root + "/opt/example'");
 print(sprintf("%J\n", { success: true, component: ARGV[1], action: ARGV[2], message: "installed", changed: 1 }));
 UCODE
 
@@ -72,7 +72,7 @@ mkdir -p "$install_root"
     FORKOP_LIB="$fake_lib" \
     UPDATES_JOB_DIR="$job_dir" \
     ucode -L "$fake_lib" -L "$FORKOP_LIB" "$UPDATES_UC" \
-    component-action-worker "$state_file" "$output_file" zapret_manager install
+    component-action-worker "$state_file" "$output_file" sing_box install
 )
 
 [ "$(cat "$install_root/umask" 2>/dev/null)" = "0022" ] ||

@@ -1,6 +1,6 @@
 #!/bin/sh
-# Zapret and Zapret2 rule actions are removed from Forkop X; DPI bypass is
-# provided by the Zapret Manager component, which stays available.
+# Zapret and Zapret2 rule actions are removed from Forkop X, and so is the
+# Zapret Manager component.
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 LIB=${FORKOP_LIB:-$ROOT/forkop/files/usr/lib}
@@ -11,16 +11,15 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 [ ! -e "$LIB/providers" ] || fail "provider modules are still installed"
 
 # Runtime code, LuCI views (handwritten and bundled), frontend
-# sources and translations must not mention the removed providers. The Zapret
-# Manager component keeps its own name, and the configuration migration is the
-# only other exception: it cleans up what the providers left behind.
+# sources and translations must not mention the removed providers or the
+# Zapret Manager component. The configuration migration is the only
+# exception: it cleans up what the providers left behind.
 if grep -rIin 'zapret\|nfqws\|nfqueue' \
     "$ROOT/forkop/files" \
     "$ROOT/luci-app-forkop/htdocs" \
     "$ROOT/luci-app-forkop/po" \
     "$ROOT/fe-app-forkop/src" \
     "$ROOT/fe-app-forkop/locales" |
-    grep -viE 'zapret[_-]manager|zapretmanager|zapret manager' |
     grep -v '^'"$ROOT"'/forkop/files/usr/lib/config/migration\.uc:' >"$WORK/hits"; then
     cat "$WORK/hits" >&2
     fail "Zapret provider references remain"
@@ -32,16 +31,12 @@ awk '
   cleanup && /^}$/ { cleanup = 0 }
   END { exit bad }
 ' "$LIB/config/migration.uc" || fail "Zapret is referenced outside the migration cleanup"
-echo 'No Zapret provider references in runtime, LuCI, frontend or translations'
+echo 'No Zapret or Zapret Manager references in runtime, LuCI, frontend or translations'
 
-# The Zapret Manager component is still installable from the GUI.
-grep -Fq 'component == "zapret_manager" && (action == "install"' "$LIB/components/action.uc" ||
-  fail "the Zapret Manager component can no longer be installed"
-grep -Fq 'component == "zapret_manager"' "$LIB/components/updates.uc" ||
-  fail "the Zapret Manager component is no longer a valid component name"
-grep -Fq 'zapret_manager_installed' "$LIB/diagnostics/runtime.uc" ||
-  fail "system info no longer reports the Zapret Manager component"
-echo 'The Zapret Manager component stays available'
+# The packages no longer ship the Zapret Manager installer.
+if grep -n 'zapret' "$ROOT/forkop/Makefile" "$ROOT/build.sh"; then
+  fail "the packages still ship Zapret Manager files"
+fi
 
 # Upgrades disable Zapret rules instead of failing validation.
 cat >"$WORK/zapret.json" <<'JSON'

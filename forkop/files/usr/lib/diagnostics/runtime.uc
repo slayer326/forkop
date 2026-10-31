@@ -928,22 +928,6 @@ function sing_box_installed_package_name() {
     return sing_box_package_from_manifest(command_output_from_args([ "opkg", "list-installed" ]));
 }
 
-function zapret_manager_launcher_installed(path) {
-    if (!file_executable(path))
-        return false;
-    let source = as_string(fs.readfile(path));
-    // ZMS may replace a mirrored launcher with its official self-update URL.
-    return index(source, "/zapret-manager/proxy/") >= 0 ||
-        match(source, /https:\/\/raw\.githubusercontent\.com\/(StressOzz|Screamshow)\/Zapret-Manager\/main\/Zapret-Manager\.sh([ \t\r\n"')]|$)/) != null;
-}
-
-// The panel's backend, or zms: zmsA, the launcher of Zapret-Manager's
-// automatic strategy selection, alone does not count.
-function zapret_manager_is_installed() {
-    return file_executable("/opt/zapret-manager-luci/backend.sh") ||
-        zapret_manager_launcher_installed("/usr/bin/zms");
-}
-
 function system_info_cache_is_valid() {
     let cache = read_json_file(SYSTEM_INFO_CACHE_FILE);
     if (type(cache) != "object")
@@ -956,10 +940,7 @@ function system_info_cache_is_valid() {
     let generated_at = arg_number(cache.generated_at || 0);
     if (now > 0 && generated_at > 0 && SYSTEM_INFO_CACHE_TTL > 0 && now - generated_at >= SYSTEM_INFO_CACHE_TTL)
         return false;
-    if (cache.forkop_version != FORKOP_VERSION || cache.luci_app_version != get_luci_app_version())
-        return false;
-
-    return int(cache.zapret_manager_installed || 0) == (zapret_manager_is_installed() ? 1 : 0);
+    return cache.forkop_version == FORKOP_VERSION && cache.luci_app_version == get_luci_app_version();
 }
 
 function ensure_subscription_runtime_dirs() {
@@ -1077,7 +1058,6 @@ function build_system_info() {
     let flags = sing_box_capability_flags(sing_box_version, sing_box_version_output, package_name);
     let sing_box_compressed = package_name == "" && flags.extended == 1 && sing_box_marker_is("extended-compressed") ? 1 : 0;
 
-    let zapret_manager_installed = zapret_manager_is_installed() ? 1 : 0;
     let device_model = first_line_value("/tmp/sysinfo/model", "unknown");
     let packet_steering_mode = trim(uci_core.get("network.@globals[0].packet_steering"));
     let direct_proxy_enabled = bool_option(settings(), "direct_proxy_enabled", false) ? 1 : 0;
@@ -1102,7 +1082,6 @@ function build_system_info() {
         sing_box_podkop_engine: flags.podkop_engine,
         sing_box_podkop_engine_full: flags.podkop_engine_full,
         sing_box_package: flags.package_name,
-        zapret_manager_installed,
         packet_steering_mode,
         direct_proxy_enabled,
         direct_proxy_address,

@@ -48,7 +48,6 @@ import {
 } from '../../services/runtimeUiState.service';
 import { Forkop } from '../../types';
 import { renderFullUninstall } from './fullUninstall';
-import { confirmAction } from '../../ui/confirmAction';
 
 type UpdateStatus = StoreType['updatesChecks'][Forkop.ComponentName]['status'];
 
@@ -365,11 +364,6 @@ function patchSystemInfoAfterMutation(result: Forkop.ComponentActionResult) {
     }
   }
 
-  if (result.component === 'zapret_manager') {
-    nextSystemInfo.zapret_manager_installed =
-      result.action === 'remove' ? 0 : 1;
-  }
-
   if (result.component === 'direct_proxy') {
     nextSystemInfo.direct_proxy_enabled = result.action === 'enable' ? 1 : 0;
   }
@@ -646,28 +640,7 @@ function stopComponentActionStateWatcher() {
   componentActionStateUnsubscribe = null;
 }
 
-const REMOVABLE_COMPONENT_TITLES: Partial<
-  Record<Forkop.ComponentName, string>
-> = {
-  zapret_manager: 'Zapret-Manager-Stressozz',
-};
-
-function confirmComponentRemoval(button: ComponentActionButton) {
-  const title =
-    REMOVABLE_COMPONENT_TITLES[button.component] || button.component;
-  return confirmAction({
-    title: _('Remove %s?').replace('%s', title),
-    message: _('The package is removed from the router.'),
-    confirmLabel: _('Remove'),
-    danger: true,
-  });
-}
-
 async function handleComponentAction(button: ComponentActionButton) {
-  if (button.action === 'remove' && !(await confirmComponentRemoval(button))) {
-    return;
-  }
-
   if (!beginComponentAction(button)) {
     return;
   }
@@ -786,7 +759,6 @@ function getComponentCards(): ComponentCard[] {
     store.get().diagnosticsSystemInfo,
   );
   const systemInfoLoading = isSystemInfoLoading();
-  const zapretManagerInstalled = Boolean(systemInfo.zapret_manager_installed);
   const packetSteeringEnabled = systemInfo.packet_steering_mode === '2';
   const directProxyEnabled = Boolean(systemInfo.direct_proxy_enabled);
   const directProxyEndpoint = systemInfo.direct_proxy_address
@@ -856,26 +828,6 @@ function getComponentCards(): ComponentCard[] {
     });
   }
 
-  const zapretManagerActions: ComponentActionButton[] = zapretManagerInstalled
-    ? [
-        {
-          key: 'zapretManagerRemove',
-          text: _('Remove'),
-          icon: renderXIcon24,
-          component: 'zapret_manager',
-          action: 'remove',
-        },
-      ]
-    : [
-        {
-          key: 'zapretManagerInstall',
-          text: _('Install'),
-          icon: renderDownloadIcon24,
-          component: 'zapret_manager',
-          action: 'install',
-        },
-      ];
-
   return [
     {
       component: 'forkop',
@@ -900,19 +852,8 @@ function getComponentCards(): ComponentCard[] {
       actions: singBoxActions,
     },
     {
-      component: 'zapret_manager',
-      column: 1,
-      title: 'Zapret-Manager-Stressozz',
-      version: zapretManagerInstalled
-        ? _('Installed (Mirror edition)')
-        : _('Not installed'),
-      latestVersion: '',
-      releaseUrl: 'https://github.com/Screamshow/Zapret-Manager',
-      actions: zapretManagerActions,
-    },
-    {
       component: 'packet_steering',
-      column: 2,
+      column: 1,
       title: 'Packet Steering',
       version: packetSteeringEnabled ? _('Mode 2 enabled') : _('Normal mode'),
       actions: [
@@ -935,7 +876,7 @@ function getComponentCards(): ComponentCard[] {
     },
     {
       component: 'direct_proxy',
-      column: 2,
+      column: 1,
       title: _('Direct Proxy'),
       version: directProxyEnabled
         ? `HTTP/SOCKS5 · ${directProxyEndpoint || _('Enabled')}`
@@ -1110,13 +1051,10 @@ function renderComponentCard(card: ComponentCard) {
 
   // 3. Actions classification
   const primaryActions: ComponentActionButton[] = [];
-  const dangerActions: ComponentActionButton[] = [];
   const variantActions: ComponentActionButton[] = [];
 
   card.actions.forEach((action) => {
-    if (action.action === 'remove') {
-      dangerActions.push(action);
-    } else if (action.action.startsWith('install_')) {
+    if (action.action.startsWith('install_')) {
       variantActions.push(action);
     } else {
       primaryActions.push(action);
@@ -1167,28 +1105,13 @@ function renderComponentCard(card: ComponentCard) {
     );
   }
 
-  const dangerButtons = dangerActions.map((action) => {
-    const loading = updatesActions[action.key].loading;
-
-    return renderButton({
-      classNames: ['cbi-button-remove'],
-      text: action.text,
-      icon: action.icon,
-      loading,
-      disabled:
-        systemInfoLoading ||
-        serviceRuntimeActionLoading ||
-        (anyActionLoading && !loading),
-      onClick: () => void handleComponentAction(action),
-    });
-  });
-
-  if (primaryButtons.length > 0 || dangerButtons.length > 0) {
+  if (primaryButtons.length > 0) {
     actionElements.push(
-      E('div', { class: 'fkp_updates-page__component__actions-main' }, [
-        ...primaryButtons,
-        ...dangerButtons,
-      ]),
+      E(
+        'div',
+        { class: 'fkp_updates-page__component__actions-main' },
+        primaryButtons,
+      ),
     );
   }
 

@@ -216,7 +216,6 @@ export interface StoreType {
     sing_box_tailscale: number;
     sing_box_podkop_engine: number;
     sing_box_podkop_engine_full: number;
-    zapret_manager_installed: number;
     packet_steering_mode: string;
     direct_proxy_enabled: number;
     direct_proxy_address: string;
@@ -239,8 +238,6 @@ export interface StoreType {
     singBoxInstallStable: { loading: boolean };
     singBoxInstallPodkopEngine: { loading: boolean };
     singBoxInstallPodkopEngineFull: { loading: boolean };
-    zapretManagerInstall: { loading: boolean };
-    zapretManagerRemove: { loading: boolean };
     packetSteeringEnable: { loading: boolean };
     packetSteeringRestore: { loading: boolean };
     directProxyEnable: { loading: boolean };

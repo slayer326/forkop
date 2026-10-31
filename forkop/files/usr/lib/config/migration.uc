@@ -1513,10 +1513,9 @@ function migrate_retired_byedpi(ctx) {
     }
 }
 
-// Zapret and Zapret2 rules were removed; the Zapret Manager component now
-// owns DPI bypass. An enabled rule with such an action fails validation
-// ("unsupported action") and keeps Forkop from starting after an upgrade.
-// Keep these rules with their lists, disabled, as direct rules without the
+// Zapret and Zapret2 rules were removed. An enabled rule with such an
+// action fails validation ("unsupported action") and keeps Forkop from
+// starting after an upgrade. Keep these rules with their lists, disabled, as direct rules without the
 // NFQWS strategy; the user picks a new action in LuCI. Settings that routed
 // downloads or DNS through one are switched off: a disabled direct rule
 // cannot provide an outbound. This runs on every migration (it is

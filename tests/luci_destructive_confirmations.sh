@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Destructive or disruptive actions must ask for confirmation before the
-# backend call: stopping Forkop X, removing a component package, closing all
-# connections and restoring or deleting a configuration snapshot.
+# backend call: stopping Forkop X, closing all connections and restoring or
+# deleting a configuration snapshot.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 node - "$ROOT_DIR" <<'NODE'
@@ -50,15 +50,6 @@ assert.match(functionBody(control, 'export function confirmStopForkop()'), /conf
 const monitoring = read('fe-app-forkop/src/forkop/tabs/monitoring/initController.ts');
 assertConfirmedBefore(functionBody(monitoring, 'async function closeAllConnections()'),
   'confirmAction(', 'closeAllClashApiConnections(', 'close all connections');
-
-const updates = read('fe-app-forkop/src/forkop/tabs/updates/initController.ts');
-const componentAction = functionBody(updates,
-  'async function handleComponentAction(button: ComponentActionButton)');
-assert.match(componentAction,
-  /button\.action === 'remove' &&\s*!\(await confirmComponentRemoval\(button\)\)[\s\S]*?return;/,
-  'component removal must be confirmed');
-assert(componentAction.indexOf('confirmComponentRemoval') < componentAction.indexOf('componentActionStart('),
-  'component removal is confirmed before the backend call');
 
 const history = read('fe-app-forkop/src/forkop/tabs/history/initController.ts');
 assertConfirmedBefore(functionBody(history, 'async function restoreSnapshot(id: string, label: string)'),

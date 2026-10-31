@@ -26,7 +26,7 @@ describe('shouldApplyCompletedComponentActionResult', () => {
       shouldApplyCompletedComponentActionResult({ action: 'install' }, false),
     ).toBe(true);
     expect(
-      shouldApplyCompletedComponentActionResult({ action: 'remove' }, false),
+      shouldApplyCompletedComponentActionResult({ action: 'disable' }, false),
     ).toBe(true);
   });
 });

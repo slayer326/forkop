@@ -38,14 +38,6 @@ if grep -Fq "text: 'Extended compressed'" "$UPDATES_TS"; then
   fail "Extended compressed must not be offered in LuCI"
 fi
 
-grep -Fq "title: 'Zapret-Manager-Stressozz'" "$UPDATES_TS" ||
-  fail "Zapret-Manager-Stressozz branding is missing"
-grep -Fq 'zapret_manager_installed' "$UPDATES_TS" ||
-  fail "Zapret-Manager installed-state check is missing"
-grep -Fq "key: 'zapretManagerRemove'" "$UPDATES_TS" ||
-  fail "Zapret-Manager remove button is missing"
-grep -Fq 'function remove_zapret_manager(action)' "$ACTION_UC" ||
-  fail "Zapret-Manager safe removal action is missing"
 grep -Fq 'function set_packet_steering(action)' "$ACTION_UC" ||
   fail "Packet Steering action is missing"
 grep -Fq 'network.@globals[0].packet_steering' "$ACTION_UC" ||

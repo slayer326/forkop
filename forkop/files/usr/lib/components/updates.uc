@@ -1596,11 +1596,6 @@ function cron_refresh_plan(settings, sections, bin, list_marker, subscription_ma
     print_cron_refresh_plan(cron_refresh_plan_rows(settings, sections, bin, list_marker, subscription_marker, component_marker));
 }
 
-// Zapret-Manager's automatic strategy selection: the script's "zmsA
-// --auto-best" and the web version's "# zm-autobest" job. Each run restarts
-// the DPI service with one strategy after another and rewrites its options;
-// Forkop X keeps automatic DPI strategy selection off.
-const ZAPRET_MANAGER_AUTOBEST_MARKERS = [ "zmsA --auto-best", "# zm-autobest" ];
 // The cron line of the removed DPI autotune.
 const RETIRED_AUTOTUNE_CRON_MARKER = "# forkop-autotune";
 
@@ -1610,11 +1605,6 @@ function cron_refresh_apply_result(settings, sections, existing_crontab, bin, li
         [ list_marker, subscription_marker, component_marker, RETIRED_AUTOTUNE_CRON_MARKER ]);
     let cron_jobs = "";
     let logs = [ { level: "info", message: "The cron job removed" } ];
-    let without_autobest = filter_cron_markers_text(filtered_crontab, ZAPRET_MANAGER_AUTOBEST_MARKERS);
-    if (without_autobest != filtered_crontab) {
-        filtered_crontab = without_autobest;
-        push(logs, { level: "warn", message: "Zapret-Manager automatic strategy selection is disabled in Forkop X; its cron job has been removed" });
-    }
     let tab = "\t";
 
     for (let row in plan.rows) {
@@ -2235,7 +2225,7 @@ function normalize_component_name(component) {
 
 function valid_component_name(component) {
     component = normalize_component_name(component);
-    return component == "forkop" || component == "sing_box" || component == "zapret_manager" ||
+    return component == "forkop" || component == "sing_box" ||
         component == "packet_steering" || component == "direct_proxy" || component == "torrserver_direct";
 }
 
@@ -2300,11 +2290,6 @@ function update_component_check_cache_from_action(value) {
     let path = component_update_check_cache_path(component);
     if (path == "")
         return;
-
-    if (action == "remove" && value.success === true) {
-        remove_file(path);
-        return;
-    }
 
     if (!component_update_check_cache_enabled())
         return;

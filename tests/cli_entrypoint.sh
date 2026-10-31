@@ -86,7 +86,7 @@ cat >"$fake_lib/components/action.uc" <<'UCODE'
 #!/usr/bin/env ucode
 system("umask");
 UCODE
-umask_out="$(umask 077 && FORKOP_LIB="$fake_lib" ucode "$FORKOP_BIN" component_action zapret_manager install)"
+umask_out="$(umask 077 && FORKOP_LIB="$fake_lib" ucode "$FORKOP_BIN" component_action sing_box install)"
 [ "$umask_out" = "0022" ] ||
   fail "a command started from the panel must run with umask 0022, not $umask_out"
 
