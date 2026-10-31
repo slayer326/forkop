@@ -58,7 +58,8 @@ UCODE
 cat >"$fake_lib/components/action.uc" <<'UCODE'
 #!/usr/bin/env ucode
 let root = getenv("TEST_INSTALL_ROOT");
-system("umask >'" + root + "/umask'; stat -L -c %a /proc/$$/fd/1 >'" + root + "/output-mode'; " +
+// $PPID is this ucode process; the shell's own fd 1 is already redirected.
+system("umask >'" + root + "/umask'; stat -L -c %a /proc/$PPID/fd/1 >'" + root + "/output-mode'; " +
     "mkdir -p '" + root + "/opt/zapret-manager-luci'");
 print(sprintf("%J\n", { success: true, component: ARGV[1], action: ARGV[2], message: "installed", changed: 1 }));
 UCODE
