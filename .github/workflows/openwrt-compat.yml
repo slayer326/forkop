@@ -1,0 +1,66 @@
+name: OpenWrt compatibility
+
+# Installs the built packages into official OpenWrt rootfs images and checks
+# them with each release's own ucode, busybox, package manager and package
+# database (tests/openwrt/compat_check.sh). The oldest image of a series keeps
+# the ucode its firmware shipped with, as a router that never upgraded it does.
+
+on:
+  workflow_call:
+    inputs:
+      artifact:
+        description: Name of the uploaded artifact holding the .ipk and .apk packages
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Published release whose packages are checked
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  compat:
+    name: OpenWrt ${{ matrix.release }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        release:
+          - '24.10.1'
+          - '24.10.8'
+          - '25.12.0'
+          - '25.12.6'
+    steps:
+      - uses: actions/checkout@v5.0.0
+
+      - name: Download the built packages
+        if: inputs.artifact != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact }}
+          path: ./compat-packages
+
+      - name: Download the release packages
+        if: inputs.artifact == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --dir ./compat-packages --pattern '*.ipk' --pattern '*.apk'
+
+      - name: Check the packages on OpenWrt ${{ matrix.release }}
+        env:
+          IMAGE: openwrt/rootfs:x86-64-${{ matrix.release }}
+        run: |
+          ls -l ./compat-packages
+          docker pull --quiet "$IMAGE"
+          docker run --rm \
+            -v "$PWD:/src:ro" \
+            -v "$PWD/compat-packages:/packages:ro" \
+            "$IMAGE" /bin/sh /src/tests/openwrt/compat_check.sh /packages /src
