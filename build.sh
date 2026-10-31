@@ -210,7 +210,9 @@ build_backend_root() {
     "$output_root/etc/init.d/forkop-torrserver-direct" \
     "$output_root/usr/bin/forkop" \
     "$output_root/usr/libexec/forkop-ro" \
-    "$output_root/usr/share/forkop/mirror-migration.sh" \n    "$output_root/usr/share/forkop/zapret-manager-migrate.sh" \n    "$output_root/usr/share/forkop/zapret-manager-upgrade.sh"
+    "$output_root/usr/share/forkop/mirror-migration.sh" \
+    "$output_root/usr/share/forkop/zapret-manager-migrate.sh" \
+    "$output_root/usr/share/forkop/zapret-manager-upgrade.sh"
 }
 
 build_app_root() {
