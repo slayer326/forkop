@@ -51,12 +51,15 @@ cat >"$fake_lib/service/state.uc" <<'UCODE'
 exit(0);
 UCODE
 
-# Stands in for an installer: records the umask and creates a missing
-# parent directory the way `mkdir -p /opt/zapret-manager-luci` does.
+# Stands in for an installer: records the umask and the mode of the job
+# output file it writes to, and creates a missing parent directory the way
+# `mkdir -p /opt/zapret-manager-luci` does. The worker removes the output
+# file once the job state holds the result.
 cat >"$fake_lib/components/action.uc" <<'UCODE'
 #!/usr/bin/env ucode
 let root = getenv("TEST_INSTALL_ROOT");
-system("umask >'" + root + "/umask'; mkdir -p '" + root + "/opt/zapret-manager-luci'");
+system("umask >'" + root + "/umask'; stat -L -c %a /proc/$$/fd/1 >'" + root + "/output-mode'; " +
+    "mkdir -p '" + root + "/opt/zapret-manager-luci'");
 print(sprintf("%J\n", { success: true, component: ARGV[1], action: ARGV[2], message: "installed", changed: 1 }));
 UCODE
 
@@ -75,9 +78,9 @@ mkdir -p "$install_root"
   fail "a component action ran with umask $(cat "$install_root/umask" 2>/dev/null) instead of 0022"
 [ "$(stat -c %a "$install_root/opt")" = "755" ] ||
   fail "a directory an installer created is $(stat -c %a "$install_root/opt"), not 755"
-[ "$(stat -c %a "$output_file")" = "600" ] ||
-  fail "the job output file is $(stat -c %a "$output_file"), not private"
-grep -q '"installed"' "$output_file" ||
-  fail "the action output was not written to the job output file"
+[ "$(cat "$install_root/output-mode" 2>/dev/null)" = "600" ] ||
+  fail "the job output file was $(cat "$install_root/output-mode" 2>/dev/null), not private"
+grep -q '"installed"' "$state_file" ||
+  fail "the action result did not reach the job state"
 
 printf 'component action umask checks passed\n'

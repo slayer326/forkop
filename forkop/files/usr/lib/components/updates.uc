@@ -2612,8 +2612,8 @@ function launch_component_worker(args) {
 function component_action_worker(state_file, output_file, component, action, version) {
     component = normalize_component_name(component);
     // rpcd runs with umask 0077. An installer run from the panel then
-    // created /opt as 0700, and Zapret2's nfqws2, which drops to the daemon
-    // user, could no longer read its own files. Install as from a root
+    // created /opt as 0700, and a daemon that drops to an unprivileged user
+    // could no longer read its own files there. Install as from a root
     // console; the job's output file is still opened under the old umask.
     let command = "(umask 022 && " + command_env(component_worker_env()) + " " +
         command_from_args([
