@@ -602,6 +602,30 @@ function outbound_uses_xhttp(outbound) {
         lc(as_string(outbound.transport.type || "")) == "xhttp";
 }
 
+function xhttp_base62_session_id_compatible(outbound) {
+    if (!outbound_uses_xhttp(outbound))
+        return true;
+
+    let transport = outbound.transport;
+    if (lc(trim(as_string(transport.session_id_table || ""))) != "base62")
+        return true;
+
+    let value = trim(as_string(transport.session_id_length || ""));
+    if (value == "")
+        return true;
+
+    // Only handle canonical values such as "4" or "4-8".
+    // Unknown formats remain subject to sing-box validation.
+    if (match(value, /^[0-9]+(-[0-9]+)?$/) == null)
+        return true;
+
+    let minimum = int(split(value, "-")[0], 10);
+
+    // sing-box requires at least 2^31 possible session IDs.
+    // Base62^5 = 916,132,832 while Base62^6 = 56,800,235,584.
+    return minimum >= 6;
+}
+
 function ensure_explicit_outbound_supported(outbound, source, name) {
     if (!runtime_supports_xhttp && outbound_uses_xhttp(outbound))
         runtime_generate_unsupported(as_string(source) + " '" + as_string(name) + "' uses XHTTP transport, but sing-box-extended is not installed");
@@ -655,6 +679,11 @@ function compatible_subscription_outbounds(outbounds, section_name) {
             continue;
         if (!runtime_supports_xhttp && outbound_uses_xhttp(outbound)) {
             warn_skipped_subscription_outbound(section_name, outbound, "XHTTP requires sing-box-extended");
+            continue;
+        }
+        if (!xhttp_base62_session_id_compatible(outbound)) {
+            warn_skipped_subscription_outbound(section_name, outbound,
+                "XHTTP Base62 session ID length is too small");
             continue;
         }
         push(retained, outbound);
