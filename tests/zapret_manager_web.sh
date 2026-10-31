@@ -31,9 +31,15 @@ const FORKOP_MIRROR_BASE_URL = "https://mirror.test";
 const ZAPRET_MANAGER_WEB_SCRIPT = "/opt/zapret-manager-luci/backend.sh";
 const ZAPRET_MANAGER_MIGRATE_SCRIPT = "/usr/share/forkop/zapret-manager-migrate.sh";
 const ZAPRET_MANAGER_CRONTAB = "/etc/crontabs/root";
+const ZAPRET_MANAGER_OPT_DIR = "/opt";
 ` + constant("ZAPRET_MANAGER_AUTOBEST_MARKERS") + `
 let tmp_dir = "/t", files = {}, runs = [], crontabs = [], logs = [], result = null, script_ok = true, script_output = "";
 let last_logged_output = "";
+let opt = null, chmods = [];
+let fs = {
+    stat: function(p) { return p == "/opt" ? opt : null; },
+    chmod: function(p, mode) { push(chmods, sprintf("%s %o", p, mode)); opt.mode = mode; return true; }
+};
 function as_string(v) { return v == null ? "" : "" + v; }
 function read_file(p) { return files[p] || ""; }
 function write_file(p, v) { files[p] = v; return true; }
@@ -62,8 +68,8 @@ function action_success(component, action, message, current, latest, changed) {
 }
 ` + join("\n", map([ "zapret_manager_web_installed_version", "crontab_without_zapret_manager_autobest",
     "disable_zapret_manager_autobest", "zapret_manager_launcher_owned",
-    "install_zapret_manager" ], extract)) + `
-function reset() { files = {}; runs = []; crontabs = []; logs = []; result = null; script_ok = true; script_output = ""; }
+    "repair_zapret_manager_opt_access", "install_zapret_manager" ], extract)) + `
+function reset() { files = {}; runs = []; crontabs = []; logs = []; result = null; script_ok = true; script_output = ""; opt = null; chmods = []; }
 
 reset();
 script_output = "Forkop Zapret Manager verified\nFORKOP_ZM_CHANGED=1\n";
@@ -83,6 +89,19 @@ files[ZAPRET_MANAGER_WEB_SCRIPT] = "ZM_VERSION=\\"4.71\\"\n";
 script_ok = false;
 try { install_zapret_manager("install"); } catch (e) {}
 assert(result != null && !result.success && index(result.message, "restored") > 0 && result.current == "4.71", "failure: " + result);
+
+// A panel installed before 1.0.66 left /opt closed to Zapret Manager services.
+reset();
+opt = { type: "directory", uid: 0, mode: 0700 };
+install_zapret_manager("migrate");
+assert(result.success && length(chmods) == 1 && chmods[0] == "/opt 755", "/opt was not opened: " + chmods);
+chmods = [];
+install_zapret_manager("migrate");
+assert(length(chmods) == 0, "an open /opt was changed again");
+reset();
+opt = { type: "directory", uid: 0, mode: 0711 };
+install_zapret_manager("install");
+assert(length(chmods) == 1 && chmods[0] == "/opt 755", "a traversable but unreadable /opt: " + chmods);
 
 reset();
 files["/etc/crontabs/root"] = "0 4 * * * /usr/bin/zmsA --auto-best >/dev/null 2>&1\n";

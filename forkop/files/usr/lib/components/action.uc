@@ -1267,6 +1267,7 @@ function normalize_sing_box_version(value) {
 const ZAPRET_MANAGER_WEB_BACKEND = "/usr/libexec/rpcd/zapret-manager";
 const ZAPRET_MANAGER_WEB_SCRIPT = "/opt/zapret-manager-luci/backend.sh";
 const ZAPRET_MANAGER_MIGRATE_SCRIPT = getenv("FORKOP_ZAPRET_MANAGER_MIGRATE") || "/usr/share/forkop/zapret-manager-migrate.sh";
+const ZAPRET_MANAGER_OPT_DIR = getenv("FORKOP_ZAPRET_MANAGER_OPT_DIR") || "/opt";
 const ZAPRET_MANAGER_CRONTAB = getenv("FORKOP_CRONTAB_FILE") || "/etc/crontabs/root";
 // Zapret-Manager's automatic strategy selection: the script's "zmsA
 // --auto-best" job and the web version's "# zm-autobest" one. Each run
@@ -1319,6 +1320,18 @@ function disable_zapret_manager_autobest() {
     return ok;
 }
 
+// Before 1.0.66 the panel ran its installer with rpcd's umask 0077, which
+// created /opt as 0700. The DPI service it manages then dropped to an
+// unprivileged user that could no longer read its own files under /opt, and
+// exited at every start.
+function repair_zapret_manager_opt_access() {
+    let opt = fs.stat(ZAPRET_MANAGER_OPT_DIR);
+    if (opt == null || opt.type != "directory" || opt.uid != 0 || (opt.mode & 0055) == 0055)
+        return true;
+    updates_log("Opening " + ZAPRET_MANAGER_OPT_DIR + " to the services Zapret Manager installed there", "warn");
+    return fs.chmod(ZAPRET_MANAGER_OPT_DIR, opt.mode | 0055) == true;
+}
+
 // The script installs the Forkop panel and the mirror launchers zms, zmsA and
 // zmw, verifies the panel's routes and RPC, and restores every file it
 // touched when any step fails. "migrate" (after a Forkop package upgrade)
@@ -1332,6 +1345,9 @@ function install_zapret_manager(action) {
         command_from_args([ "sh", ZAPRET_MANAGER_MIGRATE_SCRIPT, action == "migrate" ? "migrate" : "install", FORKOP_MIRROR_BASE_URL ])))
         action_fail(component, action, "Zapret Manager installation failed and its previous files were restored; see the component log", current_version);
     let changed = index(last_logged_output, "FORKOP_ZM_CHANGED=1") >= 0 ? 1 : 0;
+    if (!repair_zapret_manager_opt_access())
+        action_fail(component, action, "Zapret Manager has been installed, but " + ZAPRET_MANAGER_OPT_DIR + " stays closed to its services",
+            current_version, zapret_manager_web_installed_version());
     if (!disable_zapret_manager_autobest())
         action_fail(component, action, "Zapret Manager has been installed, but its automatic strategy selection could not be disabled",
             current_version, zapret_manager_web_installed_version());
