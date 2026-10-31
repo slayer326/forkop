@@ -131,6 +131,10 @@ grep -Fq "${FORKOP_MIRROR_BASE_URL:-}/openwrt/releases/$DISTRIB_RELEASE/" "$feed
     fail "the feeds in $feeds do not point at the mirror's $DISTRIB_RELEASE tree"
 
 if [ "$PM" = opkg ]; then
+    # A dry run still downloads every dependency, and the stand-in mirror has
+    # no packages: go back to the official feeds the migration backed up.
+    [ -f "$feeds.pre-forkop-mirror" ] && cp "$feeds.pre-forkop-mirror" "$feeds" ||
+        fail "the migration left no backup of $feeds"
     note "Checking the sing-box variant switch against the real opkg"
     sh "$SOURCE_DIR/tests/openwrt/opkg_variant_switch.sh" "$SOURCE_DIR" ||
         fail "the opkg variant switch check failed"
