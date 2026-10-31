@@ -40,7 +40,8 @@ note "Installing the Forkop packages with $PM"
 if [ "$PM" = apk ]; then
     apk update >/tmp/pm-update.log 2>&1 || { cat /tmp/pm-update.log; fail "apk update failed"; }
     set -- "$PACKAGE_DIR"/forkop_*.apk "$PACKAGE_DIR"/luci-app-forkop_*.apk "$PACKAGE_DIR"/luci-i18n-forkop-ru_*.apk
-    apk add --allow-untrusted "$@" >/tmp/pm-install.log 2>&1
+    # apk runs package scripts with an empty environment unless asked.
+    apk add --allow-untrusted --preserve-env "$@" >/tmp/pm-install.log 2>&1
     status=$?
 else
     opkg update >/tmp/pm-update.log 2>&1 || { cat /tmp/pm-update.log; fail "opkg update failed"; }
@@ -110,6 +111,24 @@ state="$(ucode -L "$FORKOP_LIB" "$FORKOP_LIB/core/packages.uc" installed-version
 
 note "Checking the installed configuration"
 uci -q get forkop.settings >/dev/null || fail "the forkop UCI configuration has no settings section"
+
+# The postinst moved the release's feeds to the mirror the workflow serves.
+note "Checking the mirror migration"
+uci -q get forkop.settings.applied_migrations | tr ' ' '\n' | grep -Fxq mirror_infotechtg_ru_v1 ||
+    fail "the mirror migration was not recorded"
+if [ "$PM" = apk ]; then
+    feeds="/etc/apk/repositories.d/distfeeds.list"
+    grep -Fq "${FORKOP_MIRROR_BASE_URL:-}/forkop/mirror/current/packages.adb" /etc/apk/repositories.d/forkop.list ||
+        fail "the Forkop APK repository was not added"
+    grep -q 'BEGIN PUBLIC KEY' /etc/apk/keys/forkop-mirror.pem || fail "the mirror's APK key was not installed"
+else
+    feeds="/etc/opkg/distfeeds.conf"
+fi
+cat "$feeds"
+grep -Eq 'https?://(downloads|archive)\.openwrt\.org/releases/' "$feeds" &&
+    fail "official feeds are left in $feeds"
+grep -Fq "${FORKOP_MIRROR_BASE_URL:-}/openwrt/releases/$DISTRIB_RELEASE/" "$feeds" ||
+    fail "the feeds in $feeds do not point at the mirror's $DISTRIB_RELEASE tree"
 
 if [ "$PM" = opkg ]; then
     note "Checking the sing-box variant switch against the real opkg"
