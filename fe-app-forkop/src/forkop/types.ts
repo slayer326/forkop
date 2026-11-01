@@ -257,6 +257,8 @@ export namespace Forkop {
     runtimeAvailable?: boolean;
     urlTestInfo?: UrlTestInfo;
     priorityInfo?: PriorityInfo;
+    // The node's share link; only sessions with the write ACL receive it.
+    link?: string;
   }
 
   export interface UrlTestMember {

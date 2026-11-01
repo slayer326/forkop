@@ -28,6 +28,7 @@ vi.mock('../../../../helpers', () => ({
 }));
 
 import { getDashboardSections } from '../getDashboardSections';
+import { setReadonlyMode } from '../../../services/accessMode.service';
 import { ClashAPI, Forkop } from '../../../types';
 
 function proxy(
@@ -1016,7 +1017,9 @@ describe('getDashboardSections', () => {
     expect(subscriptionOutbound).not.toHaveProperty('canCopyLink');
   });
 
-  it('does not expose cached subscription links to the dashboard', async () => {
+  // Administrators may copy the links (issue 34); the cache, links and all,
+  // is never read for a read-only session.
+  it('offers cached subscription links to administrators only', async () => {
     mocks.getConfigSections.mockResolvedValue([
       proxySection({
         subscription_urls: ['https://subscription.example/list'],
@@ -1036,15 +1039,31 @@ describe('getDashboardSections', () => {
     );
 
     const result = await getDashboardSections();
-    const [section] = result.data;
-    const subscriptionOutbound = section.outbounds.find(
+    const subscriptionOutbound = result.data[0].outbounds.find(
       (item) => item.code === 'main-2-out',
     );
 
     expect(result.success).toBe(true);
+    // The name still comes from the metadata, not from the link.
     expect(subscriptionOutbound?.displayName).toBe('Provider Subscription');
-    expect(subscriptionOutbound).not.toHaveProperty('link');
+    expect(subscriptionOutbound?.link).toBe(
+      'vless://00000000-0000-4000-8000-000000000002@example.com:443#Subscription',
+    );
     expect(subscriptionOutbound).not.toHaveProperty('canCopyLink');
+
+    setReadonlyMode(true);
+    try {
+      mocks.fsRead.mockClear();
+      const readonlyResult = await getDashboardSections();
+      expect(mocks.fsRead).not.toHaveBeenCalled();
+      for (const outbound of readonlyResult.data.flatMap(
+        (section) => section.outbounds,
+      )) {
+        expect(outbound).not.toHaveProperty('link');
+      }
+    } finally {
+      setReadonlyMode(false);
+    }
   });
 
   it('does not expose countries when URLTest filtering is set to all servers', async () => {

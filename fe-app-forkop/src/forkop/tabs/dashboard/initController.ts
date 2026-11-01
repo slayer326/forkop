@@ -34,6 +34,8 @@ import { isTransientRpcError } from '../../helpers/isTransientRpcError';
 import { shouldShowLoadingForRestoredAction } from '../../helpers/restoredActionLoading';
 import { getServiceAvailability } from '../../helpers/serviceAvailability';
 import { createPriorityMembersState } from './priorityMembersState';
+import { loadOutboundView, saveOutboundView } from './outboundView';
+import { copyToClipboard } from '../../../helpers/copyToClipboard';
 import {
   overviewLastEvent,
   overviewRecovery,
@@ -245,6 +247,23 @@ const handledSubscriptionJobs = new Set<string>();
 const handledLatencyJobs = new Set<string>();
 // Cards are replaced on each refresh; keep disclosure state outside their DOM.
 const priorityMembersState = createPriorityMembersState();
+// The node whose own card started the running latency test, per section.
+const nodeLatencyTestTags = new Map<string, string>();
+
+function browserStorage() {
+  try {
+    return window.localStorage;
+  } catch (_error) {
+    return undefined;
+  }
+}
+
+function getOutboundView(sectionName: string) {
+  const storage = browserStorage();
+  return storage
+    ? loadOutboundView(storage, sectionName)
+    : { sortByLatency: false, hideWithoutLatency: false };
+}
 
 if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', () => {
@@ -1931,6 +1950,20 @@ async function renderSectionsWidget() {
       selectorSwitchingTag:
         sectionsWidget.selectorSwitchingSections[section.sectionName],
       readonly: isReadonlyMode(),
+      latencyTestingTag: nodeLatencyTestTags.get(section.sectionName),
+      viewOptions: getOutboundView(section.sectionName),
+      onViewOptionsChange: (options) => {
+        const storage = browserStorage();
+        if (storage) {
+          saveOutboundView(storage, section.sectionName, options);
+        }
+        renderSectionsWidget();
+      },
+      onCopyLinks: (links) => {
+        if (links.length) {
+          copyToClipboard(links.join('\n'));
+        }
+      },
       isPriorityMembersExpanded: (outbound) =>
         priorityMembersState.isExpanded(section.sectionName, outbound.code),
       onPriorityMembersToggle: (outbound, open) => {
@@ -1943,11 +1976,14 @@ async function renderSectionsWidget() {
       onTestLatency: (tag) => {
         if (section.withTagSelect) {
           if (Array.isArray(tag)) {
+            if (tag.length === 1) {
+              nodeLatencyTestTags.set(section.sectionName, tag[0]);
+            }
             return handleTestLatency(
               'proxy_list',
               section.sectionName,
               JSON.stringify(tag),
-            );
+            ).finally(() => nodeLatencyTestTags.delete(section.sectionName));
           }
 
           return handleTestLatency('group', section.sectionName, tag);

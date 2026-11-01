@@ -4,6 +4,7 @@ import {
   canUseDirectClashApi,
   getClashHttpUrl,
   getProxyUrlName,
+  isCopyableProxyLink,
 } from '../../../helpers';
 import { getClashApiSecretFromSettings } from '../../../helpers/getClashApiUrl';
 import { getOutboundTagBySection } from '../../runtimeTags';
@@ -1099,6 +1100,7 @@ function buildProxyGroupOutbounds(
   urltestGroups: Record<string, UrlTestCacheGroup> = {},
   priorityGroups: Record<string, PriorityCacheGroup> = {},
   cachedProxyLinks: Map<string, string> = new Map(),
+  shareLinks: Map<string, string> = new Map(),
 ) {
   const sectionName = section['.name'];
   const proxyByCode = getProxyEntryByCode(proxies);
@@ -1182,6 +1184,7 @@ function buildProxyGroupOutbounds(
           ? outboundMetadata?.countries?.[code]
           : undefined,
         runtimeAvailable: item ? undefined : false,
+        ...(shareLinks.has(code) ? { link: shareLinks.get(code) } : {}),
         urlTestInfo:
           urlTestConfig || isRuntimeUrlTest
             ? buildUrlTestInfo({
@@ -1379,6 +1382,16 @@ function getSubscriptionMetadata(
   return undefined;
 }
 
+// Links the generator recorded for each node tag, offered for copying. They
+// stay out of display names: those come from the metadata as before.
+function getShareLinks(dashboardCache?: DashboardSectionCache) {
+  return new Map(
+    Object.entries(objectMap(dashboardCache?.links))
+      .map(([code, link]) => [code, link.trim()] as const)
+      .filter(([, link]) => isCopyableProxyLink(link)),
+  );
+}
+
 function getOutboundMetadata(dashboardCache?: DashboardSectionCache) {
   const metadata = dashboardCache?.outboundMetadata;
   const names = objectMap(metadata?.names);
@@ -1458,6 +1471,7 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
               urltestGroups,
               priorityGroups,
               cachedProxyLinks,
+              getShareLinks(dashboardCache),
             );
 
           return {
