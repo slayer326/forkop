@@ -181,7 +181,7 @@ case "$1" in
   reload)
     if [ -e "$STOP_MARKER" ] || [ ! -e "$START_RECORD" ]; then
       ev "lifecycle reload ${2:-}"
-      exec ucode -L "$TEST_LIB" "$TEST_LIB/service/lifecycle.uc" reload "${2:-}"
+      exec "$REAL_UCODE" -L "$TEST_LIB" "$TEST_LIB/service/lifecycle.uc" reload "${2:-}"
     fi
     ev "reload ran ${2:-}"
     ;;

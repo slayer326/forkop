@@ -264,6 +264,7 @@ esac
 #    drains nothing on release ("release"). The job, queued, then applies the
 #    request itself: nobody else is left to (UC-061).
 reload_ran_pending() { grep -q '^reload ran pending$' "$EVENTS"; }
+no_init_running() { ! pgrep -f "$WORK_DIR/bin/init " >/dev/null; }
 for variant in drain release; do
   reset_case
   hold_lock
@@ -290,6 +291,9 @@ for variant in drain release; do
   esac
   wait_until 20 reload_ran_pending || fail "$variant: the queued UI reload never ran"
   wait_until 20 test ! -e "$FORKOP_PENDING_RELOAD_FILE" || fail "$variant: the queued request was left behind"
+  # The init.d call that applied it may still be finishing; left running, it
+  # would take the next case's init.hold in place of that case's UI job.
+  wait_until 20 no_init_running || fail "$variant: the init.d call of the queued reload did not end"
 done
 
 printf 'ui reload queued job checks passed\n'
