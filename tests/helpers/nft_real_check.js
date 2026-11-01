@@ -227,11 +227,19 @@ const modes = {
     const [table, markText, cgroup] = args;
     baseChain(table, 'output', 'route', 'output', -151);
     const rules = rulesOf(table, 'output');
-    assert.equal(rules.length, 1, 'TorrServer Direct rule count');
-    assert.equal(rules[0].comment, 'Forkop TorrServer Direct');
-    assert.equal(setsMark(rules[0]), Number(markText), 'TorrServer Direct must set the outbound mark');
+    assert.equal(rules.length, 3, 'TorrServer Direct rule count');
+    // FakeIP addresses are sing-box's own and must still reach it.
+    ['ip', 'ip6'].forEach((protocol, i) => {
+      const daddr = rules[i].expr.map((e) => e.match)
+        .find((m) => m && m.left && m.left.payload && m.left.payload.protocol === protocol && m.left.payload.field === 'daddr');
+      assert.ok(daddr && daddr.right && daddr.right.prefix, `TorrServer Direct must match ${protocol} FakeIP addresses first`);
+      assert.equal(verdict(rules[i]), 'return', `TorrServer Direct must leave ${protocol} FakeIP addresses to sing-box`);
+    });
+    const direct = rules[2];
+    assert.equal(direct.comment, 'Forkop TorrServer Direct');
+    assert.equal(setsMark(direct), Number(markText), 'TorrServer Direct must set the outbound mark');
     if (cgroup !== '-') {
-      const socket = rules[0].expr.map((e) => e.match).find((m) => m && m.left && m.left.socket);
+      const socket = direct.expr.map((e) => e.match).find((m) => m && m.left && m.left.socket);
       assert.ok(socket && socket.left.socket.key === 'cgroupv2' && socket.right === cgroup, 'TorrServer Direct cgroup match');
     }
   },
