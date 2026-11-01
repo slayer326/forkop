@@ -465,6 +465,29 @@ export const styles = `
     flex: 0 0 auto;
 }
 
+.fkp_dashboard-page .btn.fkp_dashboard-page__outbound-grid__item__copy-button[disabled] {
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
+.fkp_dashboard-page__outbound-grid__item__tools {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+
+.fkp_dashboard-page .btn.fkp_dashboard-page__outbound-section__view-toggle--on {
+    border-color: var(--primary-color-high, dodgerblue);
+    color: var(--primary-color-high, dodgerblue);
+}
+
+.fkp_dashboard-page__outbound-section__hidden-note {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--primary-color-low, gray);
+}
+
 .fkp_dashboard-page__outbound-grid__item__footer {
     display: flex;
     align-items: center;

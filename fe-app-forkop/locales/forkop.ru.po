@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-31 23:32+0300\n"
-"PO-Revision-Date: 2026-10-31 23:32+0300\n"
+"POT-Creation-Date: 2026-11-01 23:16+0300\n"
+"PO-Revision-Date: 2026-11-01 23:16+0300\n"
 "Last-Translator: slayer\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -622,6 +622,15 @@ msgstr "Копировать адрес"
 
 msgid "Copy details"
 msgstr "Копировать сведения"
+
+msgid "Copy links"
+msgstr "Копировать ссылки"
+
+msgid "Copy proxy link"
+msgstr "Копировать ссылку"
+
+msgid "Copy the links of the nodes shown"
+msgstr "Скопировать ссылки показанных серверов"
 
 msgid "Could not change autostart"
 msgstr "Не удалось изменить автозапуск"
@@ -1247,8 +1256,14 @@ msgstr "Норма"
 msgid "Help"
 msgstr "Справка"
 
+msgid "Hidden without latency: %d"
+msgstr "Скрыто без ответа: %d"
+
 msgid "Hide values"
 msgstr "Скрывать значения"
+
+msgid "Hide without latency"
+msgstr "Скрыть без ответа"
 
 msgid "Higher-level check interval"
 msgstr "Интервал проверки высших уровней"
@@ -2665,6 +2680,9 @@ msgstr "Тестировать серверы только из указанны
 
 msgid "Test servers whose names match the expression."
 msgstr "Тестировать серверы, имена которых совпадают с выражением."
+
+msgid "Test this node latency"
+msgstr "Проверить задержку этого сервера"
 
 msgid "Testing URL"
 msgstr "URL проверки"

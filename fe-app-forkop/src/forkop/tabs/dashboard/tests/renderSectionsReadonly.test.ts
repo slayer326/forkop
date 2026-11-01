@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('../../../../icons', () => ({
   renderLoaderCircleIcon24: () => 'svg',
   renderInfoIcon24: () => 'svg',
+  renderCopyIcon24: () => 'svg',
+  renderRotateCcwIcon24: () => 'svg',
 }));
 vi.mock('../../../../helpers', () => ({
   svgEl: () => 'svg',

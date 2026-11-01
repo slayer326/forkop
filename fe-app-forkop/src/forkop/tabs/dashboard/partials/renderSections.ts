@@ -1,9 +1,20 @@
-import { renderLoaderCircleIcon24, renderInfoIcon24 } from '../../../../icons';
+import {
+  renderCopyIcon24,
+  renderLoaderCircleIcon24,
+  renderInfoIcon24,
+  renderRotateCcwIcon24,
+} from '../../../../icons';
 import { svgEl } from '../../../../helpers';
 import { prettyBytes } from '../../../../helpers/prettyBytes';
 import { Forkop } from '../../../types';
 import { renderFlagEmojis } from './renderFlagEmojis';
 import { getOutboundFooterLabel } from './getOutboundFooterLabel';
+import {
+  arrangeOutbounds,
+  getVisibleLinks,
+  isGroupOutbound,
+  OutboundViewOptions,
+} from '../outboundView';
 
 interface IRenderSectionsProps {
   loading: boolean;
@@ -26,6 +37,68 @@ interface IRenderSectionsProps {
   onPriorityMembersToggle: (outbound: Forkop.Outbound, open: boolean) => void;
   // Read-only sessions see the runtime state but get no runtime controls.
   readonly?: boolean;
+  // The node a latency test was started for from its own card.
+  latencyTestingTag?: string;
+  viewOptions?: OutboundViewOptions;
+  onViewOptionsChange?: (options: OutboundViewOptions) => void;
+  onCopyLinks?: (links: string[]) => void;
+}
+
+const DEFAULT_VIEW_OPTIONS: OutboundViewOptions = {
+  sortByLatency: false,
+  hideWithoutLatency: false,
+};
+
+function renderViewToggle(
+  label: string,
+  pressed: boolean,
+  onToggle: () => void,
+) {
+  return E(
+    'button',
+    {
+      type: 'button',
+      class: [
+        'btn fkp_dashboard-page__outbound-section__view-toggle',
+        pressed ? 'fkp_dashboard-page__outbound-section__view-toggle--on' : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
+      'aria-pressed': pressed ? 'true' : 'false',
+      click: (event: MouseEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onToggle();
+      },
+    },
+    label,
+  );
+}
+
+function renderCardTool(
+  title: string,
+  icon: Node,
+  onClick: () => void,
+  disabled = false,
+) {
+  return E(
+    'button',
+    {
+      type: 'button',
+      class: 'btn fkp_dashboard-page__outbound-grid__item__copy-button',
+      title,
+      'aria-label': title,
+      disabled: disabled ? true : undefined,
+      click: (event: MouseEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!disabled) {
+          onClick();
+        }
+      },
+    },
+    icon,
+  );
 }
 
 function renderFailedState() {
@@ -258,8 +331,24 @@ function renderDefaultState({
   isPriorityMembersExpanded,
   onPriorityMembersToggle,
   readonly = false,
+  latencyTestingTag,
+  viewOptions = DEFAULT_VIEW_OPTIONS,
+  onViewOptionsChange,
+  onCopyLinks,
 }: IRenderSectionsProps) {
   const withTagSelect = section.withTagSelect && !readonly;
+  // Sorting and hiding only change this viewer's grid; a section with a
+  // single server has nothing to arrange.
+  const canArrange =
+    section.withTagSelect &&
+    Boolean(onViewOptionsChange) &&
+    section.outbounds.filter((outbound) => !isGroupOutbound(outbound)).length >
+      1;
+  const arranged = canArrange
+    ? arrangeOutbounds(section.outbounds, viewOptions)
+    : { outbounds: section.outbounds, hidden: 0 };
+  const visibleLinks =
+    readonly || !onCopyLinks ? [] : getVisibleLinks(arranged.outbounds);
 
   function renderPriorityMembers(outbound: Forkop.Outbound) {
     const members = outbound.priorityInfo?.outbounds || [];
@@ -377,6 +466,45 @@ function renderDefaultState({
       return 'fkp_dashboard-page__outbound-grid__item__latency--red';
     }
 
+    function renderNodeTools() {
+      if (readonly || !section.withTagSelect || isGroupOutbound(outbound)) {
+        return [];
+      }
+
+      const testing = latencyFetching && latencyTestingTag === outbound.code;
+      const tools: HTMLElement[] = [];
+
+      if (outbound.runtimeAvailable !== false) {
+        tools.push(
+          renderCardTool(
+            _('Test this node latency'),
+            testing ? renderLoaderCircleIcon24() : renderRotateCcwIcon24(),
+            () => onTestLatency([outbound.code]),
+            latencyFetching,
+          ),
+        );
+      }
+
+      if (outbound.link && onCopyLinks) {
+        const link = outbound.link;
+        tools.push(
+          renderCardTool(_('Copy proxy link'), renderCopyIcon24(), () =>
+            onCopyLinks([link]),
+          ),
+        );
+      }
+
+      return tools.length
+        ? [
+            E(
+              'span',
+              { class: 'fkp_dashboard-page__outbound-grid__item__tools' },
+              tools,
+            ),
+          ]
+        : [];
+    }
+
     const footerLabel = getOutboundFooterLabel(outbound);
     const priorityMembers = renderPriorityMembers(outbound);
     const selectorSwitching = Boolean(selectorSwitchingTag);
@@ -473,6 +601,7 @@ function renderDefaultState({
                 ),
               ]
             : []),
+          ...renderNodeTools(),
         ]),
         E('div', { class: 'fkp_dashboard-page__outbound-grid__item__footer' }, [
           E(
@@ -520,6 +649,47 @@ function renderDefaultState({
           class: 'fkp_dashboard-page__outbound-section__title-section__actions',
         },
         [
+          ...(canArrange && onViewOptionsChange
+            ? [
+                renderViewToggle(
+                  _('Sort by latency'),
+                  viewOptions.sortByLatency,
+                  () =>
+                    onViewOptionsChange({
+                      ...viewOptions,
+                      sortByLatency: !viewOptions.sortByLatency,
+                    }),
+                ),
+                renderViewToggle(
+                  _('Hide without latency'),
+                  viewOptions.hideWithoutLatency,
+                  () =>
+                    onViewOptionsChange({
+                      ...viewOptions,
+                      hideWithoutLatency: !viewOptions.hideWithoutLatency,
+                    }),
+                ),
+              ]
+            : []),
+          ...(visibleLinks.length > 1 && onCopyLinks
+            ? [
+                E(
+                  'button',
+                  {
+                    type: 'button',
+                    class:
+                      'btn fkp_dashboard-page__outbound-section__copy-links',
+                    title: _('Copy the links of the nodes shown'),
+                    click: (event: MouseEvent) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onCopyLinks(visibleLinks);
+                    },
+                  },
+                  `${_('Copy links')} (${visibleLinks.length})`,
+                ),
+              ]
+            : []),
           ...(subscriptionUpdateAction ? [subscriptionUpdateAction] : []),
           ...(readonly
             ? []
@@ -568,8 +738,20 @@ function renderDefaultState({
     ]),
     E('div', { class: 'fkp_dashboard-page__outbound-grid' }, [
       ...metadataNodes,
-      ...section.outbounds.map((outbound) => renderOutbound(outbound)),
+      ...arranged.outbounds.map((outbound) => renderOutbound(outbound)),
     ]),
+    ...(arranged.hidden > 0
+      ? [
+          E(
+            'div',
+            { class: 'fkp_dashboard-page__outbound-section__hidden-note' },
+            _('Hidden without latency: %d').replace(
+              '%d',
+              String(arranged.hidden),
+            ),
+          ),
+        ]
+      : []),
   ]);
 }
 
