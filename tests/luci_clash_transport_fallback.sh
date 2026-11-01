@@ -36,8 +36,14 @@ const sockets = functionBody(dashboard, 'async function connectToClashSockets(da
 assert.match(sockets, /if \(!canUseDirectClashApi\(clashApiSecret\)\) \{\s*startClashRpcPolling\(dataUpdatesId\);\s*return;/,
   'dashboard must poll through rpcd when the controller socket is not reachable or there is no secret');
 assert.doesNotMatch(sockets, /token=\$\{/, 'the secret must be URL-encoded by getClashWsStreamUrl');
-assert.equal((sockets.match(/fallBackToClashRpcPolling\(dataUpdatesId\)/g) || []).length, 2,
-  'both dashboard sockets must fall back to rpcd polling on error');
+assert.equal((sockets.match(/fallBackToClashRpcPolling\(dataUpdatesId\)/g) || []).length, 3,
+  'both dashboard sockets and their watchdog must fall back to rpcd polling');
+// A socket that neither opens nor fails (a remote LuCI behind Tailscale or a
+// firewall dropping 9090) must not leave the widgets loading for minutes.
+assert.match(sockets, /clashSocketWatchdog = setTimeout\([\s\S]*?\(!trafficReceived \|\| !connectionsReceived\)[\s\S]*?fallBackToClashRpcPolling\(dataUpdatesId\)[\s\S]*?CLASH_SOCKET_FIRST_MESSAGE_MS\)/,
+  'the dashboard must poll when its sockets give no data in time');
+assert.match(functionBody(dashboard, 'function stopDashboardDataUpdates()'), /clearClashSocketWatchdog\(\)/,
+  'the socket watchdog must stop with the data updates');
 assert.doesNotMatch(sockets, /failed: true/,
   'a socket error must not mark the widgets unavailable for good');
 assert.match(functionBody(dashboard, 'function stopDashboardDataUpdates()'), /stopClashRpcPolling\(\)/,

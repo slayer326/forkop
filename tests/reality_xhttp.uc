@@ -166,6 +166,51 @@ fields(cached_generated, "X-Cache", 6);
 expect(cached_generated.tls.reality.support_x25519mlkem768 === false,
     "cached explicit false survives final generation");
 
+// A subscription node whose session IDs the core would refuse is skipped;
+// the rest start. The core counts the IDs of every length in the range.
+// Ports tell the nodes apart: generation gives them new tags.
+let session_nodes = [
+    [ 19501, "Base62", "4-8", true ],       // 62^4 alone is too few, the range is not
+    [ 19502, "number", "4-8", false ],      // 111,110,000 IDs
+    [ 19503, "hex", null, false ],          // a table needs a length
+    [ 19504, "hex", 8, true ],              // 16^8 = 2^32
+    [ 19505, "ab", "1-30", false ],         // 2^31 - 2
+    [ 19506, "ab", "1-31", true ],
+    [ 19507, "a", "1-40", false ]
+];
+let session_cache = [ cached ];
+for (let node in session_nodes) {
+    let transport = { type: "xhttp", session_id_table: node[1] };
+    if (node[2] != null)
+        transport.session_id_length = node[2];
+    push(session_cache, { type: "vless", tag: "session-" + node[0], server: "127.0.0.1", server_port: node[0],
+        uuid: "00000000-0000-4000-8000-000000000002", transport });
+}
+write(runtime + "/" + source + ".json", {outbounds:session_cache});
+let session_config = work + "/session.generated.json";
+run(["env", "TMP_SUBSCRIPTION_FOLDER=" + runtime,
+    "FORKOP_PERSISTENT_SUBSCRIPTION_CACHE_DIR=" + persistent,
+    "FORKOP_RUNTIME_STATE_DIR=" + runtime, "ucode", "-L", lib,
+    lib + "/singbox/generator.uc", "generate-config-fixture", cached_fixture, session_config,
+    "127.0.0.1", "0", "1", "", "1.14.3-extended-2.7.3"]);
+let session_ports = {};
+for (let o in read(session_config).outbounds)
+    session_ports[o.server_port] = true;
+expect(session_ports[19443], "a valid node next to refused ones still starts");
+for (let node in session_nodes)
+    expect(!!session_ports[node[0]] == node[3], "session IDs " + node[1] + " " + node[2]);
+
+// A manual link the core would refuse fails generation with its reason.
+let refused_fixture = work + "/refused.fixture.json";
+write(refused_fixture, {settings:{".name":"settings",".type":"settings",dns_server:"1.1.1.1"},
+    section:[{".name":"probe",".type":"section",enabled:"1",action:"connection",
+        selector_proxy_links:[base + "&extra=" + encode('{"sessionIDTable":"number","sessionIDLength":"4-8"}')]}]});
+let refused_log = work + "/refused.log";
+expect(system(join(" ", map(["ucode", "-L", lib, lib + "/singbox/generator.uc", "generate-config-fixture",
+    refused_fixture, work + "/refused.json", "127.0.0.1", "0", "1", "", "1.14.3-extended-2.7.3"], quote)) +
+    " >" + quote(refused_log) + " 2>&1") != 0, "a refused manual XHTTP link fails generation");
+expect(index(fs.readfile(refused_log), "allow fewer than 2^31 IDs") >= 0, "the failure names the session IDs");
+
 for (let version in ["1.13.21", "1.14.1", "1.14.1-extended-2.7.1", "unknown", "1.14.1-extended-2.7.2-rc1",
     "1.14.1-extended-2.7.2", "1.14.1-extended-2.7.20", "1.14.1-extended-2.8.0", "1.14.1-extended-3.0.0"]) {
     let o = vless_outbound(generate([base], [], version));

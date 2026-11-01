@@ -602,9 +602,71 @@ function outbound_uses_xhttp(outbound) {
         lc(as_string(outbound.transport.type || "")) == "xhttp";
 }
 
+// The tables sing-box-extended and podkop-engine know by name; any other
+// session_id_table is the table itself.
+const XHTTP_SESSION_ID_TABLE_SIZES = {
+    ALPHABET: 26, Alphabet: 52, BASE36: 36, Base62: 62, HEX: 16,
+    alphabet: 26, base36: 36, hex: 16, number: 10
+};
+const XHTTP_SESSION_ID_MIN_ROOM = 2147483648;
+
+// [from, to] of a range as sing-box reads it: a number, "from-to" or
+// { from, to }. null when it is none of these.
+function xhttp_range_bounds(value) {
+    if (type(value) == "int")
+        return [ value, value ];
+    if (type(value) == "object")
+        return type(value.from) == "int" && type(value.to) == "int" ? [ value.from, value.to ] : null;
+    let matched = match(trim(as_string(value)), /^([0-9]+)(-([0-9]+))?$/);
+    if (matched == null)
+        return null;
+    let from = int(matched[1]);
+    return [ from, matched[3] != null ? int(matched[3]) : from ];
+}
+
+// Why the core would refuse this XHTTP session ID table and length, or "".
+// Both cores count the IDs of every length in the range and want at least
+// 2^31 of them: Base62 "4-8" passes, "number" "4-8" does not.
+function xhttp_session_id_problem(outbound) {
+    if (!outbound_uses_xhttp(outbound))
+        return "";
+    let table = as_string(outbound.transport.session_id_table || "");
+    if (table == "")
+        return "";
+    let size = XHTTP_SESSION_ID_TABLE_SIZES[table];
+    if (size == null) {
+        for (let i = 0; i < length(table); i++)
+            if (ord(table, i) >= 128)
+                return "the session ID table is not ASCII";
+        size = length(table);
+    }
+    let range = outbound.transport.session_id_length == null
+        ? [ 0, 0 ] : xhttp_range_bounds(outbound.transport.session_id_length);
+    if (range == null)
+        return "";
+    if (range[0] <= 0)
+        return "the session ID length is missing or 0";
+    if (range[0] > range[1])
+        return "";
+    // A one-character table gives one ID per length.
+    let room = size < 2 ? range[1] - range[0] + 1 : 0, ids = 1;
+    for (let n = 1; size >= 2 && n <= range[1]; n++) {
+        ids *= size;
+        // The longest length alone gives enough.
+        if (ids >= XHTTP_SESSION_ID_MIN_ROOM)
+            return "";
+        if (n >= range[0])
+            room += ids;
+    }
+    return room >= XHTTP_SESSION_ID_MIN_ROOM ? "" : "the session ID table and length allow fewer than 2^31 IDs";
+}
+
 function ensure_explicit_outbound_supported(outbound, source, name) {
     if (!runtime_supports_xhttp && outbound_uses_xhttp(outbound))
         runtime_generate_unsupported(as_string(source) + " '" + as_string(name) + "' uses XHTTP transport, but sing-box-extended is not installed");
+    let problem = xhttp_session_id_problem(outbound);
+    if (problem != "")
+        runtime_generate_unsupported(as_string(source) + " '" + as_string(name) + "' cannot use XHTTP: " + problem);
 }
 
 function subscription_outbound_display_name(outbound) {
@@ -655,6 +717,12 @@ function compatible_subscription_outbounds(outbounds, section_name) {
             continue;
         if (!runtime_supports_xhttp && outbound_uses_xhttp(outbound)) {
             warn_skipped_subscription_outbound(section_name, outbound, "XHTTP requires sing-box-extended");
+            continue;
+        }
+        // One such node must not keep the whole configuration from starting.
+        let session_id_problem = xhttp_session_id_problem(outbound);
+        if (session_id_problem != "") {
+            warn_skipped_subscription_outbound(section_name, outbound, session_id_problem);
             continue;
         }
         push(retained, outbound);
@@ -3357,8 +3425,11 @@ function add_service_route_rules(config, sections) {
             domain: runtime_constants.CHECK_PROXY_IP_DOMAIN
         });
     }
+    // The diagnostics compare this check's public IP with the proxy check's
+    // above, so a section that catches everything must not take it.
     push(config.route.rules, {
-        action: "route-options",
+        action: "route",
+        outbound: runtime_constants.DIRECT_OUTBOUND_TAG,
         domain: runtime_constants.FAKEIP_TEST_DOMAIN,
         override_port: 8443
     });

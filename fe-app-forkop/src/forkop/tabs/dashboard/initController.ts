@@ -66,6 +66,9 @@ import { isReadonlyMode } from '../../services/accessMode.service';
 
 const SECTIONS_REFRESH_INTERVAL_MS = 10000;
 const CLASH_RPC_POLL_INTERVAL_MS = 2000;
+// A socket the browser cannot reach may neither open nor fail for minutes
+// (a remote LuCI behind Tailscale or a firewall that drops port 9090).
+const CLASH_SOCKET_FIRST_MESSAGE_MS = 5000;
 const LATENCY_TEST_BUTTON_CLASS = 'dashboard-sections-grid-item-test-latency';
 const LATENCY_TEST_BUTTON_LABEL_CLASS =
   'dashboard-sections-grid-item-test-latency__label';
@@ -235,6 +238,7 @@ let pageUnloading = false;
 let clashRpcPollTimer: ReturnType<typeof setInterval> | null = null;
 let clashRpcPolling = false;
 let lastConnectionsSample: ConnectionsSample | null = null;
+let clashSocketWatchdog: ReturnType<typeof setTimeout> | null = null;
 const followedSubscriptionJobs = new Set<string>();
 const followedLatencyJobs = new Set<string>();
 const handledSubscriptionJobs = new Set<string>();
@@ -674,6 +678,24 @@ async function connectToClashSockets(dataUpdatesId: number) {
     return;
   }
 
+  let trafficReceived = false;
+  let connectionsReceived = false;
+  clearClashSocketWatchdog();
+  clashSocketWatchdog = setTimeout(() => {
+    clashSocketWatchdog = null;
+    if (
+      (!trafficReceived || !connectionsReceived) &&
+      dataUpdatesId === dashboardDataUpdatesId &&
+      getDashboardServiceAvailability() !== 'stopped'
+    ) {
+      logger.warn(
+        '[DASHBOARD]',
+        'connectToClashSockets: no data from the sockets, polling instead',
+      );
+      fallBackToClashRpcPolling(dataUpdatesId);
+    }
+  }, CLASH_SOCKET_FIRST_MESSAGE_MS);
+
   socket.subscribe(
     getClashWsStreamUrl('/traffic', clashApiSecret),
     (msg) => {
@@ -684,6 +706,7 @@ async function connectToClashSockets(dataUpdatesId: number) {
         return;
       }
 
+      trafficReceived = true;
       const parsedMsg = JSON.parse(msg);
 
       store.set({
@@ -720,6 +743,7 @@ async function connectToClashSockets(dataUpdatesId: number) {
         return;
       }
 
+      connectionsReceived = true;
       const parsedMsg = JSON.parse(msg);
 
       store.set({
@@ -851,11 +875,19 @@ function stopClashRpcPolling() {
   lastConnectionsSample = null;
 }
 
+function clearClashSocketWatchdog() {
+  if (clashSocketWatchdog) {
+    clearTimeout(clashSocketWatchdog);
+    clashSocketWatchdog = null;
+  }
+}
+
 function fallBackToClashRpcPolling(dataUpdatesId: number) {
   if (dataUpdatesId !== dashboardDataUpdatesId) {
     return;
   }
 
+  clearClashSocketWatchdog();
   socket.resetAll();
   startClashRpcPolling(dataUpdatesId);
 }
@@ -880,6 +912,7 @@ function stopDashboardDataUpdates() {
   }
 
   sectionsRefreshQueued = false;
+  clearClashSocketWatchdog();
   stopClashRpcPolling();
   // Never close sockets this controller did not open (Monitoring owns its
   // connections stream when it hosts the Nodes view).
