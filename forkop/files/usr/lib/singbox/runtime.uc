@@ -4,6 +4,7 @@ let fs = require("fs");
 let uci_core = require("core.uci");
 let common = require("core.common");
 let runtime_dns = require("singbox.dns");
+let subscription_recovery = require("singbox.subscription_recovery");
 
 const CONFIG_NAME = getenv("FORKOP_CONFIG_NAME") || "forkop";
 // Test-only config preparation failure injection. Empty in production.
@@ -771,6 +772,48 @@ function sing_box_check(config_path, output_path) {
     return { status, reason };
 }
 
+// A node the core rejects at validation time is excluded together with its
+// dependent groups, then the candidate is checked again. Provenance comes
+// only from the section cache written by the generator; manual outbounds are
+// never touched, and the source subscription cache stays intact.
+function check_with_subscription_recovery(config_path, output_path) {
+    let result = sing_box_check(config_path, output_path);
+    while (result.status != 0) {
+        let cache_dir = config_path + ".section-cache";
+        let states = [], paths = [];
+        let entries = fs.lsdir(cache_dir);
+        if (type(entries) != "array")
+            return result;
+        for (let entry in entries) {
+            if (match(entry, /^[A-Za-z0-9_-]+\.json$/) == null)
+                continue;
+            let path = cache_dir + "/" + entry;
+            let state = common.read_json_file(path);
+            if (type(state) != "object")
+                return result;
+            push(paths, path);
+            push(states, state);
+        }
+        let config = common.read_json_file(config_path);
+        if (type(config) != "object")
+            return result;
+        let repaired = subscription_recovery.recover(config, states, result.reason);
+        if (repaired == null)
+            return result;
+        // Every retry removes at least one proven subscription node. Nothing
+        // is written to the source subscription or live UI/configuration.
+        if (common.write_private_json_file(config_path, repaired.config) == null)
+            return { status: 1, reason: "unable to write recovered configuration" };
+        for (let i = 0; i < length(paths); i++)
+            if (common.write_private_json_file(paths[i], repaired.states[i]) == null)
+                return { status: 1, reason: "unable to write recovered section cache" };
+        for (let tag in repaired.removed)
+            log_message("Skipping incompatible subscription outbound '" + tag + "'; source cache preserved", "warn");
+        result = sing_box_check(config_path, output_path);
+    }
+    return result;
+}
+
 // The lifecycle checks a stage once more before it publishes it: a manual
 // restart before it touches the running runtime, a bootstrap start before its
 // first commit. prepare-config-stage already checked the generated file, so
@@ -784,7 +827,7 @@ function validate_config_stage(stage_path) {
 
     let result = SINGBOX_CONFIG_FAIL_PHASE == "check"
         ? { status: 1, reason: "injected sing-box configuration check failure" }
-        : sing_box_check(stage_path, check_log);
+        : check_with_subscription_recovery(stage_path, check_log);
     if (result.status != 0)
         log_message("Staged sing-box configuration is invalid: " + result.reason + ". Aborted.", "fatal");
     remove_file(check_log);
@@ -1184,7 +1227,7 @@ function init_config(populate_nft, caches_prepared, no_refresh, prepared_deferre
 
     let check_result = SINGBOX_CONFIG_FAIL_PHASE == "check"
         ? { status: 1, reason: "injected sing-box configuration check failure" }
-        : sing_box_check(temp_config, runtime_log);
+        : check_with_subscription_recovery(temp_config, runtime_log);
     if (check_result.status != 0) {
         log_message("Generated sing-box configuration is invalid: " + check_result.reason + ". Aborted.", "fatal");
         discard_config_stage(temp_config);

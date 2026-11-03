@@ -77,8 +77,26 @@ function preferred_name_matches(tag, display, aliases, selected_names, owners) {
     return false;
 }
 
+// A provider may change an endpoint address (domain <-> IP) without changing
+// the node itself. The profile keeps credentials, TLS and transport strict;
+// only the server field may differ.
+function connection_profile(outbound) {
+    if (type(outbound) != "object" || !outbound.server ||
+        outbound.type == "selector" || outbound.type == "urltest")
+        return "";
+    let connection = {};
+    for (let key, value in outbound) {
+        if (key == "tag" || key == "remark" || key == "share_link" ||
+            key == "server" || index(key, "__forkop_") == 0)
+            continue;
+        connection[key] = value;
+    }
+    return sprintf("%J", canonical(connection));
+}
+
 function inherit_names(previous, next) {
     let by_connection = {};
+    let previous_entries = [];
     for (let outbound in common.array_or_empty(common.object_or_empty(previous).outbounds)) {
         let key = connection_key(outbound);
         if (key == "")
@@ -88,13 +106,40 @@ function inherit_names(previous, next) {
             if (index(known, name) < 0)
                 push(known, name);
         by_connection[key] = known;
+        push(previous_entries, {
+            profile: connection_profile(outbound),
+            names: names(outbound)
+        });
     }
+    let next_entries = map(common.array_or_empty(common.object_or_empty(next).outbounds),
+        outbound => connection_profile(outbound));
+    let index_value = 0;
     for (let outbound in common.array_or_empty(common.object_or_empty(next).outbounds)) {
+        let entry_index = index_value++;
         // Never accept alias history supplied by a subscription provider.
         delete outbound.__forkop_filter_names;
         let known = by_connection[connection_key(outbound)];
-        if (type(known) == "array" && length(known))
+        if (type(known) == "array" && length(known)) {
             outbound.__forkop_filter_names = known;
+            continue;
+        }
+        // Exact identity failed: allow a unique same-name endpoint whose
+        // connection differs only by the server address.
+        let profile = next_entries[entry_index];
+        if (profile == "")
+            continue;
+        let current_names = names(outbound);
+        if (length(current_names) == 0)
+            continue;
+        if (length(filter(next_entries, item => item == profile)) != 1)
+            continue;
+        let matches = filter(previous_entries, item =>
+            item.profile == profile &&
+            length(filter(item.names, name => index(current_names, name) >= 0)) > 0);
+        if (length(matches) != 1)
+            continue;
+        if (length(matches[0].names))
+            outbound.__forkop_filter_names = matches[0].names;
     }
     return next;
 }

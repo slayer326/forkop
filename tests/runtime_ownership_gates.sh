@@ -26,7 +26,7 @@ awk '
 # restarts it). The read-only skip of a background reload after an explicit
 # stop may look at the runtime earlier: it changes nothing.
 awk '
-  /^function reload\(reason\) \{/ { inside = 1 }
+  /^function reload\(reason[^)]*\) \{/ { inside = 1 }
   inside && /"sing-box-process-conflict"/ && !gate_line { gate_line = NR }
   inside && /"capture-reload-state"/ && !capture_line { capture_line = NR }
   inside && /if \(!module_success\(STATE_UC, \[ "forkop-running"/ && !running_line { running_line = NR }

@@ -984,6 +984,9 @@ function add_subscription_source_with_state(config, section, source_index, sourc
         push(config.outbounds, outbound);
         subscription_outbound_tags[outbound.tag] = true;
         added++;
+        if (type(state.subscriptionOutbounds) != "object")
+            state.subscriptionOutbounds = {};
+        state.subscriptionOutbounds[outbound.tag] = true;
         if (!is_group)
             push(urltest_candidate_tags, outbound.tag);
         runtime_subscription.remember_source_outbound(
@@ -1897,6 +1900,8 @@ function apply_link_tls(outbound, scheme, query) {
         let preference = query.support_x25519mlkem768;
         if (preference == null)
             preference = query.supportX25519MLKEM768;
+        if (preference == null)
+            preference = query["support-x25519mlkem768"];
         if (preference != null)
             tls.reality.support_x25519mlkem768 = bool_query(preference);
     }

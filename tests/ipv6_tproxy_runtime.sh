@@ -67,11 +67,11 @@ for mode in enabled all-disabled lo-disabled missing; do
 
     batch=$WORK_DIR/$mode.nft
     FORKOP_NFT_BATCH_FILE=$batch ucode -L "$FORKOP_LIB" "$NFT_UC" nft-create-runtime-base \
-        ForkopIPv6Test localv4 subnets ports ip_ports interfaces br-lan 0x04000000 0x08000000 198.18.0.0/15 1602 0 localv6 subnets6 ip_ports6 fc00::/18 ::1
+        ForkopIPv6Test localv4 subnets ports ip_ports interfaces br-lan 0x04000000 0x08000000 198.18.0.0/15 1602 0 localv6 subnets6 ip_ports6 2001:2::/112 ::1
     FORKOP_NFT_BATCH_FILE=$batch ucode -L "$FORKOP_LIB" "$NFT_UC" nft-create-runtime-output-rules \
-        ForkopIPv6Test localv4 subnets ports ip_ports 0x04000000 198.18.0.0/15 localv6 subnets6 ip_ports6 fc00::/18
+        ForkopIPv6Test localv4 subnets ports ip_ports 0x04000000 198.18.0.0/15 localv6 subnets6 ip_ports6 2001:2::/112
     FORKOP_NFT_BATCH_FILE=$batch ucode -L "$FORKOP_LIB" "$NFT_UC" nft-add-section-priority-rules-fixture \
-        "$WORK_DIR/fixture.json" ForkopIPv6Test interfaces localv4 localv6 0x04000000 198.18.0.0/15 fc00::/18
+        "$WORK_DIR/fixture.json" ForkopIPv6Test interfaces localv4 localv6 0x04000000 198.18.0.0/15 2001:2::/112
     grep -q 'tproxy ip to' "$batch" || fail "$mode lost IPv4 interception"
     if [ "$mode" = enabled ]; then
         grep -q 'tproxy ip6 to' "$batch" || fail 'missing IPv6 interception'

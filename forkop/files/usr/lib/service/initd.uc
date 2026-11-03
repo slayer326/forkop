@@ -1294,6 +1294,23 @@ function reload_service(reason, owner_pid) {
     return finish.status;
 }
 
+function restart_service(owner_pid) {
+    if (!acquire_runtime_dir_lock_wait(RELOAD_LOCK_DIR, owner_pid_value(), START_RUNTIME_LOCK_WAIT_SECONDS))
+        return 1;
+    clear_start_retry(START_RETRY_FILE);
+    cancel_scheduled_start_retry(START_RETRY_PID_FILE);
+    let job_id = begin_external_service_action("restart", "initd", owner_pid);
+    // Public CLI restart shares this lock with UCI/subscription reloads.
+    // Invoke the lifecycle directly to avoid re-entering this dispatcher.
+    let status = command_status(command_from_args([ "env", "FORKOP_UI_ACTION_TRACKED=1", "ucode", "-L", LIB_DIR,
+        LIB_DIR + "/service/lifecycle.uc", "restart" ]) + " >/dev/null 2>&1");
+    release_runtime_dir_lock(RELOAD_LOCK_DIR, owner_pid_value());
+    finish_external_service_action("restart", job_id, status);
+    if (status == 0 && active_service_action_value() == "")
+        run_pending_reload_if_requested(PENDING_RELOAD_FILE, SERVICE_INIT);
+    return status;
+}
+
 // Without an owner, the caller's own lock (the init.d shell that ran
 // reload-service): core/runtime_lock.uc.
 function reload_release(owner_pid) {
@@ -1410,6 +1427,8 @@ else if (mode == "reload-finish")
     exit(reload_finish(ARGV[1], ARGV[2], ARGV[3], ARGV[4]));
 else if (mode == "reload-service")
     exit(reload_service(ARGV[1], ARGV[2]));
+else if (mode == "restart-service")
+    exit(restart_service(ARGV[1]));
 else if (mode == "reload-release")
     exit(reload_release(ARGV[1]));
 else if (mode == "trigger-plan")

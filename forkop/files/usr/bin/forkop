@@ -126,7 +126,8 @@ function command_spec(command) {
         // so this does not recurse through this command.
         reload: [ "service/initd.uc", "reload-service", 1 ],
         dns_failover_apply: [ "service/lifecycle.uc", "dns-failover-apply", 1 ],
-        restart: [ "service/lifecycle.uc", "restart", 0 ],
+        // Public CLI restart shares initd's runtime lock with reloads (2.6.5).
+        restart: [ "service/initd.uc", "restart-service", 0 ],
         // LuCI-only guarded restart: prepare remote data before stop/start.
         manual_restart: [ "service/lifecycle.uc", "manual-restart", 0 ],
         enable: [ "service/lifecycle.uc", "enable", 0 ],

@@ -93,7 +93,7 @@ const NFT_FAKEIP_MARK = constant_value("NFT_FAKEIP_MARK", "0x04000000");
 const NFT_OUTBOUND_MARK = constant_value("NFT_OUTBOUND_MARK", "0x08000000");
 
 const SB_FAKEIP_INET4_RANGE = constant_value("SB_FAKEIP_INET4_RANGE", "198.18.0.0/15");
-const SB_FAKEIP_INET6_RANGE = constant_value("SB_FAKEIP_INET6_RANGE", "fc00::/18");
+const SB_FAKEIP_INET6_RANGE = constant_value("SB_FAKEIP_INET6_RANGE", "2001:2::/112");
 const SB_TPROXY_INBOUND6_ADDRESS = constant_value("SB_TPROXY_INBOUND6_ADDRESS", "::1");
 const SB_TPROXY_INBOUND_PORT = constant_value("SB_TPROXY_INBOUND_PORT", "1602");
 const SB_SERVICE_MIXED_INBOUND_ADDRESS = constant_value("SB_SERVICE_MIXED_INBOUND_ADDRESS", "127.0.0.1");
@@ -1632,6 +1632,9 @@ function abort_guarded_transition(status, stage_path, backup_path, guard_active)
     }
 
     if (fs.stat(backup_path) != null && restore_guarded_singbox_runtime(backup_path, true)) {
+        module_success(PRIORITY_UC, [ "start-runtime" ]);
+        module_success(DNS_FAILOVER_UC, [ "start-runtime" ]);
+        log_message("Configuration apply failed; previous runtime restored", "warn");
         finish_reload_singbox_transaction(false);
         return abort_reload(status, false);
     }
@@ -2133,7 +2136,7 @@ function reload_skipped_after_stop(reason) {
     return true;
 }
 
-function reload(reason) {
+function reload(reason, cold_restart) {
     reason = as_string(reason || "");
     // A completed list generation whose final runtime apply failed is safe to
     // retry locally. Never let a later generic/pending reload skip that
@@ -2255,6 +2258,12 @@ function reload(reason) {
         plan.needs_nft_rebuild = 1;
         plan.needs_list_update = 0;
         plan.changed_list = 0;
+    }
+    if (cold_restart) {
+        plan.has_work = 1;
+        plan.needs_sing_box_reload = 1;
+        plan.needs_nft_rebuild = 1;
+        plan.needs_cron_refresh = 1;
     }
     write_service_trigger_sync_state(plan.changed_service_triggers);
 
@@ -2563,6 +2572,17 @@ function restart(stop_sensitive, expected_fingerprint) {
     if (module_success(STATE_UC, [ "sing-box-process-conflict" ])) {
         log_message("Refusing Forkop restart: sing-box process ownership is ambiguous; preserving the existing runtime", "fatal");
         return 1;
+    }
+
+    // Reuse the staged cold transition for a working runtime. Interception
+    // and DNS survive while the core is replaced behind the transition guard.
+    // A kept fail-closed guard still needs the full stop/start recovery below.
+    if (!runtime_guard_kept() &&
+        module_success(STATE_UC, [ "forkop-running", RT_TABLE_NAME, NFT_TABLE_NAME, NFT_FAKEIP_MARK ])) {
+        let selector_state = capture_selector_state();
+        let status = reload("restart", true);
+        restore_selector_state(selector_state);
+        return status;
     }
 
     let selector_state = capture_selector_state();

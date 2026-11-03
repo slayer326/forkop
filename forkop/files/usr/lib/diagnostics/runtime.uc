@@ -1870,6 +1870,7 @@ function clash_api_request(action, arg1, arg2, arg3, auth) {
 
     if (action == "get_connections") {
         let args = clash_curl();
+        push(args, "--fail");
         for (let item in auth) push(args, item);
         push(args, base_url + "/connections");
         return clash_json_output(args);

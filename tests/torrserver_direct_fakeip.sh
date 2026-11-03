@@ -28,7 +28,7 @@ line_of() {
   printf '%s\n' "$batch" | grep -n -F -x -- "$1" | head -n 1 | cut -d: -f1
 }
 v4="$(line_of 'add rule inet ForkopTorrServerDirect output ip daddr 198.18.0.0/15 return')"
-v6="$(line_of 'add rule inet ForkopTorrServerDirect output ip6 daddr fc00::/18 return')"
+v6="$(line_of 'add rule inet ForkopTorrServerDirect output ip6 daddr 2001:2::/112 return')"
 mark="$(printf '%s\n' "$batch" | grep -n -F 'meta mark set 0x08000000' | head -n 1 | cut -d: -f1)"
 [ -n "$v4" ] && [ -n "$v6" ] || fail "FakeIP destinations are not excluded: $batch"
 [ -n "$mark" ] || fail "the bypass mark rule is missing: $batch"
