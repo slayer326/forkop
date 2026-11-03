@@ -28,6 +28,7 @@ let runtime_ruleset_folder = runtime_constants.TMP_RULESET_FOLDER;
 let runtime_supports_xhttp = true;
 let runtime_supports_utls_fallback = false;
 let runtime_supports_dns_response_matching = false;
+let runtime_supports_reality_pq = false;
 let provider_urltest_start_seed = "";
 let subscription_bootstrap_dns_section = "";
 let subscription_outbound_tags = {};
@@ -3689,6 +3690,34 @@ function utls_fallback_section(settings) {
     return { enabled: true };
 }
 
+// Only sing-box-extended and podkop-engine accept
+// tls.reality.support_x25519mlkem768; stock sing-box and sing-box-tiny reject
+// the unknown field and refuse the whole configuration. The preference is
+// kept in the subscription cache and share links, but the generated config
+// must not carry it to a core that would fail to decode it.
+function sing_box_version_supports_reality_pq(version) {
+    version = as_string(version);
+    return index(version, "extended") >= 0 || index(version, "-pdk-") >= 0;
+}
+
+// Drop the REALITY post-quantum preference from every outbound when the core
+// cannot decode it. Without the field stock sing-box already behaves like
+// "false", so an explicit true is a graceful degradation, not a breakage.
+function strip_unsupported_reality_pq(config) {
+    if (runtime_supports_reality_pq)
+        return;
+    let stripped = 0;
+    for (let outbound in array_or_empty(config.outbounds))
+        if (type(outbound) == "object" && type(outbound.tls) == "object" &&
+            type(outbound.tls.reality) == "object" &&
+            exists(outbound.tls.reality, "support_x25519mlkem768")) {
+            delete outbound.tls.reality.support_x25519mlkem768;
+            stripped++;
+        }
+    if (stripped > 0)
+        warn("omitted support_x25519mlkem768 from ", stripped, " outbound(s): the installed sing-box core does not support it\n");
+}
+
 function generate_config(output_path, service_address, mwan3_active, supports_xhttp, deferred_sections, sing_box_version, supports_utls_fallback) {
     subscription_outbound_tags = {};
     runtime_supports_xhttp = supports_xhttp == null || as_string(supports_xhttp) == ""
@@ -3724,6 +3753,7 @@ function generate_config(output_path, service_address, mwan3_active, supports_xh
         mwan3_active: cli_bool(mwan3_active),
         source_aware_dns: length(source_aware_dns) > 0
     });
+    runtime_supports_reality_pq = sing_box_version_supports_reality_pq(sing_box_version);
     let version_parts = match(as_string(sing_box_version), /^v?([0-9]+)\.([0-9]+)\./);
     runtime_supports_dns_response_matching = version_parts != null &&
         (int(version_parts[1]) > 1 || (int(version_parts[1]) == 1 && int(version_parts[2]) >= 14));
@@ -3781,6 +3811,7 @@ function generate_config(output_path, service_address, mwan3_active, supports_xh
     if (length(pruned) > 0)
         warn("omitted ", length(pruned), " unreferenced subscription outbounds from sing-box configuration\n");
     assert_unique_outbound_tags(config);
+    strip_unsupported_reality_pq(config);
     strip_internal_fields(config);
     if (!common.write_private_json_file(output_path, config)) {
         warn("failed to write ", output_path, "\n");
