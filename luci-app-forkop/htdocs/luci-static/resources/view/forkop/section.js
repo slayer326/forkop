@@ -6213,14 +6213,9 @@ function getRulesetReferences(section_id) {
 }
 
 function getBuiltInRulesetReferences(section_id) {
-  const values = getConfigListValues(section_id, "community_lists").filter(
-    (value) => isBuiltinRulesetValue(value),
-  );
-
-  return values.filter(
-    (value, index, values) =>
-      isBuiltinRulesetValue(value) && values.indexOf(value) === index,
-  );
+  // Values retired from the picker stay visible and survive a save; the
+  // backend keeps supporting them until the user removes them (UC-046).
+  return uniqueDynamicListItems(getConfigListValues(section_id, "community_lists"));
 }
 
 function getCustomRulesetReferences(section_id) {
@@ -6235,10 +6230,9 @@ function getCustomRulesetReferences(section_id) {
 }
 
 function writeBuiltInRulesetReferences(section_id, values) {
-  const refs = normalizeDynamicListItems(values).filter((value) =>
-    isBuiltinRulesetValue(value),
-  );
-  writeListOption(section_id, "community_lists", refs);
+  // Every chip the widget shows came from community_lists or from the picker;
+  // retired picker values must be written back, not silently dropped.
+  writeListOption(section_id, "community_lists", normalizeDynamicListItems(values));
 }
 
 function writeSecondaryRulesetReferences(section_id, values) {
@@ -7247,6 +7241,16 @@ function createSectionContent(section) {
   domainIpListsOption.validate = function (_section_id, value) {
     return validatePlainListReference(value);
   };
+
+  // Curated per-game lists (YOZH3G/ru-gaming-blocklist) as suggestions; the
+  // stored value is the plain remote list URL, so no backend preset table is
+  // needed. Lists can hold subnets, so they stay off the DNS-only widget.
+  hideSelectedRulesetChoices(
+    domainIpListsOption,
+    Object.entries(main.REMOTE_GAME_LIST_OPTIONS || {}).map(
+      ([value, label]) => ({ value, label }),
+    ),
+  );
 
   const dnsDomainListsOption = section.taboption(
     "match",
