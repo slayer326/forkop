@@ -363,4 +363,24 @@ const rows = JSON.parse(fs.readFileSync(process.argv[2]));
 assert.equal(rows.length, 10);
 assert.ok(rows.some(row => row.id === process.argv[3] && row.kind === 'manual'));
 JS
+
+# A confirmed working configuration retires older automatic snapshots;
+# manual ones stay.
+for n in 20 21 22; do
+  printf "config settings 'settings'\n option dns_server '10.1.0.%s'\n" "$n" > "$FORKOP_CONFIG_FILE"
+  ucode -L "$LIB" "$SCRIPT" create automatic >/dev/null
+done
+printf "config settings 'settings'\n option dns_server '10.1.0.23'\n" > "$FORKOP_CONFIG_FILE"
+"$REAL_UCODE" -L "$LIB" "$SCRIPT" confirm-working > /dev/null
+ucode -L "$LIB" "$SCRIPT" list > "$WORK/pruned.json"
+node - "$WORK/pruned.json" "$id" <<'JS'
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const rows = JSON.parse(fs.readFileSync(process.argv[2]));
+const automatic = rows.filter(row => row.kind === 'automatic');
+assert.equal(automatic.length, 1);
+assert.equal(automatic[0].is_lkg, true);
+assert.equal(automatic[0].reason, 'last-known-working');
+assert.ok(rows.some(row => row.id === process.argv[3] && row.kind === 'manual'));
+JS
 printf 'config_snapshots: PASS\n'

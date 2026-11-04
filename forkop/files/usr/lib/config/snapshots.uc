@@ -200,6 +200,22 @@ function prune_rolling(keep_id) {
         else failed = true;
     return { deleted, deferred: failed };
 }
+// Once a start or reload proved the running configuration, older automatic
+// snapshots (before-reload, pre-restore, before-autotune, replaced
+// last-known-working ones) have served their purpose: the fresh
+// last-known-working snapshot is the recovery point, and it holds the same
+// configuration the runtime runs now. Manual snapshots stay until the user
+// removes them; the rolling history keeps its own replacement rule.
+function prune_automatic() {
+    let working = trim(value(fs.readfile(LKG)));
+    if (read_snapshot(working, true) == null) return { deleted: 0, deferred: true };
+    let deleted = 0, failed = false;
+    for (let item in list_snapshots())
+        if (item.kind == "automatic" && item.id != working)
+            if (fs.unlink(snapshot_path(item.id))) deleted++;
+            else failed = true;
+    return { deleted, deferred: failed };
+}
 function rolling_has_room() {
     let working = trim(value(fs.readfile(LKG)));
     if (read_snapshot(working, true) == null) return false;
@@ -813,6 +829,8 @@ else if (mode == "confirm-working") {
             let rolling_id = trim(value(fs.readfile(ROLLING)));
             if (valid_id(rolling_id) && read_snapshot(rolling_id, true) != null)
                 answer.cleanup = prune_rolling(rolling_id);
+            else
+                answer.cleanup = prune_automatic();
         }
     }
 }
