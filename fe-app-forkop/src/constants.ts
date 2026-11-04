@@ -90,41 +90,36 @@ export const SECONDARY_RULESET_OPTIONS = {
   twitch: 'Twitch',
 };
 
-// Curated per-game domain/IP lists from YOZH3G/ru-gaming-blocklist, offered as
-// suggestions of the "Domain and IP lists" field. The values are plain remote
-// list URLs, so the backend needs no preset table of its own. Games already
-// covered by the built-in rule sets above (Battle.net, EA, Epic, Riot,
-// Roblox, Steam, Ubisoft) and the auxiliary Cloudflare/AWS profile are
-// deliberately not duplicated here.
-const RU_GAMING_BLOCKLIST =
-  'https://raw.githubusercontent.com/YOZH3G/ru-gaming-blocklist/main/games';
-
-export const REMOTE_GAME_LIST_OPTIONS = {
-  [`${RU_GAMING_BLOCKLIST}/ApexLegends_RocketLeague.txt`]:
-    'Apex Legends / Rocket League',
-  [`${RU_GAMING_BLOCKLIST}/Arknights.txt`]: 'Arknights',
-  [`${RU_GAMING_BLOCKLIST}/ArmaReforger.txt`]: 'Arma Reforger',
-  [`${RU_GAMING_BLOCKLIST}/Battlefield6.txt`]: 'Battlefield 6',
-  [`${RU_GAMING_BLOCKLIST}/BlueArchive.txt`]: 'Blue Archive',
-  [`${RU_GAMING_BLOCKLIST}/CallOfDuty.txt`]: 'Call of Duty',
-  [`${RU_GAMING_BLOCKLIST}/CompanyOfHeroes2.txt`]: 'Company of Heroes 2',
-  [`${RU_GAMING_BLOCKLIST}/Darktide.txt`]: 'Warhammer 40,000: Darktide',
-  [`${RU_GAMING_BLOCKLIST}/DeadByDaylight.txt`]: 'Dead by Daylight',
-  [`${RU_GAMING_BLOCKLIST}/Fallout76_AWS.txt`]: 'Fallout 76',
-  [`${RU_GAMING_BLOCKLIST}/GearsOfWar.txt`]: 'Gears of War',
-  [`${RU_GAMING_BLOCKLIST}/GooseGooseDuck.txt`]: 'Goose Goose Duck',
-  [`${RU_GAMING_BLOCKLIST}/MagicTheGathering.txt`]:
-    'Magic: The Gathering Arena',
-  [`${RU_GAMING_BLOCKLIST}/Minecraft_Extra.txt`]: 'Minecraft',
-  [`${RU_GAMING_BLOCKLIST}/MortalKombat1.txt`]: 'Mortal Kombat 1',
-  [`${RU_GAMING_BLOCKLIST}/MortalKombat11.txt`]: 'Mortal Kombat 11',
-  [`${RU_GAMING_BLOCKLIST}/OutlastTrials.txt`]: 'The Outlast Trials',
-  [`${RU_GAMING_BLOCKLIST}/PhotonEngine.txt`]: 'Photon Engine',
-  [`${RU_GAMING_BLOCKLIST}/StreetFighter6.txt`]: 'Street Fighter 6',
-  [`${RU_GAMING_BLOCKLIST}/VRChat.txt`]: 'VRChat',
-  [`${RU_GAMING_BLOCKLIST}/Wardogs.txt`]: 'WARDOGS',
-  [`${RU_GAMING_BLOCKLIST}/Warframe.txt`]: 'Warframe',
-  [`${RU_GAMING_BLOCKLIST}/WutheringWaves.txt`]: 'Wuthering Waves',
+// Curated per-game rule sets, converted from YOZH3G/ru-gaming-blocklist by the
+// game-rulesets CI workflow into sing-box source rule sets and served from the
+// game-rulesets branch via jsDelivr (see SECONDARY_GAME_RULESET_CDN_PREFIX in
+// section.js). Games already covered by the vendor rule sets above
+// (Battle.net, EA, Epic, Riot, Roblox, Steam, Ubisoft) and the auxiliary
+// Cloudflare/AWS profile are deliberately not duplicated here.
+export const SECONDARY_GAME_RULESET_OPTIONS = {
+  apexlegends_rocketleague: 'Apex Legends / Rocket League',
+  arknights: 'Arknights',
+  armareforger: 'Arma Reforger',
+  battlefield6: 'Battlefield 6',
+  bluearchive: 'Blue Archive',
+  callofduty: 'Call of Duty',
+  companyofheroes2: 'Company of Heroes 2',
+  darktide: 'Warhammer 40,000: Darktide',
+  deadbydaylight: 'Dead by Daylight',
+  fallout76_aws: 'Fallout 76',
+  gearsofwar: 'Gears of War',
+  goosegooseduck: 'Goose Goose Duck',
+  magicthegathering: 'Magic: The Gathering Arena',
+  minecraft_extra: 'Minecraft',
+  mortalkombat1: 'Mortal Kombat 1',
+  mortalkombat11: 'Mortal Kombat 11',
+  outlasttrials: 'The Outlast Trials',
+  photonengine: 'Photon Engine',
+  streetfighter6: 'Street Fighter 6',
+  vrchat: 'VRChat',
+  wardogs: 'WARDOGS',
+  warframe: 'Warframe',
+  wutheringwaves: 'Wuthering Waves',
 };
 
 export const DNS_SERVER_OPTIONS = {

@@ -105,34 +105,42 @@ if (!rulesetsSource.includes("roblox: true")) {
 
 // Retired picker values must survive a save: the built-in list widget no
 // longer filters community_lists by the picker map.
-if (!section.includes('return uniqueDynamicListItems(getConfigListValues(section_id, "community_lists"));')) {
+if (!/return uniqueDynamicListItems\(\s*getConfigListValues\(section_id, "community_lists"\),?\s*\);/.test(section)) {
   fail('built-in ruleset widget must preserve values retired from the picker');
 }
 
-// Curated per-game lists are offered as suggestions of the "Domain and IP
-// lists" field and stored as plain remote URLs.
-const gameListsSource = constantsSource.match(/REMOTE_GAME_LIST_OPTIONS\s*=\s*\{([\s\S]*?)\n\};/);
-if (!gameListsSource) {
-  fail('remote game list options are missing');
+// Curated per-game rule sets are offered in the "Built-in rule sets #2"
+// picker. Their ids map to source-format JSON on the game-rulesets branch,
+// built from YOZH3G/ru-gaming-blocklist by CI.
+const gameOptionsSource = constantsSource.match(/SECONDARY_GAME_RULESET_OPTIONS\s*=\s*\{([\s\S]*?)\n\};/);
+if (!gameOptionsSource) {
+  fail('secondary game rule set options are missing');
 }
-const gameEntries = [...gameListsSource[1].matchAll(/\$\{RU_GAMING_BLOCKLIST\}\/([A-Za-z0-9_]+\.txt)/g)];
-if (gameEntries.length < 20) {
-  fail(`expected at least 20 curated game lists, found ${gameEntries.length}`);
+const gameIds = [...gameOptionsSource[1].matchAll(/^\s{2}([a-z0-9_]+):/gm)]
+  .map((match) => match[1]);
+if (gameIds.length < 20) {
+  fail(`expected at least 20 curated game rule sets, found ${gameIds.length}`);
 }
-const builtInGames = /^(BattleNet|EA_Origin|EpicGames_Fortnite|RiotGames_Valorant|LeagueOfLegends|Roblox|Steam|Ubisoft_Rainbow_Six_Siege|Cloudflare_AWS)\.txt$/;
-for (const [, file] of gameEntries) {
-  if (builtInGames.test(file)) {
-    fail(`game list duplicates a built-in rule set or is auxiliary: ${file}`);
+const builtInGames = /^(battlenet|ea_origin|epicgames_fortnite|riotgames_valorant|leagueoflegends|roblox|steam|ubisoft_rainbow_six_siege|cloudflare_aws)$/;
+for (const id of gameIds) {
+  if (builtInGames.test(id)) {
+    fail(`game rule set duplicates a built-in rule set or is auxiliary: ${id}`);
   }
 }
-if (!constantsSource.includes("https://raw.githubusercontent.com/YOZH3G/ru-gaming-blocklist/main/games")) {
-  fail('game lists must point at YOZH3G/ru-gaming-blocklist');
+if (constantsSource.includes("REMOTE_GAME_LIST_OPTIONS")) {
+  fail('game lists must live in the built-in rule sets #2 picker, not in the domain/IP list suggestions');
 }
-if (!main.includes("REMOTE_GAME_LIST_OPTIONS")) {
-  fail('bundled main.js lost the remote game list options');
+if (!main.includes("SECONDARY_GAME_RULESET_OPTIONS")) {
+  fail('bundled main.js lost the secondary game rule set options');
 }
-if (!section.includes("main.REMOTE_GAME_LIST_OPTIONS")) {
-  fail('the "Domain and IP lists" widget is not wired to the game list suggestions');
+if (!section.includes("main.SECONDARY_GAME_RULESET_OPTIONS")) {
+  fail('the built-in rule sets #2 widget is not wired to the game rule sets');
+}
+if (!section.includes("https://cdn.jsdelivr.net/gh/slayer326/forkop@game-rulesets/games/")) {
+  fail('game rule sets must be served from the game-rulesets branch via jsDelivr');
+}
+if (!section.includes('`${SECONDARY_GAME_RULESET_CDN_PREFIX}${value}.json`')) {
+  fail('secondaryRulesetUrl must map game rule set ids to source-format JSON URLs');
 }
 NODE
 

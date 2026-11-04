@@ -6102,13 +6102,34 @@ const SECONDARY_RULESET_RAW_PREFIX =
   "https://raw.githubusercontent.com/Greeg0ry/b4geoip-forkop/main/srs/";
 const SECONDARY_RULESET_CDN_PREFIX =
   "https://cdn.jsdelivr.net/gh/Greeg0ry/b4geoip-forkop@main/srs/";
+// Per-game rule sets are source-format JSON built by the game-rulesets CI
+// workflow, so they live on the game-rulesets branch instead of the .srs
+// mirror (see main.SECONDARY_GAME_RULESET_OPTIONS).
+const SECONDARY_GAME_RULESET_CDN_PREFIX =
+  "https://cdn.jsdelivr.net/gh/slayer326/forkop@game-rulesets/games/";
+
+function isGameRulesetId(value) {
+  return Object.prototype.hasOwnProperty.call(
+    main.SECONDARY_GAME_RULESET_OPTIONS || {},
+    value,
+  );
+}
 
 function secondaryRulesetUrl(value) {
+  if (isGameRulesetId(value))
+    return `${SECONDARY_GAME_RULESET_CDN_PREFIX}${value}.json`;
   return `${SECONDARY_RULESET_MIRROR_PREFIX}${value}.srs`;
 }
 
 function secondaryRulesetId(reference) {
   const value = `${reference || ""}`;
+  if (
+    value.startsWith(SECONDARY_GAME_RULESET_CDN_PREFIX) &&
+    value.endsWith(".json")
+  ) {
+    const gameId = value.slice(SECONDARY_GAME_RULESET_CDN_PREFIX.length, -5);
+    return isGameRulesetId(gameId) ? gameId : "";
+  }
   const prefix = [
     SECONDARY_RULESET_MIRROR_PREFIX,
     LEGACY_SECONDARY_RULESET_MIRROR_PREFIX,
@@ -6123,6 +6144,13 @@ function secondaryRulesetId(reference) {
   )
     ? id
     : "";
+}
+
+function secondaryRulesetChoices() {
+  return [
+    ...Object.entries(main.SECONDARY_RULESET_OPTIONS || {}),
+    ...Object.entries(main.SECONDARY_GAME_RULESET_OPTIONS || {}),
+  ].map(([value, label]) => ({ value, label }));
 }
 
 function getSecondaryRulesetReferences(section_id) {
@@ -6215,7 +6243,9 @@ function getRulesetReferences(section_id) {
 function getBuiltInRulesetReferences(section_id) {
   // Values retired from the picker stay visible and survive a save; the
   // backend keeps supporting them until the user removes them (UC-046).
-  return uniqueDynamicListItems(getConfigListValues(section_id, "community_lists"));
+  return uniqueDynamicListItems(
+    getConfigListValues(section_id, "community_lists"),
+  );
 }
 
 function getCustomRulesetReferences(section_id) {
@@ -6232,7 +6262,11 @@ function getCustomRulesetReferences(section_id) {
 function writeBuiltInRulesetReferences(section_id, values) {
   // Every chip the widget shows came from community_lists or from the picker;
   // retired picker values must be written back, not silently dropped.
-  writeListOption(section_id, "community_lists", normalizeDynamicListItems(values));
+  writeListOption(
+    section_id,
+    "community_lists",
+    normalizeDynamicListItems(values),
+  );
 }
 
 function writeSecondaryRulesetReferences(section_id, values) {
@@ -6241,11 +6275,12 @@ function writeSecondaryRulesetReferences(section_id, values) {
     "rule_set_with_subnets",
   ).filter((value) => !secondaryRulesetId(value));
   const builtins = normalizeDynamicListItems(values)
-    .filter((value) =>
-      Object.prototype.hasOwnProperty.call(
-        main.SECONDARY_RULESET_OPTIONS || {},
-        value,
-      ),
+    .filter(
+      (value) =>
+        Object.prototype.hasOwnProperty.call(
+          main.SECONDARY_RULESET_OPTIONS || {},
+          value,
+        ) || isGameRulesetId(value),
     )
     .map(secondaryRulesetUrl);
   writeListOption(section_id, "rule_set_with_subnets", [
@@ -7132,12 +7167,7 @@ function createSectionContent(section) {
   };
   secondaryRulesetOption.placeholder = _("Service list");
   secondaryRulesetOption.load = function (section_id) {
-    refreshOptionChoices(
-      this,
-      Object.entries(main.SECONDARY_RULESET_OPTIONS || {}).map(
-        ([value, label]) => ({ value, label }),
-      ),
-    );
+    refreshOptionChoices(this, secondaryRulesetChoices());
     return getSecondaryRulesetReferences(section_id);
   };
   secondaryRulesetOption.write = function (section_id, values) {
@@ -7156,9 +7186,10 @@ function createSectionContent(section) {
   );
   hideSelectedRulesetChoices(
     secondaryRulesetOption,
-    Object.entries(main.SECONDARY_RULESET_OPTIONS || {}).map(
-      ([value, label]) => ({ value, label: _(label) }),
-    ),
+    secondaryRulesetChoices().map(({ value, label }) => ({
+      value,
+      label: _(label),
+    })),
   );
 
   const ruleSetOption = section.taboption(
@@ -7241,16 +7272,6 @@ function createSectionContent(section) {
   domainIpListsOption.validate = function (_section_id, value) {
     return validatePlainListReference(value);
   };
-
-  // Curated per-game lists (YOZH3G/ru-gaming-blocklist) as suggestions; the
-  // stored value is the plain remote list URL, so no backend preset table is
-  // needed. Lists can hold subnets, so they stay off the DNS-only widget.
-  hideSelectedRulesetChoices(
-    domainIpListsOption,
-    Object.entries(main.REMOTE_GAME_LIST_OPTIONS || {}).map(
-      ([value, label]) => ({ value, label }),
-    ),
-  );
 
   const dnsDomainListsOption = section.taboption(
     "match",

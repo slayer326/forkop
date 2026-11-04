@@ -1,0 +1,47 @@
+name: Game rule sets
+
+on:
+  schedule:
+    - cron: '41 3 * * *'
+  push:
+    branches:
+      - main
+    paths:
+      - ops/game-rulesets/**
+      - .github/workflows/game-rulesets.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build game rule sets
+        run: python3 ops/game-rulesets/build_game_rulesets.py --output dist/game-rulesets
+
+      - name: Publish game-rulesets branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin game-rulesets >/dev/null 2>&1; then
+            git fetch --depth 1 origin game-rulesets
+            git checkout -b game-rulesets FETCH_HEAD
+          else
+            git checkout --orphan game-rulesets
+            git rm -rf . >/dev/null 2>&1 || true
+          fi
+          mkdir -p games
+          rsync -a --delete dist/game-rulesets/ games/
+          git add games
+          if git diff --cached --quiet; then
+            echo "Game rule sets are unchanged"
+            exit 0
+          fi
+          git commit -m "Update game rule sets from YOZH3G/ru-gaming-blocklist"
+          git push origin game-rulesets
