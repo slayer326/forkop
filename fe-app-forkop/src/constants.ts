@@ -113,7 +113,8 @@ export const REMOTE_GAME_LIST_OPTIONS = {
   [`${RU_GAMING_BLOCKLIST}/Fallout76_AWS.txt`]: 'Fallout 76',
   [`${RU_GAMING_BLOCKLIST}/GearsOfWar.txt`]: 'Gears of War',
   [`${RU_GAMING_BLOCKLIST}/GooseGooseDuck.txt`]: 'Goose Goose Duck',
-  [`${RU_GAMING_BLOCKLIST}/MagicTheGathering.txt`]: 'Magic: The Gathering Arena',
+  [`${RU_GAMING_BLOCKLIST}/MagicTheGathering.txt`]:
+    'Magic: The Gathering Arena',
   [`${RU_GAMING_BLOCKLIST}/Minecraft_Extra.txt`]: 'Minecraft',
   [`${RU_GAMING_BLOCKLIST}/MortalKombat1.txt`]: 'Mortal Kombat 1',
   [`${RU_GAMING_BLOCKLIST}/MortalKombat11.txt`]: 'Mortal Kombat 11',
