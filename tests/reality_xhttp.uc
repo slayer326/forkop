@@ -223,10 +223,10 @@ for (let value in [false,true]) {
     expect(result.tls.reality.support_x25519mlkem768 === value, "explicit JSON Reality preference");
     expect(normalize(links.serialize_outbound_link(o)).tls.reality.support_x25519mlkem768 === value, "Reality preference round trip");
 }
-// Stock sing-box and tiny reject support_x25519mlkem768 as an unknown field;
-// only extended and podkop-engine cores may receive it in the generated config.
+// Stock sing-box, tiny and podkop-engine reject support_x25519mlkem768 as an
+// unknown field; only extended cores may receive it in the generated config.
 for (let pair in [["1.13.21", false], ["1.14.1", false], ["unknown", false], ["", false],
-    ["1.14.1-extended-2.7.2", true], ["1.14.4-pdk-r20", true]]) {
+    ["1.14.4-pdk-r20", false], ["1.14.1-extended-2.7.2", true], ["1.14.3-extended-2.7.3", true]]) {
     let o = normalize(base + "&support_x25519mlkem768=true");
     delete o.share_link;
     let result = vless_outbound(generate([], [sprintf("%J",o)], pair[0]));

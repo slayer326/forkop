@@ -3690,14 +3690,13 @@ function utls_fallback_section(settings) {
     return { enabled: true };
 }
 
-// Only sing-box-extended and podkop-engine accept
-// tls.reality.support_x25519mlkem768; stock sing-box and sing-box-tiny reject
-// the unknown field and refuse the whole configuration. The preference is
-// kept in the subscription cache and share links, but the generated config
-// must not carry it to a core that would fail to decode it.
+// Only sing-box-extended accepts tls.reality.support_x25519mlkem768;
+// stock sing-box, sing-box-tiny and podkop-engine reject the unknown field
+// and refuse the whole configuration. The preference is kept in the
+// subscription cache and share links, but the generated config must not
+// carry it to a core that would fail to decode it.
 function sing_box_version_supports_reality_pq(version) {
-    version = as_string(version);
-    return index(version, "extended") >= 0 || index(version, "-pdk-") >= 0;
+    return index(as_string(version), "extended") >= 0;
 }
 
 // Drop the REALITY post-quantum preference from every outbound when the core
