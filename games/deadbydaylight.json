@@ -1,0 +1,22 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "analytic-1-0-13.live.virginia.dbd.bhvronline.com",
+        "bhvr.com",
+        "bhvrdbd.com",
+        "bhvrdbd.net",
+        "brill.live.bhvrdbd.com",
+        "cdn.deadbydaylight.com",
+        "cdn.live.bhvrdbd.com",
+        "deadbydaylight.com",
+        "easyanticheat.net",
+        "forum.bhvr.com",
+        "latest.live.dbd.bhvronline.com",
+        "playfabapi.com",
+        "steam.live.bhvrdbd.com"
+      ]
+    }
+  ]
+}

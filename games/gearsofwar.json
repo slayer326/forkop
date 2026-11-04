@@ -1,0 +1,12 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "gearsofwar.com",
+        "xbox.com",
+        "xboxlive.com"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "api-and.warframe.com",
+        "api-mob.warframe.com",
+        "api-ps4.warframe.com",
+        "api-swi.warframe.com",
+        "api-xb1.warframe.com",
+        "api.warframe.com",
+        "arbiter-ps4.warframe.com",
+        "arbiter-swi.warframe.com",
+        "arbiter-xb1.warframe.com",
+        "arbiter.warframe.com",
+        "content-ps4.warframe.com",
+        "content-swi.warframe.com",
+        "content-xb1.warframe.com",
+        "content.warframe.com",
+        "digitalextremes.com",
+        "forums.warframe.com",
+        "irc1.warframe.com",
+        "irc2.warframe.com",
+        "irc3.warframe.com",
+        "irc4.warframe.com",
+        "irc5.warframe.com",
+        "metrics.warframe.com",
+        "mobile.warframe.com",
+        "origin-ps4.warframe.com",
+        "origin-swi.warframe.com",
+        "origin-xb1.warframe.com",
+        "origin.warframe.com",
+        "store.warframe.com",
+        "support.warframe.com",
+        "warframe-web-assets.nyc3.cdn.digitaloceanspaces.com",
+        "warframe.com",
+        "wiki.warframe.com",
+        "wrfr.me",
+        "www-static.warframe.com",
+        "www.digitalextremes.com",
+        "www.warframe.com"
+      ]
+    }
+  ]
+}

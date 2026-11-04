@@ -1,0 +1,20 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "account.wbgames.com",
+        "datarouter.apps.netherrealm.com",
+        "k1-api.wbagora.com",
+        "mortalkombat.com",
+        "prod-network-api.wbagora.com"
+      ],
+      "ip_cidr": [
+        "18.205.184.40/32",
+        "23.23.22.141/32",
+        "44.214.204.133/32",
+        "98.88.245.30/32"
+      ]
+    }
+  ]
+}

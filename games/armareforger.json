@@ -1,0 +1,23 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "1611202461.rsc.cdn77.org",
+        "2a.bistudio.com",
+        "api-ar-game.bistudio.com",
+        "ar-api-origin.bistudio.com.cdn.cloudflare.net",
+        "ar-gcp-cdn.bistudio.com",
+        "armaplatform.com",
+        "armareforgerplatform.com",
+        "battleye.b-cdn.net",
+        "bistudio.com",
+        "cdn.battleye.com",
+        "cms-cdn.bistudio.com",
+        "makearmanotwar.com",
+        "reforger.armaplatform.com",
+        "www.reforger.armaplatform.com"
+      ]
+    }
+  ]
+}

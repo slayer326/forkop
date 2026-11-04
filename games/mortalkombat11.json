@@ -1,0 +1,45 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "account.wbgames.com",
+        "api.wbgames.com",
+        "cdn.wbgames.com",
+        "event.wbinsights.com",
+        "int-api.wbagora.com",
+        "mk11-api.wbagora.com",
+        "mk11.mortalkombat.com",
+        "mortalkombat.com",
+        "next-api.wbagora.com",
+        "prod-network-api.wbagora.com",
+        "telemetry.wbgames.com",
+        "us-east-1-mk11-realtime-1.wbagora.com",
+        "warnerbrosgames.com",
+        "wb-hydra.wbgames.com",
+        "wbagora.com",
+        "wbgames.com",
+        "wbinsights.com"
+      ],
+      "ip_cidr": [
+        "3.210.140.39/32",
+        "3.210.243.204/32",
+        "3.213.32.28/32",
+        "18.205.98.8/32",
+        "34.203.41.244/32",
+        "34.205.13.15/32",
+        "35.170.104.108/32",
+        "44.196.184.140/32",
+        "44.205.62.177/32",
+        "52.216.163.77/32",
+        "54.159.255.93/32",
+        "72.21.91.29/32",
+        "98.95.93.180/32",
+        "100.31.172.86/32",
+        "100.62.178.28/32",
+        "104.18.20.226/32",
+        "188.121.36.239/32"
+      ]
+    }
+  ]
+}

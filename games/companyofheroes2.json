@@ -1,0 +1,31 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "amazonaws.com",
+        "coh2-api.reliclink.com",
+        "coh2-lobby.reliclink.com",
+        "coh2.lobby.reliclink.com",
+        "companyofheroes.com",
+        "compute-1.amazonaws.com",
+        "eu-central-1.compute.amazonaws.com",
+        "garry.sgaas.net",
+        "ingame.companyofheroes.com",
+        "sso.relic.com"
+      ],
+      "ip_cidr": [
+        "3.70.251.0/24",
+        "3.73.152.0/24",
+        "3.91.171.0/24",
+        "3.227.250.0/24",
+        "3.230.230.0/24",
+        "18.207.66.0/24",
+        "44.220.67.0/24",
+        "54.209.64.161/32",
+        "54.237.64.0/24",
+        "146.66.152.0/24"
+      ]
+    }
+  ]
+}

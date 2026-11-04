@@ -1,0 +1,23 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "activision.com",
+        "callofduty.com",
+        "cod-assets.cdn.callofduty.com",
+        "codm.activision.com",
+        "datax.activision.com",
+        "demonware.net",
+        "prod.demonware.net",
+        "s.activision.com"
+      ],
+      "ip_cidr": [
+        "185.34.106.0/23",
+        "185.34.106.0/24",
+        "185.34.107.0/24",
+        "2a00:d6a0:4000::/40"
+      ]
+    }
+  ]
+}

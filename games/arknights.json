@@ -1,0 +1,47 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "ak.hypergryph.com",
+        "as.gryphline.com",
+        "asia.cschannel.anticheatexpert.com",
+        "beyond-asiapacific.gryphline.com",
+        "beyond-euandus.gryphline.com",
+        "beyond.hg-cdn.com",
+        "biliapi.com",
+        "biliapi.net",
+        "bilibili.com",
+        "bilicdn1.com",
+        "bilicdn2.com",
+        "biligame.com",
+        "biligame.net",
+        "bilivideo.com",
+        "data-p.gryphline.com",
+        "down.anticheatexpert.com",
+        "ef-webview.gryphline.com",
+        "endfield.gryphline.com",
+        "event-log-api-data-platform-data-lake-prod.gryphline.com",
+        "event-log-api-ipv6.gryphline.com",
+        "eventlog.gryphline.com",
+        "game-config.gryphline.com",
+        "game-hub.gryphline.com",
+        "game.bilibili.com",
+        "gl-utils-public.hg-cdn.com",
+        "gryphline.com",
+        "hg-cdn.com",
+        "launcher.gryphline.com",
+        "launcher.hg-cdn.com",
+        "launcher.hypergryph.com",
+        "native-log-collect.gryphline.com",
+        "notification.gryphline.com",
+        "pc.crashsight.wetest.net",
+        "tqos-yun.anticheatexpert.com",
+        "u8.gryphline.com",
+        "web-static.hg-cdn.com",
+        "www.biligame.com",
+        "www.hypergryph.com"
+      ]
+    }
+  ]
+}

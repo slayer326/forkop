@@ -1,0 +1,14 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "auth.cid.capcom.com",
+        "c.cid.capcom.com",
+        "cid.capcom.com",
+        "streetfighter.com",
+        "www.streetfighter.com"
+      ]
+    }
+  ]
+}

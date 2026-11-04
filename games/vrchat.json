@@ -1,0 +1,48 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "api.vrchat.cloud",
+        "api.vrchat.com",
+        "ask.vrchat.com",
+        "assets.vrchat.com",
+        "cdn.vrchat.com",
+        "cdp.cloud.unity3d.com",
+        "cloud.unity3d.com",
+        "creators.vrchat.com",
+        "dbinj8iahsbec.cloudfront.net",
+        "dev-api.vrchat.cloud",
+        "docs.vrchat.com",
+        "exitgames.com",
+        "feedback.vrchat.com",
+        "file-variants.vrchat.cloud",
+        "files.vrchat.cloud",
+        "files.vrchat.com",
+        "gcams1160.exitgames.com",
+        "gcash1149.exitgames.com",
+        "gcsc1144.exitgames.com",
+        "gctok1018.exitgames.com",
+        "hello.vrchat.com",
+        "help.vrchat.com",
+        "internal.unity3d.com",
+        "ns-eu.photonengine.io",
+        "ns.photonengine.io",
+        "perf-events.cloud.unity3d.com",
+        "pipeline.vrchat.cloud",
+        "redirect.vrchat.com",
+        "status.vrchat.com",
+        "vod-progressive.akamaized.net",
+        "vrcdn.cloud",
+        "vrcdn.live",
+        "vrcdn.video",
+        "vrchat.cloud",
+        "vrchat.com",
+        "vrchat.net",
+        "vrchatassets.com",
+        "vrcpm.vrchat.cloud",
+        "wiki.vrchat.com"
+      ]
+    }
+  ]
+}

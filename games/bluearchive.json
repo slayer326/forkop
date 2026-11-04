@@ -1,0 +1,18 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "bluearchive.com",
+        "bluearchive.jp",
+        "bluearchive.nexon.com",
+        "d2vaidpni345rp.cloudfront.net",
+        "nexon.com",
+        "nxm-clw-cdn.dn.nexoncdn.co.kr",
+        "public.api.nexon.com",
+        "x-init.ngs.nexon.com",
+        "x-update.ngs.nexon.com"
+      ]
+    }
+  ]
+}

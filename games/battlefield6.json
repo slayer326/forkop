@@ -1,0 +1,42 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "ac.ea.com",
+        "accounts.ea.com",
+        "battlefield.com",
+        "battlefield1943.com",
+        "battlefield3.com",
+        "battlefield4.com",
+        "battlefield5.com",
+        "battlefieldheroes.com",
+        "battlefieldv.com",
+        "blaze.ea.com",
+        "companion.battlefield.com",
+        "data.ea.com",
+        "desktop-config.juno.ea.com",
+        "dice.se",
+        "download.eac-cdn.com",
+        "ea.app",
+        "ea.com",
+        "eac-cdn.com",
+        "easports.com",
+        "forums.ea.com",
+        "gameservices.ea.com",
+        "gateway.ea.com",
+        "gosredirector.ea.com",
+        "grpc.ea.com",
+        "juno.ea.com",
+        "launcher.eac-cdn.com",
+        "madden24.service.easports.com",
+        "origin.com",
+        "pc.ea.com",
+        "service-aggregation-layer.juno.ea.com",
+        "social.ea.com",
+        "tnt-ea.com",
+        "www.ea.com"
+      ]
+    }
+  ]
+}
