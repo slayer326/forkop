@@ -159,7 +159,7 @@ function port_matches(rule, port) {
     return false;
 }
 const RULE_KEYS = [ "action", "outbound", "inbound", "domain", "domain_suffix", "domain_keyword", "domain_regex",
-    "ip_cidr", "rule_set", "source_ip_cidr", "port", "port_range", "network", "protocol" ];
+    "ip_cidr", "rule_set", "source_ip_cidr", "port", "port_range", "network", "protocol", "invert" ];
 // Sniffed protocols a TCP connection can never have (disable_quic adds a
 // protocol=quic reject rule in front of every section rule).
 const UDP_ONLY_PROTOCOLS = [ "quic", "dtls", "stun" ];
@@ -217,16 +217,44 @@ function rule_set_values(t) {
     return values;
 }
 
-// Whether a rule's matchers take the connection: "match", "no", or
-// { reason } when that cannot be decided statically.
-// A FakeIP connection reaches sing-box as the domain name (the FakeIP
-// address is replaced by the FQDN), so ip_cidr matches nothing unless a
-// resolve action filled real addresses in (route_owner refuses to decide
-// past one); a real-address connection is matched by ip_cidr and by the
-// sniffed domain. lists: local_rule_sets() of the config; without it a
-// rule_set matcher is undecidable.
-function rule_matches(r, t, lists) {
-    if (r.type == "logical" || r.invert) return { reason: "logical_rule" };
+// rule_matches and logical_matches recurse into each other (logical rules
+// nest), so the name is declared before either body assigns it.
+let rule_matches;
+
+// invert flips a decided answer; an undecidable one stays undecidable.
+function invert_answer(m) {
+    if (m == "match") return "no";
+    if (m == "no") return "match";
+    return m;
+}
+
+// A logical rule combines child rules: "and" takes the connection when every
+// child does, "or" when any child does. Children that cannot be decided make
+// the combination undecidable only when they could still change the outcome:
+// a decided "no" settles an AND (a decided "match" settles an OR) no matter
+// what the other children would say. The first undecidable child's reason is
+// reported, so a source-scoped child still offers its devices for an assumed
+// source.
+function logical_matches(r, t, lists) {
+    let mode = r.mode == "or" ? "or" : "and", first_unknown = null;
+    // An empty logical rule is not guessed: it could hide every rule below.
+    if (length(list_of(r.rules)) == 0) return { reason: "logical_rule" };
+    for (let child in list_of(r.rules)) {
+        if (type(child) != "object") return { reason: "logical_rule" };
+        let m = rule_matches(child, t, lists);
+        if (type(m) == "object") {
+            if (first_unknown == null) first_unknown = m;
+            m = "unknown";
+        }
+        if (mode == "and" && m == "no") return "no";
+        if (mode == "or" && m == "match") return "match";
+    }
+    if (first_unknown != null) return first_unknown;
+    return mode == "and" ? "match" : "no";
+}
+
+// The matchers of a plain (default) rule.
+function default_matches(r, t, lists) {
     for (let key in keys(r)) if (index(RULE_KEYS, key) < 0) return { reason: "unknown_rule_field:" + key };
     if (r.network != null && index(list_of(r.network), t.network) < 0) return "no";
     if (!port_matches(r, t.port)) return "no";
@@ -267,12 +295,44 @@ function rule_matches(r, t, lists) {
     if (dest_fields > 0 && dest == "no") return "no";
     if (dest == "unknown") return { reason: "undecidable_matcher" };
     if (r.source_ip_cidr != null) {
-        if (t.source == "") return { reason: "source_scoped_rule" };
+        if (t.source == "") return { reason: "source_scoped_rule", sources: list_of(r.source_ip_cidr) };
         let inside = false;
         for (let c in list_of(r.source_ip_cidr)) if (cidr_contains(c, t.source)) inside = true;
         if (!inside) return "no";
     }
     return "match";
+}
+
+// Whether a rule's matchers take the connection: "match", "no", or
+// { reason } when that cannot be decided statically.
+// A FakeIP connection reaches sing-box as the domain name (the FakeIP
+// address is replaced by the FQDN), so ip_cidr matches nothing unless a
+// resolve action filled real addresses in (route_owner refuses to decide
+// past one); a real-address connection is matched by ip_cidr and by the
+// sniffed domain. lists: local_rule_sets() of the config; without it a
+// rule_set matcher is undecidable. invert flips a decided answer.
+rule_matches = function(r, t, lists) {
+    let m = r.type == "logical" ? logical_matches(r, t, lists) : default_matches(r, t, lists);
+    if (type(m) == "object" && m.reason == "source_scoped_rule") {
+        // Asked "for the devices the rule covers" (assume_sources): an
+        // inverted source list (the device exclusions of a section) is
+        // satisfied by every covered device, so the rule applies.
+        if (t.assume_sources && r.invert) return "match";
+        // The listed addresses are the ones the rule does NOT cover: none of
+        // them can stand in for a covered device.
+        if (r.invert) m.inverted_source = true;
+    }
+    return r.invert ? invert_answer(m) : m;
+};
+
+// Whether the rule (or, for a logical rule, any child rule) is limited to
+// devices by source_ip_cidr.
+function rule_has_source_scope(r) {
+    if (r.source_ip_cidr != null) return true;
+    if (r.type == "logical")
+        for (let child in list_of(r.rules))
+            if (type(child) == "object" && rule_has_source_scope(child)) return true;
+    return false;
 }
 
 // First sing-box route rule the connection takes from the transparent proxy
@@ -295,9 +355,11 @@ function route_owner(config, t) {
         let m = rule_matches(r, t, lists);
         if (m == "no") continue;
         if (type(m) == "object")
-            return { decided: false, reason: m.reason, rule: i, sources: m.reason == "source_scoped_rule" ? list_of(r.source_ip_cidr) : null };
+            return { decided: false, reason: m.reason, rule: i,
+                sources: m.reason == "source_scoped_rule" ? (m.sources || list_of(r.source_ip_cidr)) : null,
+                inverted_source: m.inverted_source == true };
         if (action == "reject") return { decided: true, kind: "reject", rule: i };
-        return { decided: true, kind: "outbound", outbound: r.outbound, rule: i, source_scoped: r.source_ip_cidr != null };
+        return { decided: true, kind: "outbound", outbound: r.outbound, rule: i, source_scoped: rule_has_source_scope(r) };
     }
     return { decided: true, kind: "final", outbound: config.route.final || null, rule: null };
 }
@@ -343,10 +405,16 @@ function status_for(reason) {
 //   rule; assumed: the answer holds for the rule's own devices only (the
 //   target asked with assume_rule_source and named no source) }
 function resolve(config, sections, t) {
-    let route = route_owner(config, t), assumed = null;
+    let route = route_owner(config, t), assumed = null, assumed_flag = false;
     if (!route.decided && route.reason == "source_scoped_rule" && t.assume_rule_source) {
-        assumed = source_of(route.sources);
-        if (assumed != null) route = route_owner(config, { ...t, source: assumed });
+        // An inverted source list names the devices the rule does NOT cover:
+        // no listed address can stand in, the rule is assumed satisfied
+        // instead (assume_sources, rule_matches).
+        if (!route.inverted_source) assumed = source_of(route.sources);
+        let t2 = { ...t, assume_sources: true };
+        if (assumed != null) t2.source = assumed;
+        route = route_owner(config, t2);
+        assumed_flag = route.decided;
     }
     let result = { status: "decided", reason: null, route: null, route_rule: route.rule, kind: null,
         section: null, label: null, action: null, outbound: null, scope: null,
@@ -359,7 +427,8 @@ function resolve(config, sections, t) {
     }
     result.route = route.kind;
     result.outbound = route.outbound || null;
-    if (route.source_scoped === true) result.source_scope = { source: assumed != null ? assumed : t.source, assumed: assumed != null };
+    if (route.source_scoped === true)
+        result.source_scope = { source: assumed != null ? assumed : (t.source != "" ? t.source : null), assumed: assumed_flag };
     if (route.kind == "reject") { result.kind = "block"; result.action = "block"; return result; }
     if (result.outbound == BYPASS_OUTBOUND) { result.kind = "bypass"; result.action = "bypass"; return result; }
     if (route.kind == "final" && (result.outbound == null || result.outbound == DIRECT_OUTBOUND)) {

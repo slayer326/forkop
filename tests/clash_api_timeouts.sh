@@ -123,6 +123,8 @@ cat >"$WORK_DIR/controller.uc" <<'UC'
 //   groups          answers GET /proxies and delay requests; a group delay
 //                   comes after the given seconds, like sing-box for a
 //                   URLTest group with a stalled member.
+//   failing         like groups, but the delay of proxy-b fails the way
+//                   sing-box reports a dead node: HTTP 503, JSON body.
 let socket = require("socket");
 let fs = require("fs");
 let mode = ARGV[0], port_file = ARGV[1], group_delay = ARGV[2] || "0";
@@ -133,9 +135,9 @@ if (!srv) {
 }
 fs.writefile(port_file + ".tmp", srv.sockname().port + "\n");
 fs.rename(port_file + ".tmp", port_file);
-function answer(conn, body) {
-    conn.send(sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s",
-        length(body), body));
+function answer(conn, body, status) {
+    conn.send(sprintf("HTTP/1.1 %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s",
+        status || "200 OK", length(body), body));
     conn.close();
 }
 let big = [];
@@ -154,6 +156,7 @@ let maps = {
         big: { type: "URLTest", now: "member-1", all: big }
     }
 };
+maps.failing = maps.groups;
 let held = [];
 while (true) {
     let conn = srv.accept();
@@ -169,11 +172,15 @@ while (true) {
             answer(conn, sprintf("%J", { proxies: maps[mode] }));
             continue;
         }
-        if (mode == "groups" && match(request, /^GET \/proxies\/[^ ]+\/delay\?/)) {
+        if ((mode == "groups" || mode == "failing") && match(request, /^GET \/proxies\/[^ ]+\/delay\?/)) {
+            if (mode == "failing" && match(request, /^GET \/proxies\/proxy-b\/delay\?/)) {
+                answer(conn, '{"Message":"An error occurred in the delay test"}', "503 Service Unavailable");
+                continue;
+            }
             answer(conn, '{"delay":120}');
             continue;
         }
-        if (mode == "groups" && match(request, /^GET \/group\/[^ ]+\/delay\?/)) {
+        if ((mode == "groups" || mode == "failing") && match(request, /^GET \/group\/[^ ]+\/delay\?/)) {
             system([ "sleep", group_delay ]);
             answer(conn, '{"proxy-a":120}');
             continue;
@@ -212,6 +219,8 @@ start_controller late-list groups "$GROUP_LATE"
 LATE_LIST_PORT="$CONTROLLER_PORT"
 start_controller late-group groups "$GROUP_LATE"
 LATE_GROUP_PORT="$CONTROLLER_PORT"
+start_controller failing failing
+FAILING_PORT="$CONTROLLER_PORT"
 
 # --- Fixture ---------------------------------------------------------------------
 
@@ -410,6 +419,12 @@ run_case late_group "$LATE_GROUP_PORT" clash-api get_group_latency auto 1000
 run_case bounds_list "$GROUPS_PORT" clash-api get_proxy_latencies '["proxy-a","group-a","auto","big"]' 5000
 run_case bounds_urltest "$GROUPS_PORT" clash-api get_group_latency big 10000
 run_case bounds_selector "$GROUPS_PORT" clash-api get_group_latency group-a 10000
+# sing-box reports a dead node as an HTTP error with a JSON body. Such an
+# answer must count as failed, not as a tested proxy: a single dead node
+# fails its request, a mixed sweep still succeeds, an all-dead sweep fails.
+run_case http_error_single "$FAILING_PORT" clash-api get_proxy_latency proxy-b 5000
+run_case http_error_mixed "$FAILING_PORT" clash-api get_proxy_latencies '["proxy-a","proxy-b"]' 5000
+run_case http_error_all "$FAILING_PORT" clash-api get_proxy_latencies '["proxy-b"]' 5000
 wait_cases
 
 check_bounded ready
@@ -473,6 +488,40 @@ expect_max_time_over bounds_list group/auto/delay 15 "3 URLTest members are test
 expect_max_time_over bounds_list group/big/delay 45 "25 URLTest members are tested in three rounds of 15 s"
 expect_max_time_over bounds_urltest group/big/delay 45 "25 URLTest members are tested in three rounds of 15 s"
 expect_max_time_over bounds_selector group/group-a/delay 10 "a Selector group honours the 10000 ms timeout"
+
+# sing-box bounds the whole URLTest re-check of a group's members by the
+# timeout= parameter: it must carry the member rounds, not the caller's few
+# seconds, or the core cancels the re-check and deletes the stored delays.
+request_timeout_ms() {
+  local line
+  line="$(grep -E -- ":[0-9]+/$2( |$)" "$WORK_DIR/case/$1/curl.log" | head -n 1)" || true
+  [ -n "$line" ] || fail "$1: no request to /$2"
+  printf '%s\n' "$line" | sed -n 's/.* timeout=\([0-9][0-9]*\).*/\1/p'
+}
+[ "$(request_timeout_ms bounds_list proxies/proxy-a/delay)" = 5000 ] ||
+  fail "a proxy delay request must keep the caller's timeout"
+[ "$(request_timeout_ms bounds_list group/auto/delay)" = 17000 ] ||
+  fail "3 URLTest members need one 15 s round + margin as the request timeout"
+[ "$(request_timeout_ms bounds_list group/big/delay)" = 47000 ] ||
+  fail "25 URLTest members need three 15 s rounds + margin as the request timeout"
+[ "$(request_timeout_ms bounds_urltest group/big/delay)" = 47000 ] ||
+  fail "a group delay of 25 URLTest members needs three 15 s rounds + margin"
+[ "$(request_timeout_ms bounds_selector group/group-a/delay)" = 10000 ] ||
+  fail "a Selector group keeps the caller's timeout"
+
+# --- HTTP error answers of delay requests count as failed ---------------------
+
+read -r rc _ <"$WORK_DIR/case/http_error_single/result"
+[ "$rc" != 0 ] || fail "http_error_single: a 503 delay answer reported success"
+check_answered http_error_mixed
+[ "$(json_value "$WORK_DIR/case/http_error_mixed/out" failed)" = true ] ||
+  fail "http_error_mixed: the 503 node was not counted as failed: $(cat "$WORK_DIR/case/http_error_mixed/out")"
+[ "$(json_value "$WORK_DIR/case/http_error_mixed/out" success)" = true ] ||
+  fail "http_error_mixed: one dead node must not fail the whole sweep: $(cat "$WORK_DIR/case/http_error_mixed/out")"
+read -r rc _ <"$WORK_DIR/case/http_error_all/result"
+[ "$rc" != 0 ] || fail "http_error_all: a sweep where every node failed reported success"
+[ "$(json_value "$WORK_DIR/case/http_error_all/out" success)" = false ] ||
+  fail "http_error_all: expected success=false: $(cat "$WORK_DIR/case/http_error_all/out")"
 
 # --- A lock held around the request is released -----------------------------------
 

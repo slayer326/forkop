@@ -62,6 +62,9 @@ export namespace Forkop {
     // Why a stage is not determined, or what decided it (route_trace).
     reason?: string | null;
     section?: string;
+    // The deciding rule is limited to devices (route_trace): the answer
+    // holds for the named device, or for the rule's own devices (assumed).
+    source_scope?: { source: string | null; assumed: boolean } | null;
   }
   export interface RouteTrace {
     target: RouteTraceStage & {

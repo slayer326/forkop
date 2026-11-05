@@ -35,6 +35,7 @@ case "$1" in
  remove)
   [ "${FAIL_PACKAGE:-0}" = 0 ] || exit 1
   shift
+  [ "${FAIL_BATCH:-0}" = 0 ] || [ "$#" -le 1 ] || exit 1
   for p in "$@"; do rm -f "$FORKOP_UNINSTALL_ROOT/packages/$p"; done;;
  *) exit 1;;
 esac
@@ -86,6 +87,21 @@ export FAIL_PACKAGE=1
 run_case failed
 unset FAIL_PACKAGE
 [ -e "$ROOT/packages/forkop" ] && [ -e "$ROOT/usr/lib/forkop/test" ]
+
+# A service that refuses to stop must not cancel the removal.
+fixture stop_failure
+export FAIL_STOP=1
+run_case complete
+unset FAIL_STOP
+[ ! -e "$ROOT/packages/forkop" ]
+grep -qx dnsmasq_restore "$ROOT/service-calls"
+
+# A failing batch removal is retried package by package and still succeeds.
+fixture batch_retry
+export FAIL_BATCH=1
+run_case complete
+unset FAIL_BATCH
+[ ! -e "$ROOT/packages/forkop" ] && [ ! -e "$ROOT/packages/sing-box" ]
 
 fixture apk
 mkdir -p "$ROOT/etc/apk/repositories.d" "$ROOT/etc/apk/keys"

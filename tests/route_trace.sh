@@ -27,6 +27,12 @@ let text=""; process.stdin.on("data", part => text += part).on("end", () => {
   const trace = JSON.parse(text);
   if (trace.dns.provenance !== "unknown" || trace.interface.provenance !== "unknown") process.exit(1);
 });'
+# A bare TLD ("ru") is a valid target: it resolves to nothing, the route is still calculated.
+FORKOP_LIB="$LIB" ucode -L "$LIB" "$TRACE" fixture ru '' TCP 443 '' '' | node -e '
+let text=""; process.stdin.on("data", part => text += part).on("end", () => {
+  const trace = JSON.parse(text);
+  if (trace.error) process.exit(1);
+});'
 if FORKOP_LIB="$LIB" ucode -L "$LIB" "$TRACE" fixture 'x;touch /tmp/forkop-injected' '' TCP 443 '' '' >/dev/null; then
     exit 1
 fi

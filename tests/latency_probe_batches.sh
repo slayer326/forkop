@@ -28,6 +28,7 @@ function command_from_args(args) { return join(" ", args); }
 // The bound of each request is covered by the Clash API tests.
 function clash_curl(max_time) { return [ "curl", "-s", "--max-time", as_string(max_time) ]; }
 function clash_delay_max_time(timeout_ms, group) { return 7; }
+function group_delay_timeout_ms(timeout_ms, group) { return 7000; }
 function clash_latency_endpoint(base_url, proxy_tag, proxy_type) {
     return as_string(base_url) + (lc(as_string(proxy_type)) == "urltest" ? "/group/" : "/proxies/") +
         as_string(proxy_tag) + "/delay";

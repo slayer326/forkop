@@ -74,11 +74,16 @@ assert.equal(yt.dpi, undefined, 'no DPI strategy is reported');
 assert.deepEqual(brief(read('block')), [null, 'block', 'block', null]);
 assert.deepEqual(brief(read('bypass')), [null, 'bypass', 'bypass', 'bypass-out']);
 
+// No device named: instead of "choose a device" the answer is calculated
+// for the devices of the rule, and source_scope says it is assumed.
 const any = read('discord-any');
-assert.deepEqual([any.rule.provenance, any.rule.reason, any.rule.status], ['unknown', 'source_scoped_rule', 'undecidable']);
+assert.deepEqual(brief(any), ['Discord', null, 'connection', 'discord-out']);
+assert.equal(any.rule.provenance, 'simulated');
+assert.deepEqual(any.rule.source_scope, { source: '192.168.1.40', assumed: true });
 const dev = read('discord-dev');
 assert.deepEqual(brief(dev), ['Discord', null, 'connection', 'discord-out'], 'legacy vpn action reads as connection');
 assert.equal(dev.target.source_applied, true);
+assert.deepEqual(dev.rule.source_scope, { source: '192.168.1.40', assumed: false }, 'a named device is not an assumption');
 assert.equal(read('discord-other').rule.reason, 'undecidable_matcher');
 assert.equal(read('discord-other').rule.status, 'undecidable');
 

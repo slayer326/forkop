@@ -39,10 +39,12 @@ process_gone() {
 
 # process_exec_is PID NAME
 # True once PID runs the executable NAME (compared by basename), i.e. the
-# fork of a background job has exec'd its command.
+# fork of a background job has exec'd its command. Some distros install
+# coreutils under a "gnu" prefix and only symlink the plain name to it
+# (/usr/bin/sleep -> gnusleep): /proc/PID/exe resolves the real binary.
 process_exec_is() {
     process_exec_is_exe="$(readlink "/proc/$1/exe" 2>/dev/null)" || return 1
-    [ "${process_exec_is_exe##*/}" = "$2" ]
+    [ "${process_exec_is_exe##*/}" = "$2" ] || [ "${process_exec_is_exe##*/}" = "gnu$2" ]
 }
 
 # lock_held FILE

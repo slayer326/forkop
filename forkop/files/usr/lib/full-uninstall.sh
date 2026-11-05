@@ -76,14 +76,17 @@ run() {
 
     PHASE=stop
     state running
+    # Stopping is best-effort: a broken or manually replaced sing-box, a
+    # crashed service or an already restored dnsmasq must not cancel the
+    # removal. Package and file phases below still clean everything up.
     if [ -x "$ROOT/etc/init.d/forkop" ]; then
-        "$ROOT/etc/init.d/forkop" stop
-        "$ROOT/etc/init.d/forkop" disable
+        "$ROOT/etc/init.d/forkop" stop || echo "forkop service did not stop cleanly" >&2
+        "$ROOT/etc/init.d/forkop" disable || echo "forkop service could not be disabled" >&2
     fi
-    if [ -x "$BIN" ]; then "$BIN" dnsmasq_restore; fi
+    if [ -x "$BIN" ]; then "$BIN" dnsmasq_restore || echo "dnsmasq restore reported an error" >&2; fi
     if [ -x "$ROOT/etc/init.d/sing-box" ]; then
-        "$ROOT/etc/init.d/sing-box" stop
-        "$ROOT/etc/init.d/sing-box" disable
+        "$ROOT/etc/init.d/sing-box" stop || echo "sing-box service did not stop cleanly" >&2
+        "$ROOT/etc/init.d/sing-box" disable || echo "sing-box service could not be disabled" >&2
     fi
 
     PHASE=repositories
@@ -101,13 +104,22 @@ run() {
     for package in $PACKAGES; do
         if installed "$package"; then set -- "$@" "$package"; fi
     done
+    # A batch removal fails as a whole when a single package misbehaves (a
+    # broken prerm script, a dependency complaint). Retry the survivors one
+    # by one so one stubborn package does not keep the rest installed.
     if [ "$#" -gt 0 ]; then
-        if [ "$MANAGER" = apk ]; then apk del "$@"
-        else opkg remove "$@"; fi
+        if [ "$MANAGER" = apk ]; then apk del "$@" || echo "Batch package removal did not finish" >&2
+        else opkg remove "$@" || echo "Batch package removal did not finish" >&2; fi
     fi
+    leftovers=""
     for package in $PACKAGES; do
-        if installed "$package"; then echo "Package was not removed: $package" >&2; return 1; fi
+        if installed "$package"; then
+            if [ "$MANAGER" = apk ]; then apk del "$package" || true
+            else opkg remove "$package" || true; fi
+        fi
+        if installed "$package"; then leftovers="$leftovers $package"; fi
     done
+    if [ -n "$leftovers" ]; then echo "Packages were not removed:$leftovers" >&2; return 1; fi
 
     PHASE=files
     state running

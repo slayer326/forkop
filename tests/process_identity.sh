@@ -5,6 +5,10 @@ ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 LIB_DIR="$ROOT_DIR/forkop/files/usr/lib"
 CLI="$ROOT_DIR/tests/fixtures/process_identity_cli.uc"
 STATE_DIR="$(mktemp -d)"
+# /proc/<pid>/exe resolves symlinks: on distros where /usr/bin/sleep points at
+# gnusleep the identity checks must expect the resolved executable name.
+SLEEP_EXE_NAME="$(basename "$(readlink -f "$(command -v sleep)")")"
+export SLEEP_EXE_NAME
 # shellcheck source=tests/helpers/wait.sh
 . "$ROOT_DIR/tests/helpers/wait.sh"
 # $! is known before the background job execs its command; identity checks

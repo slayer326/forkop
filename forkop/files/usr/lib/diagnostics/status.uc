@@ -1733,13 +1733,18 @@ function clash_proxy_tags_lines(proxy_tags_json) {
 }
 
 function clash_proxy_latencies_result(count, failed) {
-    let has_failed = as_string(failed) != "0";
+    count = int(as_string(count || "0"), 10) || 0;
+    failed = int(as_string(failed || "0"), 10) || 0;
+    // Dead nodes are normal in a subscription list: the sweep fails only
+    // when nothing answered at all; "failed" still reports that some did
+    // not, so the caller can say how many.
+    let has_failed = failed > 0;
     write_json({
-        success: !has_failed,
-        count: int(as_string(count || "0"), 10) || 0,
+        success: count > failed,
+        count,
         failed: has_failed
     });
-    if (has_failed)
+    if (count <= failed)
         exit(1);
 }
 

@@ -98,6 +98,12 @@ function str_startswith(value, prefix) {
     return substr(value, 0, length(prefix)) == prefix;
 }
 
+function str_endswith(value, suffix) {
+    value = as_string(value);
+    suffix = as_string(suffix);
+    return length(value) >= length(suffix) && substr(value, length(value) - length(suffix)) == suffix;
+}
+
 function arg_bool(value) {
     return value === true || value == "true" || value == "1" || value == 1;
 }

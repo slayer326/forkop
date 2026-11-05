@@ -26,7 +26,11 @@ function valid_domain(v) {
     if (length(v) > 253 || match(v, /^[A-Za-z0-9.-]+$/) == null)
         return false;
     let labels = split(v, ".");
-    if (length(labels) < 2 || match(labels[length(labels) - 1], /^[A-Za-z]{2,63}$/) == null)
+    // A bare TLD ("ru", "com") is a valid question too: it resolves to no
+    // address, but the route of its rules is still calculated.
+    if (length(labels) == 1)
+        return match(labels[0], /^[A-Za-z]{2,63}$/) != null;
+    if (match(labels[length(labels) - 1], /^[A-Za-z]{2,63}$/) == null)
         return false;
     for (let label in labels)
         if (length(label) < 1 || length(label) > 63 ||
@@ -67,7 +71,10 @@ function config_route(target, address, source, protocol, port) {
     let literal = ip.valid_ip(target);
     let r = resolver.resolve(resolver.load_json(resolver.singbox_config_path(sections)), sections,
         resolver.target(literal ? "" : target, literal ? target : address,
-            { fakeip: address != "" && resolver.is_fakeip(address), network: protocol, port, source }));
+            { fakeip: address != "" && resolver.is_fakeip(address), network: protocol, port, source,
+                // No device named: answer "for the devices of the rule"
+                // instead of not answering at all; source_scope says so.
+                assume_rule_source: source == "" }));
     if (r.status != "decided") return unknown(r.reason, r.status);
 
     let result = unknown(null);
@@ -82,6 +89,10 @@ function config_route(target, address, source, protocol, port) {
         result.rule = { value: null, provenance: "simulated",
             reason: r.kind == "direct" ? "no_rule_matched" : r.kind == "outbound" ? "outbound_without_rule" : r.kind };
     }
+    // Set when the owner is limited to devices: the answer holds for its
+    // devices (assumed) or for the named device only.
+    if (r.source_scope != null)
+        result.rule.source_scope = r.source_scope;
     return result;
 }
 

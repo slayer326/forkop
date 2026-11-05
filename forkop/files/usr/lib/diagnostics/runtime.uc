@@ -1559,6 +1559,23 @@ function clash_delay_max_time(timeout_ms, group) {
     return group_time > max_time ? group_time : max_time;
 }
 
+// The timeout= parameter of a group delay request. sing-box bounds the whole
+// URLTest re-check of the group's members by it, while the members answer in
+// rounds of SING_BOX_URLTEST_CONCURRENCY with up to
+// SING_BOX_URLTEST_MEMBER_TIMEOUT each: the caller's few seconds cancel the
+// re-check of any but the smallest groups, and the failed answer deletes the
+// delays it meant to refresh.
+function group_delay_timeout_ms(timeout_ms, group) {
+    let ms = arg_number(timeout_ms);
+    group = object_or_empty(group);
+    if (lc(as_string(group.type)) != "urltest")
+        return ms;
+    let members = type(group.all) == "array" ? length(group.all) : 0;
+    let rounds = int((members + SING_BOX_URLTEST_CONCURRENCY - 1) / SING_BOX_URLTEST_CONCURRENCY);
+    let needed = (rounds > 1 ? rounds : 1) * SING_BOX_URLTEST_MEMBER_TIMEOUT * 1000 + 2000;
+    return needed > ms ? needed : ms;
+}
+
 // Runs a controller request. A request that got no answer (refused, or a
 // bound expired) fails with a reason instead of passing on an empty body.
 function clash_request(args) {
@@ -1795,13 +1812,17 @@ function latency_probe_concurrency() {
 }
 
 function latency_probe_command(plan, proxy_tag) {
-    let args = clash_curl(clash_delay_max_time(plan.timeout, plan.proxies[proxy_tag]));
-    push(args, "-G", clash_latency_endpoint(plan.base_url, proxy_tag, plan.proxy_types[proxy_tag]));
+    // --fail: sing-box answers a failed delay test with an HTTP error and a
+    // JSON body; without --fail the body reads as a valid answer and the
+    // probe counts as tested while the core deleted its delay history.
+    let timeout = group_delay_timeout_ms(plan.timeout, plan.proxies[proxy_tag]);
+    let args = clash_curl(clash_delay_max_time(timeout, plan.proxies[proxy_tag]));
+    push(args, "--fail", "-G", clash_latency_endpoint(plan.base_url, proxy_tag, plan.proxy_types[proxy_tag]));
     for (let item in plan.auth) push(args, item);
     push(args, "--data-urlencode");
     push(args, "url=" + plan.test_url);
     push(args, "--data-urlencode");
-    push(args, "timeout=" + plan.timeout);
+    push(args, "timeout=" + timeout);
     return command_from_args(args);
 }
 
@@ -1884,7 +1905,7 @@ function clash_api_request(action, arg1, arg2, arg3, auth) {
             url = test_url;
         let timeout = as_string(arg2 || "2000");
         let args = clash_curl(clash_delay_max_time(timeout));
-        push(args, "-G", base_url + "/proxies/" + clash_urlencode(arg1) + "/delay");
+        push(args, "--fail", "-G", base_url + "/proxies/" + clash_urlencode(arg1) + "/delay");
         for (let item in auth) push(args, item);
         push(args, "--data-urlencode");
         push(args, "url=" + url);
@@ -1951,9 +1972,11 @@ function clash_api_request(action, arg1, arg2, arg3, auth) {
         let proxies = clash_proxies(base_url, auth);
         if (proxies == null)
             return clash_json_error("clash_api_unavailable");
-        let timeout = as_string(arg2 || "5000");
+        // A URLTest group is re-checked member by member under this timeout:
+        // ask for the time the members can take, not for a few seconds.
+        let timeout = as_string(group_delay_timeout_ms(arg2 || "5000", proxies[arg1]));
         let args = clash_curl(clash_delay_max_time(timeout, proxies[arg1]));
-        push(args, "-G", base_url + "/group/" + clash_urlencode(arg1) + "/delay");
+        push(args, "--fail", "-G", base_url + "/group/" + clash_urlencode(arg1) + "/delay");
         for (let item in auth) push(args, item);
         push(args, "--data-urlencode");
         push(args, "url=" + test_url);
@@ -2137,10 +2160,11 @@ function automatic_latency_test(start_kind) {
         " automatic latency test for " + length(proxy_tags) + " proxy outbounds", "info");
     let status = 0;
     let completed = 0;
+    let failed = 0;
     let batch_size = AUTOMATIC_LATENCY_BATCH_SIZE > 0 ? AUTOMATIC_LATENCY_BATCH_SIZE : 4;
     for (let proxy_tag in proxy_tags) {
         if (clash_api("get_proxy_latency", proxy_tag, "5000", "") != 0)
-            status = 1;
+            failed++;
         completed++;
 
         if (completed < length(proxy_tags) && completed % batch_size == 0) {
@@ -2176,6 +2200,12 @@ function automatic_latency_test(start_kind) {
     // A reload is normally detected between batches through its PID/lock. A
     // non-restarting config change can still replace the proxy set, so never
     // acknowledge the old marker after its semantic generation changed.
+    // Dead nodes are normal in a proxy list: the test failed only when no
+    // proxy answered at all; the answered ones keep their measured delays.
+    if (completed > 0 && failed == completed)
+        status = 1;
+    else if (failed > 0)
+        log_message("Automatic latency test: " + failed + " of " + completed + " proxy outbounds did not answer", "info");
     let stale = proxy_outbounds_signature_value(config_path) != pending_signature;
     if (stale)
         log_message("Automatic latency test finished against a stale proxy generation; the pending marker was retained", "info");

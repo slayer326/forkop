@@ -64,11 +64,15 @@ export function routeRow(trace: Forkop.RouteTrace): SiteRow {
   const kind = kindOf(action);
   const parts = [pathKindLabel(kind)];
   if (trace.rule.value) parts.push(`${_('rule')} «${trace.rule.value}»`);
+  const scope = trace.rule.source_scope;
   return {
     label: _('Route'),
     value: parts.join(' · '),
-    note:
-      kind === 'direct'
+    note: scope?.assumed
+      ? _(
+          'The rule applies to selected devices only; the answer is calculated for them',
+        )
+      : kind === 'direct'
         ? _('No rule matched')
         : kind === 'block'
           ? _('The address is blocked by a rule')
