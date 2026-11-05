@@ -33,6 +33,8 @@ write_config() {
  {"action":"sniff","inbound":"tproxy-in"},
  {"inbound":"dns-in","action":"hijack-dns"},
  {"action":"reject","inbound":"tproxy-in","protocol":"quic"},
+ {"action":"route","inbound":"tproxy-in","domain":"ip.podkop.fyi","outbound":"main-out"},
+ {"action":"route","outbound":"direct-out","domain":"fakeip.podkop.fyi","override_port":8443},
  {"action":"route","inbound":"tproxy-in","domain_suffix":["youtube.com","googlevideo.com"],"outbound":"youtube-out"},
  {"action":"reject","inbound":"tproxy-in","domain_suffix":["doubleclick.net"]},
  {"action":"route","inbound":"tproxy-in","domain_suffix":["ru"],"outbound":"bypass-out"},

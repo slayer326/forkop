@@ -521,6 +521,38 @@ function nft_insert_rule(table, chain, args) {
     return run_args(command);
 }
 
+// Addresses of the router's own WireGuard tunnels (WARP and friends), from
+// "wg show all endpoints" lines: "<iface> <pubkey> <ip:port|[v6]:port|(none)>".
+// Their handshake traffic must never be marked for the sing-box tproxy: a
+// section list covering the endpoint (a Cloudflare range for WARP is the
+// common case) would route the handshake into the very tunnel it is meant to
+// establish, and the tunnel can never come up while Forkop runs.
+function wireguard_endpoint_ips() {
+    let result = [];
+    for (let line in split(command_output_quiet_from_args([ "wg", "show", "all", "endpoints" ]), "\n")) {
+        let fields = split(trim(as_string(line)), /[ \t]+/);
+        if (length(fields) < 3)
+            continue;
+        let m = match(fields[2], /^\[([0-9A-Fa-f:]+)\]:[0-9]+$/) || match(fields[2], /^([0-9.]+):[0-9]+$/);
+        if (m == null || !core_ip.valid_ip(m[1]) || index(result, m[1]) >= 0)
+            continue;
+        push(result, m[1]);
+    }
+    return result;
+}
+
+// Return rules that keep the router's own VPN tunnel endpoints out of the
+// interception, in both directions Forkop marks: LAN (mangle) and the
+// router's own traffic (mangle_output).
+function nft_add_tunnel_endpoint_returns(table, chain) {
+    for (let endpoint in wireguard_endpoint_ips()) {
+        let key = index(endpoint, ":") >= 0 ? "ip6" : "ip";
+        if (!nft_add_rule(table, chain, [ key, "daddr", endpoint, "counter", "return" ]))
+            return false;
+    }
+    return true;
+}
+
 let LOCALV4_RANGES = [
     "0.0.0.0/8",
     "10.0.0.0/8",
@@ -938,6 +970,9 @@ function nft_create_runtime_base(table, localv4_set, common_set, port_set, ip_po
         !nft_add_rule(table, "mangle", REPLY_RETURN) ||
         !nft_add_rule(table, "mangle", [ "iifname", "@" + as_string(interface_set), "ip", "daddr", "@" + as_string(localv4_set), "return" ]) ||
         !nft_add_rule(table, "mangle", [ "iifname", "@" + as_string(interface_set), "ip6", "daddr", "@" + as_string(localv6_set), "ip6", "daddr", "!=", fakeip6_range, "return" ]) ||
+        // The router's own VPN tunnels (WARP over WireGuard): their endpoint
+        // traffic is never marked, or the handshake loops into the dead tunnel.
+        !nft_add_tunnel_endpoint_returns(table, "mangle") ||
         !nft_add_rule(table, "mangle", [ "jump", "priority_rules" ]) ||
         !nft_add_rule(table, "mangle", [ "iifname", "@" + as_string(interface_set), "ip", "daddr", "@" + as_string(common_set), "meta", "l4proto", "tcp", "meta", "mark", "set", fakeip_mark, "counter" ]) ||
         !nft_add_rule(table, "mangle", [ "iifname", "@" + as_string(interface_set), "ip", "daddr", "@" + as_string(common_set), "meta", "l4proto", "udp", "meta", "mark", "set", fakeip_mark, "counter" ]) ||
@@ -968,6 +1003,7 @@ function nft_create_runtime_base(table, localv4_set, common_set, port_set, ip_po
         // mwan3 and other policy routers may add their own bits to sing-box's
         // outbound mark; test only ours so its traffic is never recaptured.
         !nft_add_rule(table, "mangle_output", [ "meta", "mark", "&", outbound_mark, "==", outbound_mark, "counter", "return" ]) ||
+        !nft_add_tunnel_endpoint_returns(table, "mangle_output") ||
         !nft_add_rule(table, "mangle_output", [ "jump", "priority_output_rules" ]))
         return false;
 

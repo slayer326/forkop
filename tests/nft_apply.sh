@@ -177,6 +177,16 @@ printf '%s\n' "$*" >> "${LOGGER_LOG:?}"
 LOGGER
 chmod 0755 "$WORK_DIR/bin/logger"
 
+cat >"$WORK_DIR/bin/wg" <<'WG'
+#!/usr/bin/env bash
+set -eo pipefail
+if [ "$#" -eq 3 ] && [ "$1" = "show" ] && [ "$2" = "all" ] && [ "$3" = "endpoints" ]; then
+  [ -n "${WG_ENDPOINTS_OUTPUT:-}" ] && printf '%s\n' "$WG_ENDPOINTS_OUTPUT"
+fi
+exit 0
+WG
+chmod 0755 "$WORK_DIR/bin/wg"
+
 export PATH="$WORK_DIR/bin:$PATH"
 export NFT_LOG
 export LOGGER_LOG
@@ -249,6 +259,20 @@ assert_contains "$NFT_LOG" $'nft\tadd\trule\tinet\tForkopTable\tmangle_output\tm
 assert_contains "$NFT_LOG" $'nft\tadd\trule\tinet\tForkopTable\tmangle_output\tip6\tdaddr\t@localv6\tip6\tdaddr\t!=\t2001:2::/112\treturn' "runtime output local6 return preserves FakeIP6 capture"
 assert_contains "$NFT_LOG" $'nft\tadd\trule\tinet\tForkopTable\tmangle_output\tjump\tpriority_output_rules' "runtime priority output jump"
 assert_contains "$NFT_LOG" $'nft\tinsert\trule\tinet\tForkopTable\tmangle\tudp\tdport\t123\treturn' "runtime ntp exclusion"
+
+# WireGuard endpoints of the router's own tunnels are never marked: the
+# handshake routed into the tunnel it establishes would deadlock the tunnel.
+: > "$NFT_LOG"
+WG_ENDPOINTS_OUTPUT=$'AWarp\tpubkey1\t8.34.70.1:2408\nwg1\tpubkey2\t[2606:4700:d0::1]:2408\nwg2\tpubkey3\t(none)' \
+  nft_ucode nft-create-runtime-base ForkopTable localv4 forkop_subnets forkop_ports forkop_ip_ports forkop_interfaces "br-lan" 0x00100000 0x00200000 198.18.0.0/15 1602 0
+assert_contains "$NFT_LOG" $'nft\tadd\trule\tinet\tForkopTable\tmangle\tip\tdaddr\t8.34.70.1\tcounter\treturn' "mangle returns the wireguard endpoint"
+assert_contains "$NFT_LOG" $'nft\tadd\trule\tinet\tForkopTable\tmangle_output\tip\tdaddr\t8.34.70.1\tcounter\treturn' "mangle_output returns the wireguard endpoint"
+assert_contains "$NFT_LOG" $'nft\tadd\trule\tinet\tForkopTable\tmangle_output\tip6\tdaddr\t2606:4700:d0::1\tcounter\treturn' "mangle_output returns the wireguard v6 endpoint"
+assert_line_before "$NFT_LOG" $'mangle\tip\tdaddr\t8.34.70.1\tcounter\treturn' $'mangle\tjump\tpriority_rules' "endpoint return precedes the priority jump"
+assert_line_before "$NFT_LOG" $'mangle_output\tip\tdaddr\t8.34.70.1\tcounter\treturn' $'mangle_output\tjump\tpriority_output_rules' "endpoint return precedes the output priority jump"
+if grep -Fq 'nft	add	rule	inet	ForkopTable	mangle	ip	daddr	(none)' "$NFT_LOG"; then
+  fail "an endpoint-less peer must not add a return rule"
+fi
 
 cat >"$WORK_DIR/runtime-base-uci.state" <<'EOF_UCI'
 forkop.settings=settings

@@ -159,7 +159,10 @@ function port_matches(rule, port) {
     return false;
 }
 const RULE_KEYS = [ "action", "outbound", "inbound", "domain", "domain_suffix", "domain_keyword", "domain_regex",
-    "ip_cidr", "rule_set", "source_ip_cidr", "port", "port_range", "network", "protocol", "invert" ];
+    "ip_cidr", "rule_set", "source_ip_cidr", "port", "port_range", "network", "protocol", "invert",
+    // Not matchers: they rewrite the dialed connection, the route decision
+    // does not change (the FakeIP check rule uses override_port).
+    "override_address", "override_port" ];
 // Sniffed protocols a TCP connection can never have (disable_quic adds a
 // protocol=quic reject rule in front of every section rule).
 const UDP_ONLY_PROTOCOLS = [ "quic", "dtls", "stun" ];
