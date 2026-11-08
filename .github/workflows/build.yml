@@ -20,6 +20,11 @@ on:
         required: false
         default: false
         type: boolean
+      use_sdk_mirror:
+        description: Use the secondary SDK mirror with pinned official SHA-256 checks
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -44,6 +49,7 @@ jobs:
       - uses: actions/checkout@v5.0.0
         with:
           fetch-depth: 0
+          ref: ${{ inputs.release_tag || github.ref }}
       - id: version
         shell: bash
         env:
@@ -92,6 +98,8 @@ jobs:
     needs: preparation
     steps:
       - uses: actions/checkout@v5.0.0
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
 
       - name: Install build dependencies
         run: |
@@ -111,6 +119,29 @@ jobs:
               -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 \
               install -y build-essential curl fakeroot file gawk git patch perl tar unzip util-linux xz-utils zstd
           fi
+
+      - name: Download verified SDKs from secondary mirror
+        if: inputs.use_sdk_mirror
+        shell: bash
+        run: |
+          sdk_cache="$HOME/.cache/forkop/openwrt-sdk"
+          mkdir -p "$sdk_cache"
+          download_sdk() {
+            local version="$1" file="$2" digest="$3"
+            curl --fail --location --connect-timeout 20 --max-time 600 --retry 2 \
+              --output "$sdk_cache/$file.part" \
+              "https://deepin.mirror.garr.it/mirrors/openwrt/releases/$version/targets/x86/64/$file"
+            printf '%s  %s\n' "$digest" "$sdk_cache/$file.part" | sha256sum --check
+            mv "$sdk_cache/$file.part" "$sdk_cache/$file"
+          }
+          download_sdk 24.10.6 openwrt-sdk-24.10.6-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst \
+            9e398ea7efc098e4a986f97efff595e32d08c615fe356bcb3d885d7ad3a39ac0 &
+          ipk_pid=$!
+          download_sdk 25.12.3 openwrt-sdk-25.12.3-x86-64_gcc-14.3.0_musl.Linux-x86_64.tar.zst \
+            70fc990b2f9a2705e8bbca610e421a55e789901d4aeba10d9fdd7c89777bf695 &
+          apk_pid=$!
+          wait "$ipk_pid"
+          wait "$apk_pid"
 
       - name: Build release artifacts
         shell: bash
