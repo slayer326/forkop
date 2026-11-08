@@ -222,6 +222,15 @@ FORKOP_RULESET_CACHE_MANIFEST="$WORK_DIR/partial-cache/manifest.json" \
 grep -Fq 'new.test' "$good_path" || fail "successful rule-set refresh was not committed"
 grep -Fq 'old.test' "$bad_path" || fail "failed rule-set refresh did not retain last-known-good data"
 
+# With no additional changed content, ordinary refresh still reports the
+# failed source, even though both old cache entries remain usable.
+PATH="$WORK_DIR/bin:$PATH" \
+RULESET_TEST_SOURCE_JSON="$WORK_DIR/partial-new.json" \
+FORKOP_RULESET_CACHE_DIR="$WORK_DIR/partial-cache" \
+FORKOP_RULESET_CACHE_MANIFEST="$WORK_DIR/partial-cache/manifest.json" \
+  ucode -L "$FORKOP_LIB" "$RULESET_CACHE_UC" refresh >/dev/null 2>&1 && refresh_status=0 || refresh_status=$?
+[ "$refresh_status" -eq 2 ] || fail "ordinary refresh must report an unchanged failed source"
+
 PATH="$WORK_DIR/bin:$PATH" \
 RULESET_TEST_SOURCE_JSON="$WORK_DIR/partial-new.json" \
 FORKOP_RULESET_CACHE_DIR="$WORK_DIR/partial-cache" \

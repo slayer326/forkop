@@ -97,8 +97,9 @@ fi
 
 grep -Fq 'if (refresh_manifest(proxy_address, false) != 0)' "$ROOT_DIR/forkop/files/usr/lib/singbox/ruleset_cache.uc" ||
   fail "unchanged rule-set content must not request a reload"
-grep -Fq 'if (failed && !changed)' "$ROOT_DIR/forkop/files/usr/lib/singbox/ruleset_cache.uc" ||
-  fail "a failed rule-set source must not suppress reload of other successful changes"
+# Partial refresh success and offline restart decisions are exercised with
+# actual manifests and cached files in ruleset_cache.sh. Do not couple this
+# policy check to the spelling of refresh_manifest's conditional expression.
 
 grep -Fq 'PERSISTENT_LIST_CACHE_DIR + "/last-success.timestamp"' "$UPDATES_UC" ||
   fail "successful list update time must survive a reboot"
