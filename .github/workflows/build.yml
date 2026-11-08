@@ -126,6 +126,7 @@ jobs:
         run: |
           sdk_cache="$HOME/.cache/forkop/openwrt-sdk"
           mkdir -p "$sdk_cache"
+          printf 'SDK_CACHE_DIR=%s\n' "$sdk_cache" >> "$GITHUB_ENV"
           download_sdk() {
             local version="$1" file="$2" digest="$3"
             curl --fail --location --connect-timeout 20 --max-time 600 --retry 2 \
