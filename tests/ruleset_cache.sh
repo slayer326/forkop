@@ -222,6 +222,20 @@ FORKOP_RULESET_CACHE_MANIFEST="$WORK_DIR/partial-cache/manifest.json" \
 grep -Fq 'new.test' "$good_path" || fail "successful rule-set refresh was not committed"
 grep -Fq 'old.test' "$bad_path" || fail "failed rule-set refresh did not retain last-known-good data"
 
+PATH="$WORK_DIR/bin:$PATH" \
+RULESET_TEST_SOURCE_JSON="$WORK_DIR/partial-new.json" \
+FORKOP_RULESET_CACHE_DIR="$WORK_DIR/partial-cache" \
+FORKOP_RULESET_CACHE_MANIFEST="$WORK_DIR/partial-cache/manifest.json" \
+  ucode -L "$FORKOP_LIB" "$RULESET_CACHE_UC" refresh-for-restart >/dev/null 2>&1 && restart_status=0 || restart_status=$?
+[ "$restart_status" -le 1 ] || fail "restart must retain validated offline rule sets"
+rm -f "$bad_path"
+PATH="$WORK_DIR/bin:$PATH" \
+RULESET_TEST_SOURCE_JSON="$WORK_DIR/partial-new.json" \
+FORKOP_RULESET_CACHE_DIR="$WORK_DIR/partial-cache" \
+FORKOP_RULESET_CACHE_MANIFEST="$WORK_DIR/partial-cache/manifest.json" \
+  ucode -L "$FORKOP_LIB" "$RULESET_CACHE_UC" refresh-for-restart >/dev/null 2>&1 && restart_status=0 || restart_status=$?
+[ "$restart_status" -eq 2 ] || fail "restart must reject an offline rule set without valid cache"
+
 cat >"$WORK_DIR/offline.json" <<'EOF'
 {"route":{"rule_set":[{"type":"remote","tag":"offline","format":"binary","url":"https://offline.test/missing.srs"}]}}
 EOF
@@ -282,6 +296,7 @@ FORKOP_RULESET_CACHE_MANIFEST="$WORK_DIR/cache/manifest.json" \
   ucode -L "$FORKOP_LIB" "$RULESET_CACHE_UC" refresh >/dev/null 2>&1 || true
 after="$(find "$WORK_DIR/cache" -maxdepth 1 -type f -name '*.srs' -exec md5sum {} \;)"
 [ "$before" = "$after" ] || fail "an unchanged cached rule set must remain stable"
+
 
 # When flash cannot keep the reserve, a changed remote rule-set is activated
 # from /tmp for this boot while its last-known-good persistent copy stays put.

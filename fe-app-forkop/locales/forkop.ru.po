@@ -3079,3 +3079,9 @@ msgstr "Необходимое подключение недоступно"
 
 msgid "Rejected by the selected core"
 msgstr "Отклонён выбранным ядром"
+
+msgid "Subscription information"
+msgstr "Информация о подписке"
+
+msgid "Select node"
+msgstr "Выбрать узел"

@@ -37,7 +37,7 @@ for required in \
   '"subscription-prepare-only"' \
   '"prepare-list-cache"' \
   '"service-proxy-address", "lists"' \
-  '"refresh", ruleset_proxy_address' \
+  '"refresh-for-restart", ruleset_proxy_address' \
   'let status = restart(true, preflight_fingerprint);'; do
   grep -Fq "$required" <<<"$manual_body" ||
     fail "manual restart is missing: $required"
@@ -53,7 +53,7 @@ runtime_apply_line="$(grep -nF '[ SERVICE_INIT, "reload", "list-content" ]' <<<"
 
 subscription_line="$(grep -nF '"subscription-prepare-only"' <<<"$manual_body" | head -n1 | cut -d: -f1)"
 list_line="$(grep -nF '"prepare-list-cache"' <<<"$manual_body" | head -n1 | cut -d: -f1)"
-ruleset_line="$(grep -nF '"refresh", ruleset_proxy_address' <<<"$manual_body" | head -n1 | cut -d: -f1)"
+ruleset_line="$(grep -nF '"refresh-for-restart", ruleset_proxy_address' <<<"$manual_body" | head -n1 | cut -d: -f1)"
 restart_line="$(grep -nF 'let status = restart(true, preflight_fingerprint);' <<<"$manual_body" | head -n1 | cut -d: -f1)"
 [ "$subscription_line" -lt "$list_line" ] &&
   [ "$list_line" -lt "$ruleset_line" ] &&

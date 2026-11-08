@@ -602,6 +602,26 @@ function renderDefaultState({
               ]
             : []),
           ...renderNodeTools(),
+          ...(canChooseOutbound
+            ? [
+                E(
+                  'button',
+                  {
+                    type: 'button',
+                    class: 'btn',
+                    click: (event: MouseEvent) => {
+                      event.stopPropagation();
+                      onChooseOutbound(
+                        section.sectionName,
+                        section.code,
+                        outbound.code,
+                      );
+                    },
+                  },
+                  _('Select node'),
+                ),
+              ]
+            : []),
         ]),
         E('div', { class: 'fkp_dashboard-page__outbound-grid__item__footer' }, [
           E(
@@ -759,7 +779,18 @@ function renderDefaultState({
         ]
       : []),
     E('div', { class: 'fkp_dashboard-page__outbound-grid' }, [
-      ...metadataNodes,
+      ...(metadataNodes.length
+        ? [
+            E(
+              'details',
+              { class: 'fkp_dashboard-page__subscription-details' },
+              [
+                E('summary', {}, _('Subscription information')),
+                ...metadataNodes,
+              ],
+            ),
+          ]
+        : []),
       ...arranged.outbounds.map((outbound) => renderOutbound(outbound)),
     ]),
     ...(arranged.hidden > 0

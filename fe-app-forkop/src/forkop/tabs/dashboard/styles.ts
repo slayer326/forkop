@@ -229,6 +229,14 @@ export const styles = `
     grid-gap: 10px;
 }
 
+.fkp_dashboard-page__subscription-details {
+    grid-column: 1 / -1;
+    min-width: 0;
+}
+.fkp_dashboard-page__subscription-details > summary {
+    cursor: pointer;
+    padding: 8px 0;
+}
 .fkp_dashboard-page__subscription-meta {
     --subscription-meta-action-size: 28px;
     --subscription-meta-action-gap: 6px;

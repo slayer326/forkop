@@ -60,3 +60,10 @@ lines="$(printf '%s\n' "$ruleset" | ucode -L "$FORKOP_LIB" "$STATUS_UC" nft-rule
   fail "the listing must show only the conflicting rule outside Forkop's table: $lines"
 
 printf 'foreign nftables mark rule checks passed\n'
+
+similar_table='table inet ForkopTable_backup {
+ chain marking { meta mark set 0x04000000 }
+}'
+lines="$(printf '%s\n' "$similar_table" | ucode -L "$FORKOP_LIB" "$STATUS_UC" nft-ruleset-other-mark-lines ForkopTable "$MARK")"
+printf '%s\n' "$lines" | grep -q 'meta mark set' ||
+  fail "similarly named foreign tables must not hide conflicting mark rules"

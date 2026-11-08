@@ -1350,13 +1350,11 @@ function nft_ruleset_other_mark_lines(table_name, bit_value) {
 
     for (let line in split(read_stdin(), "\n")) {
         line = as_string(line);
-        if (index(line, "table inet " + table_name) >= 0) {
-            in_forkop_table = true;
+        let header = match(line, /^table ([^ ]+) ([^ ]+) \{/);
+        if (header != null) {
+            in_forkop_table = header[1] == "inet" && header[2] == table_name;
             continue;
         }
-
-        if (match(line, /^table/) != null)
-            in_forkop_table = false;
 
         if (!in_forkop_table && mark_rule_changes_bit(line, bit_value))
             print_line(line);

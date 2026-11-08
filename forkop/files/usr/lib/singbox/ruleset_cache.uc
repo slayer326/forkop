@@ -681,9 +681,9 @@ function materialize_config(config_path, allow_download) {
     return true;
 }
 
-function refresh_manifest(proxy_address, due_only) {
+function refresh_manifest(proxy_address, due_only, for_restart) {
     if (!ensure_cache_dir())
-        return false;
+        return 2;
     cleanup_stale_temporary_files();
     let manifest = common.object_or_empty(common.read_json_file(MANIFEST_PATH));
     let runtime_manifest = read_runtime_manifest();
@@ -702,7 +702,11 @@ function refresh_manifest(proxy_address, due_only) {
         attempted = true;
         let result = refresh_entry(entry, proxy_address, runtime_manifest);
         if (!result.ok) {
-            failed = true;
+            let format = as_string(entry.format) == "source" ? "source" : "binary";
+            if (for_restart && valid_cache(active_cache_path(runtime_manifest, entry.url, format), format))
+                command_success([ "logger", "-t", "forkop", "[warn] Rule-set source unavailable; keeping validated cache " + key ]);
+            else
+                failed = true;
             continue;
         }
         if (result.persisted) {
@@ -720,7 +724,7 @@ function refresh_manifest(proxy_address, due_only) {
     // Entries are independent and each refresh is atomically renamed over its
     // own last-known-good file. Apply successful changes even if another entry
     // failed; failed entries keep their old cache and remain due for retry.
-    if (failed && !changed)
+    if (failed && (for_restart || !changed))
         return 2;
     return changed ? 0 : 1;
 }
@@ -742,6 +746,8 @@ if (mode == "materialize-config")
     exit(materialize_config(ARGV[1], as_string(ARGV[2]) != "cache-only") ? 0 : 1);
 else if (mode == "refresh")
     exit(refresh_manifest(ARGV[1], false));
+else if (mode == "refresh-for-restart")
+    exit(refresh_manifest(ARGV[1], false, true));
 else if (mode == "refresh-if-due")
     exit(refresh_manifest(ARGV[1], true));
 // Background workers (service/lifecycle.uc, components/updates.uc); an
@@ -758,6 +764,6 @@ else if (mode == "fallback-urls")
     for (let url in fallback_urls(ARGV[1]))
         print(url, "\n");
 else {
-    warn("Usage: singbox/ruleset_cache.uc <materialize-config|refresh|refresh-and-reload|fallback-urls> ...\n");
+    warn("Usage: singbox/ruleset_cache.uc <materialize-config|refresh|refresh-for-restart|refresh-and-reload|fallback-urls> ...\n");
     exit(1);
 }

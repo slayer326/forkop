@@ -2772,7 +2772,7 @@ function manual_restart() {
         return 1;
     }
 
-    let ruleset_status = module_status(RULESET_CACHE_UC, [ "refresh", ruleset_proxy_address ]);
+    let ruleset_status = module_status(RULESET_CACHE_UC, [ "refresh-for-restart", ruleset_proxy_address ]);
     if (ruleset_status > 1) {
         release_manual_restart_lock();
         log_message("Manual restart aborted: remote rule sets could not be prepared; the running runtime was preserved", "error");
