@@ -15,7 +15,8 @@ names = ('forkop_release_version_matches', 'forkop_release_matches',
          'forkop_set_package_names', 'opkg_forkop_set_versions_match',
          'forkop_installed_version_mismatch',
          'pkg_set_extension', 'pkg_forkop_set_command', 'forkop_recovery_files',
-         'restore_forkop_opkg_service', 'finish_forkop_opkg_recovery',
+         'restore_forkop_opkg_service', 'clear_forkop_recovery_metadata',
+         'finish_forkop_opkg_recovery', 'forkop_release_is_newer',
          'recover_forkop_opkg_set', 'forkop_package_set_space_error',
          'install_forkop_package_set')
 functions = []
@@ -39,6 +40,9 @@ let failure = "";
 let uncommitted = "";
 let rollback_failure = "";
 let checksummed_previous = false;
+let apk_mode = false;
+let hash_matches = false;
+let archive_rename_fails = false;
 // Packages whose version query fails once their new version is installed:
 // opkg refuses even read-only queries while another invocation holds its lock.
 let query_errors = {};
@@ -52,7 +56,15 @@ function file_exists(path) { return path == FORKOP_OPKG_RECOVERY_DIR ? recovery_
 function file_nonempty(path) { return index(downloads, path) >= 0; }
 function read_file(path) { return marker; }
 function write_file(path, value) { marker_tmp = value; return true; }
-let fs = { rename: function(source, target) { marker = marker_tmp; marker_tmp = ""; return true; } };
+let fs = { rename: function(source, target) {
+    if (source == FORKOP_OPKG_RECOVERY_DIR + "/pending.new") {
+        marker = marker_tmp; marker_tmp = ""; return true;
+    }
+    let i = index(downloads, source);
+    if (i < 0 || archive_rename_fails) return false;
+    downloads[i] = target;
+    return true;
+} };
 function command_success_from_args(args) {
     if (args[0] == "mkdir") { recovery_dir = true; return true; }
     if (args[0] == "rm") { recovery_dir = false; marker = ""; downloads = []; return true; }
@@ -78,21 +90,25 @@ function read_installed_package_version(name) {
 function forkop_status_running_with_timeout() { return service_running; }
 function previous_forkop_release(version) {
     check(version == FORKOP_VERSION, "wrong previous release");
-    return { backend_name: "forkop_1.0.0.ipk", backend_url: "old-backend",
-        app_name: "luci-app-forkop_1.0.0.ipk", app_url: "old-app",
-        i18n_name: "luci-i18n-forkop-ru_1.0.0.ipk", i18n_url: "old-i18n",
-        checksums: checksummed_previous ? { "forkop_1.0.0.ipk": "expected" } : null };
+    let ext = apk_mode ? "apk" : "ipk";
+    let backend = "forkop_1.0.0." + ext;
+    let app = "luci-app-forkop_1.0.0." + ext;
+    let i18n = "luci-i18n-forkop-ru_1.0.0." + ext;
+    let sums = {};
+    sums[backend] = "expected"; sums[app] = "expected"; sums[i18n] = "expected";
+    return { backend_name: backend, backend_url: "old-backend",
+        app_name: app, app_url: "old-app", i18n_name: i18n, i18n_url: "old-i18n",
+        checksums: checksummed_previous ? sums : null };
 }
 function download_with_retry(url, path, label) { push(downloads, path); return true; }
 function command_from_args(args) { return join(" ", args); }
 function command_output_from_args(args) {
-    if (args[0] == "sha256sum") return "mismatch  " + args[1];
+    if (args[0] == "sha256sum") return (hash_matches ? "expected" : "mismatch") + "  " + args[1];
     check(args[0] == "dirname", "unexpected path command");
     return "/";
 }
 function ensure_dir(path) { return path == "/"; }
-// This probe drives the opkg branch; the apk branch is covered separately.
-function is_apk() { return false; }
+function is_apk() { return apk_mode; }
 // Free space is exercised by its own test, so leave room here.
 function available_kib(path) { return 1048576; }
 function file_bytes(path) { return 0; }
@@ -106,22 +122,27 @@ function stop_old_sing_box_before_forkop_upgrade() {
 function run_logged(description, command) {
     push(events, description);
     let old = index(command, FORKOP_OPKG_RECOVERY_DIR + "/") >= 0;
-    if (index(command, "--noaction") >= 0)
+    if (old && apk_mode)
+        check(index(command, ".ipk") < 0, "APK rollback/preflight used an IPK path");
+    if (index(command, "--noaction") >= 0 || index(command, "--simulate") >= 0)
         return true;
-    let name = "";
-    if (index(command, "luci-i18n-forkop-ru_") >= 0 || index(command, "/i18n.ipk") >= 0) name = "luci-i18n-forkop-ru";
-    else if (index(command, "luci-app-forkop_") >= 0 || index(command, "/app.ipk") >= 0) name = "luci-app-forkop";
-    else if (index(command, "forkop_") >= 0 || index(command, "/backend.ipk") >= 0) name = "forkop";
-    check(name != "", "unknown package step");
-    if (old && name == rollback_failure) return false;
-    if (old && name == "forkop") service_running = false; // rollback prerm
-    if (!old && name == failure) {
-        if (name == "forkop") service_running = false;
-        return false;
+    let count = 0;
+    for (let pair in [["luci-app-forkop", "app"], ["luci-i18n-forkop-ru", "i18n"], ["forkop", "backend"]]) {
+        let name = pair[0];
+        if (index(command, name + "_") < 0 && index(command, "/" + pair[1] + "." + (apk_mode ? "apk" : "ipk")) < 0)
+            continue;
+        count++;
+        if (old && name == rollback_failure) return false;
+        if (old && name == "forkop") service_running = false;
+        if (!old && name == failure) {
+            if (name == "forkop") service_running = false;
+            return false;
+        }
+        if (!old && name == uncommitted) continue;
+        if (!old && name == "forkop") service_running = false;
+        versions[name] = old ? "1.0.0-r1" : "1.1.0-r1";
     }
-    if (!old && name == uncommitted) return true;
-    if (!old && name == "forkop") service_running = false;
-    versions[name] = old ? "1.0.0-r1" : "1.1.0-r1";
+    check(count > 0, "unknown package step");
     return true;
 }
 '''
@@ -136,6 +157,9 @@ function reset() {
     marker_tmp = "";
     rollback_failure = "";
     checksummed_previous = false;
+    apk_mode = false;
+    hash_matches = false;
+    archive_rename_fails = false;
     uncommitted = "";
     forkop_was_running = true;
     forkop_stopped_for_release_upgrade = false;
@@ -236,7 +260,55 @@ check(recover_forkop_opkg_set() == "" && service_running && marker == "",
 reset(); marker = "1.0.0\t1.1.0\t1\n"; recovery_dir = true;
 check(index(recover_forkop_opkg_set(), "unknown") >= 0 && marker != "",
     "legacy marker silently assumed original service state");
-print("Forkop OPKG package-set checks passed\n");
+// The APK updater must stage the same names its recovery reads, including
+// partial multi-package installs and optional translation packages.
+for (let translated in [false, true]) {
+    for (let failed in [false, true]) {
+        reset(); apk_mode = true;
+        failure = failed ? "forkop" : "";
+        let error = install_forkop_package_set("1.1.0", "/new/forkop_1.1.0.apk",
+            "/new/luci-app-forkop_1.1.0.apk", translated ? "/new/luci-i18n-forkop-ru_1.1.0.apk" : "");
+        check(error == (failed ? "Forkop package-set upgrade failed; previous release restored" : ""), "APK install/rollback failed: " + error);
+        check(opkg_forkop_set_versions_match(failed ? "1.0.0" : "1.1.0", translated) && marker == "", "APK set left inconsistent");
+    }
+}
+
+// Reproduce a healthy newer installation with an obsolete older marker. It
+// must neither downgrade packages nor replay the old stopped service state.
+reset(); marker = "0.8.0\t0.9.0\t1\t0\n"; recovery_dir = true;
+check(recover_forkop_opkg_set() == "" && marker == "" && service_running &&
+    opkg_forkop_set_versions_match("1.0.0", true), "obsolete marker damaged the newer installation");
+for (let event in events)
+    check(index(event, "Restoring Forkop release package ") < 0, "obsolete marker triggered a downgrade");
+reset(); marker = "0.8.0\t0.9.0\t1\t1\n"; recovery_dir = true; service_running = false;
+check(index(recover_forkop_opkg_set(), "manual recovery") >= 0 && marker != "" &&
+    !service_running && opkg_forkop_set_versions_match("1.0.0", true), "inactive newer installation was downgraded or started");
+reset(); marker = "0.8.0\t0.9.0\t1\t1\n"; recovery_dir = true;
+versions["luci-app-forkop"] = "0.9.0-r1";
+check(index(recover_forkop_opkg_set(), "manual recovery") >= 0 && marker != "", "mixed packages cleared the recovery marker");
+reset(); marker = "0.8.0\t0.9.0\t0\t1\n"; recovery_dir = true;
+versions["luci-i18n-forkop-ru"] = "0.9.0-r1";
+check(index(recover_forkop_opkg_set(), "manual recovery") >= 0 && marker != "", "installed optional translation was not checked");
+check(forkop_release_is_newer("1.0.78", "1.0.9") && !forkop_release_is_newer("1.0.9", "1.0.78") &&
+    !forkop_release_is_newer("invalid", "1.0.9"), "release ordering is not numeric and conservative");
+
+// Valid old APK content under .ipk names can be recovered, but only after
+// checking the published APK hashes. Missing, bad, unverifiable and
+// unrenameable archives must preserve recovery state and change no packages.
+for (let problem in ["", "bad-hash", "no-hash", "rename", "missing"]) {
+    reset(); apk_mode = true; checksummed_previous = problem != "no-hash";
+    hash_matches = problem != "bad-hash"; archive_rename_fails = problem == "rename";
+    marker = "1.0.0\t1.1.0\t1\t1\n"; recovery_dir = true;
+    versions["luci-app-forkop"] = "1.1.0-r1";
+    downloads = ["/recovery/backend.ipk", "/recovery/app.ipk", "/recovery/i18n.ipk"];
+    if (problem == "missing") downloads = [];
+    let result = recover_forkop_opkg_set();
+    if (problem == "")
+        check(result == "" && marker == "" && service_running && opkg_forkop_set_versions_match("1.0.0", true), "legacy APK recovery failed");
+    else
+        check(result != "" && marker != "" && versions["luci-app-forkop"] == "1.1.0-r1", "unverified legacy APK changed packages");
+}
+print("Forkop OPKG/APK package-set checks passed\n");
 '''
 pathlib.Path(sys.argv[2]).write_text(prefix + '\n\n'.join(functions) + suffix)
 PY

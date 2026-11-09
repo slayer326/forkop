@@ -2542,15 +2542,31 @@ function restore_forkop_opkg_service(was_running) {
     return false;
 }
 
+function clear_forkop_recovery_metadata() {
+    if (!command_success_from_args([ "rm", "-rf", FORKOP_OPKG_RECOVERY_DIR ]) ||
+        file_exists(FORKOP_OPKG_RECOVERY_DIR + "/pending"))
+        return "Forkop package-set recovery metadata could not be cleared";
+    return "";
+}
+
 function finish_forkop_opkg_recovery(service_state) {
     if (service_state == "")
         return "Forkop package-set service state is unknown; recovery archives retained for manual recovery";
     if (!restore_forkop_opkg_service(service_state == "1"))
         return "Forkop package-set service state could not be restored; recovery archives retained in " + FORKOP_OPKG_RECOVERY_DIR;
-    if (!command_success_from_args([ "rm", "-rf", FORKOP_OPKG_RECOVERY_DIR ]) ||
-        file_exists(FORKOP_OPKG_RECOVERY_DIR + "/pending"))
-        return "Forkop package-set recovery metadata could not be cleared";
-    return "";
+    return clear_forkop_recovery_metadata();
+}
+
+function forkop_release_is_newer(left, right) {
+    if (match(as_string(left), /^[0-9]+[.][0-9]+[.][0-9]+$/) == null ||
+        match(as_string(right), /^[0-9]+[.][0-9]+[.][0-9]+$/) == null)
+        return false;
+    let a = split(left, ".");
+    let b = split(right, ".");
+    for (let i = 0; i < 3; i++)
+        if (int(a[i]) != int(b[i]))
+            return int(a[i]) > int(b[i]);
+    return false;
 }
 
 function recover_forkop_opkg_set() {
@@ -2562,12 +2578,42 @@ function recover_forkop_opkg_set() {
         (length(marker) == 4 && marker[3] != "0" && marker[3] != "1"))
         return "Forkop package-set recovery marker is invalid; manual recovery required";
     let with_i18n = marker[2] == "1";
+    // A manual, complete upgrade may supersede an interrupted older one.
+    // Never roll that coherent newer set back to the marker's old release,
+    // nor restore the marker's obsolete service state over the user's state.
+    if (forkop_release_is_newer(FORKOP_VERSION, marker[0]) &&
+        forkop_release_is_newer(FORKOP_VERSION, marker[1])) {
+        let translation = read_installed_package_version("luci-i18n-forkop-ru");
+        if (translation.state == "error" ||
+            !opkg_forkop_set_versions_match(FORKOP_VERSION, with_i18n || translation.state == "found"))
+            return "Pending recovery belongs to an older Forkop release, but the current package set could not be verified; manual recovery required";
+        if (!forkop_status_running_with_timeout())
+            return "A newer complete Forkop package set supersedes pending recovery, but its runtime is not running; manual recovery required";
+        updates_log("Clearing obsolete Forkop package-set recovery after a complete newer release was verified", "info");
+        return clear_forkop_recovery_metadata();
+    }
     if (!opkg_forkop_set_versions_match(marker[1], with_i18n) &&
         !opkg_forkop_set_versions_match(marker[0], with_i18n)) {
         let files = forkop_recovery_files(with_i18n);
-        for (let file in files)
+        for (let i = 0; i < length(files); i++) {
+            let file = files[i];
+            if (!file_nonempty(file) && is_apk()) {
+                // Older APK updaters staged valid APK content under .ipk
+                // names. Only rename it after verifying the published APK
+                // checksum for the marker's rollback release.
+                let legacy = substr(file, 0, length(file) - 3) + "ipk";
+                if (file_nonempty(legacy)) {
+                    let previous = previous_forkop_release(marker[0]);
+                    let names = previous == null ? [] : [ previous.backend_name, previous.app_name, previous.i18n_name ];
+                    let expected = previous == null || previous.checksums == null ? "" : as_string(previous.checksums[names[i]]);
+                    let actual = split(trim(command_output_from_args([ "sha256sum", legacy ])), /[ \t]+/)[0];
+                    if (expected == "" || actual != expected || !fs.rename(legacy, file))
+                        return "Legacy Forkop APK recovery archive could not be verified or renamed; manual recovery required";
+                }
+            }
             if (!file_nonempty(file))
                 return "Forkop package-set recovery archive is missing; manual recovery required";
+        }
         // Restore the UI before the backend, so an old backend is never paired
         // with a newer LuCI app during the recovery sequence.
         let restored = true;
@@ -2711,9 +2757,10 @@ function install_forkop_package_set(latest_version, backend_file, app_file, i18n
         return "Failed to prepare Forkop package-set recovery storage";
     if (!command_success_from_args([ "mkdir", "-m", "0700", FORKOP_OPKG_RECOVERY_DIR ]))
         return "Failed to reserve Forkop package-set recovery storage";
-    let old_backend = FORKOP_OPKG_RECOVERY_DIR + "/backend.ipk";
-    let old_app = FORKOP_OPKG_RECOVERY_DIR + "/app.ipk";
-    let old_i18n = with_i18n ? FORKOP_OPKG_RECOVERY_DIR + "/i18n.ipk" : "";
+    let recovery_files = forkop_recovery_files(with_i18n);
+    let old_backend = recovery_files[0];
+    let old_app = recovery_files[1];
+    let old_i18n = with_i18n ? recovery_files[2] : "";
     if (!download_with_retry(previous.backend_url, old_backend, previous.backend_name) ||
         !download_with_retry(previous.app_url, old_app, previous.app_name) ||
         (with_i18n && !download_with_retry(previous.i18n_url, old_i18n, previous.i18n_name))) {
