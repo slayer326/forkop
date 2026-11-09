@@ -2136,13 +2136,45 @@ function reload_skipped_after_stop(reason) {
     return true;
 }
 
+function plan_pending_list_reload(plan, reason, has_list_sources) {
+    if (reason != "list-content")
+        return reason;
+
+    plan.has_work = 1;
+    plan.needs_nft_rebuild = 1;
+    if (!has_list_sources) {
+        // The last source was removed while an older apply was queued. There
+        // is no generation to download or restore; apply the removal normally.
+        plan.needs_sing_box_reload = 1;
+        plan.needs_list_update = 0;
+        plan.changed_list = 1;
+        return "list-sources-removed";
+    }
+    if (!module_success(UPDATES_UC, [ "runtime-list-cache-active" ]) &&
+        !module_success(UPDATES_UC, [ "list-cache-valid" ])) {
+        // A pending apply can outlive its source configuration, including a
+        // failed download after a source edit. Do not force that stale cache
+        // into the local-only path, even if reload state already records the
+        // new settings. Keep the live dataplane until the worker commits a
+        // complete generation for the current sources.
+        plan.needs_sing_box_reload = 1;
+        plan.needs_list_update = 1;
+        plan.changed_list = 1;
+        log_message("Pending list generation is unavailable for the current sources; preparing a fresh generation while preserving the active runtime", "info");
+        return "list-recovery";
+    }
+    plan.needs_list_update = 0;
+    plan.changed_list = 0;
+    return reason;
+}
+
 function reload(reason, cold_restart) {
     reason = as_string(reason || "");
-    // A completed list generation whose final runtime apply failed is safe to
-    // retry locally. Never let a later generic/pending reload skip that
-    // generation or trigger a second network update.
+    // Preserve a pending apply across generic reloads. After planning, check
+    // the generation against current sources before choosing a local retry
+    // or preparing a replacement in the background.
     if (reason != "list-content" && fs.stat(LIST_UPDATE_RELOAD_FILE) != null) {
-        log_message("A committed list generation is pending runtime apply; performing a local list-content reload", "info");
+        log_message("A list generation is pending runtime apply; checking its cache against the current sources", "info");
         reason = "list-content";
     }
     // The plan below compares configurations only. Over a kept guard a DPI
@@ -2253,12 +2285,7 @@ function reload(reason, cold_restart) {
     let plan = parse_reload_plan(plan_result.output);
     // A changed source must first become a complete active generation. Do not
     // publish a freshly rebuilt table without its replacement list data.
-    if (reason == "list-content") {
-        plan.has_work = 1;
-        plan.needs_nft_rebuild = 1;
-        plan.needs_list_update = 0;
-        plan.changed_list = 0;
-    }
+    reason = plan_pending_list_reload(plan, reason, list_update_sources == 1);
     if (cold_restart) {
         plan.has_work = 1;
         plan.needs_sing_box_reload = 1;
@@ -2479,7 +2506,7 @@ function reload(reason, cold_restart) {
     // Clear the durable retry request only after the complete local apply
     // committed its reload state. A failed candidate/guarded transition
     // returns above and deliberately leaves the marker intact.
-    if (reason == "list-content")
+    if (reason == "list-content" || reason == "list-sources-removed")
         remove_file(LIST_UPDATE_RELOAD_FILE);
 
     // A stop requested meanwhile has terminated the workers it found; no new
@@ -2878,6 +2905,12 @@ else if (mode == "reload")
     status = reload_tracked(ARGV[1] || "");
 else if (mode == "reload-reason-fixture") {
     reload_reason_fixture(ARGV[1] || "");
+    status = 0;
+}
+else if (mode == "reload-list-plan-fixture") {
+    let plan = parse_reload_plan("");
+    let reason = plan_pending_list_reload(plan, ARGV[1] || "", ARGV[2] == "1");
+    write_json({ reason, plan });
     status = 0;
 }
 else if (mode == "restore-routing")

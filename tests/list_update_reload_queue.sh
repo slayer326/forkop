@@ -150,6 +150,11 @@ reason="${2:-}"
 if [ "$reason" != list-content ] && [ -e "$FORKOP_RUNTIME_STATE_DIR/list-update.reload" ]; then
   reason=list-content
 fi
+if [ "$reason" = list-content ]; then
+  decision="$(ucode -L "$FORKOP_LIB" "$FORKOP_LIB/service/lifecycle.uc" reload-list-plan-fixture "$reason" 1)" || exit 1
+  reason="$(ucode -e 'print(json(ARGV[0]).reason);' "$decision")"
+  [ "$reason" != list-recovery ] || : >"$WORK/sources.changed"
+fi
 printf 'reload %s\n' "$reason" >>"$EVENTS"
 if [ "$reason" = list-content ]; then
   if ! ucode -L "$FORKOP_LIB" "$FORKOP_LIB/components/updates.uc" apply-list-cache >/dev/null 2>&1; then
@@ -282,5 +287,26 @@ grep -q 'did not release the runtime lock' "$WORK/log" || fail "C: fixture: the 
 grep -qx 'reload pending' "$EVENTS" || fail "C: the reload queued during the list update was never run"
 [ ! -e "$RUN/reload.pending" ] || fail "C: the queued reload was left in reload.pending"
 [ ! -e "$RUN/list.pid" ] || fail "C: the list update left its PID file behind"
+
+# D. A previously committed generation's final apply is still pending when
+# sources change again. A generic reload must not keep trying the old cache.
+# Use the production cache/plan decision, then a real worker and final apply.
+reset_state
+set_source old.txt
+list_worker || fail "D: initial list generation failed"
+cp "$RULESET" "$WORK/old-ruleset.before"
+: >"$EVENTS"
+set_source new.txt
+printf 'apply-failed\n' >"$MARKER"
+: >"$WORK/hold.new.txt"
+"$WORK/init.d" reload pending >/dev/null || fail "D: stale pending reload failed"
+wait_until 30 test -e "$WORK/in.new.txt" || fail "D: recovery did not download the current source"
+grep -qx 'reload list-recovery' "$EVENTS" || fail "D: stale cache was not redirected to recovery"
+cmp "$WORK/old-ruleset.before" "$RULESET" || fail "D: recovery changed active lists before download completed"
+if grep -qx 'list-content apply failed' "$EVENTS"; then
+  fail "D: recovery attempted to apply a stale generation"
+fi
+rm -f "$WORK/hold.new.txt"
+check_converged
 
 printf 'list update reload queue checks passed\n'

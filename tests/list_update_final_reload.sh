@@ -169,7 +169,7 @@ pending_reason="$(FORKOP_LIST_UPDATE_RELOAD_FILE="$WORK_DIR/list-update.reload" 
 [ "$pending_reason" = "list-content" ] || fail "pending reload did not choose local list-content retry"
 grep -Fq 'plan.has_work = 1;' "$LIFECYCLE_UC" ||
   fail "local list-content retry can still be skipped as a no-op"
-grep -Fq 'if (reason == "list-content")' "$LIFECYCLE_UC" ||
+grep -Eq 'if \(reason == "list-content"(\)| \|\|)' "$LIFECYCLE_UC" ||
   fail "successful local list-content retry does not clear its durable marker"
 rm -f "$WORK_DIR/list-update.reload"
 ordinary_reason="$(FORKOP_LIST_UPDATE_RELOAD_FILE="$WORK_DIR/list-update.reload" \
