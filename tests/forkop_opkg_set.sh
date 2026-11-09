@@ -129,7 +129,7 @@ function run_logged(description, command) {
     let count = 0;
     for (let pair in [["luci-app-forkop", "app"], ["luci-i18n-forkop-ru", "i18n"], ["forkop", "backend"]]) {
         let name = pair[0];
-        if (index(command, name + "_") < 0 && index(command, "/" + pair[1] + "." + (apk_mode ? "apk" : "ipk")) < 0)
+        if (index(command, "/" + name + "_") < 0 && index(command, "/" + pair[1] + "." + (apk_mode ? "apk" : "ipk")) < 0)
             continue;
         count++;
         if (old && name == rollback_failure) return false;
