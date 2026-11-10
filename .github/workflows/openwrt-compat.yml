@@ -24,19 +24,39 @@ permissions:
 
 jobs:
   compat:
-    name: OpenWrt ${{ matrix.release }}
+    name: OpenWrt ${{ matrix.release }} ${{ matrix.arch || 'x86_64' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
+        arch: ['x86_64']
         release:
           - '24.10.1'
           - '24.10.8'
           - '25.12.0'
           - '25.12.6'
+        include:
+          - release: '25.12.6'
+            target: armsr/armv8
+            arch: aarch64_generic
+            image: armsr-armv8
+          - release: '25.12.6'
+            target: armsr/armv7
+            arch: arm_cortex-a15_neon-vfpv4
+            image: armsr-armv7
+          - release: '25.12.6'
+            target: malta/be
+            arch: mips_24kc
+            image: malta-be
     steps:
       - uses: actions/checkout@v5.0.0
+
+      - name: Enable foreign architecture emulation
+        if: matrix.arch != 'x86_64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
 
       - name: Download the built packages
         if: inputs.artifact != ''
@@ -61,9 +81,11 @@ jobs:
       - name: Serve a stand-in Forkop mirror
         env:
           RELEASE: ${{ matrix.release }}
+          TARGET: ${{ matrix.target || 'x86/64' }}
+          ARCH: ${{ matrix.arch || 'x86_64' }}
         run: |
           mkdir -p ./compat-mirror/openwrt ./compat-mirror/forkop
-          printf 'x86/64\tx86_64\t%s\tipk\nx86/64\tx86_64\t%s\tapk\n' "$RELEASE" "$RELEASE" \
+          printf '%s\t%s\t%s\tipk\n%s\t%s\t%s\tapk\n' "$TARGET" "$ARCH" "$RELEASE" "$TARGET" "$ARCH" "$RELEASE" \
             > ./compat-mirror/openwrt/forkop-platforms.tsv
           openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out ./compat-mirror/key.pem
           openssl pkey -in ./compat-mirror/key.pem -pubout -out ./compat-mirror/forkop/forkop-apk.pem
@@ -76,7 +98,7 @@ jobs:
 
       - name: Check the packages on OpenWrt ${{ matrix.release }}
         env:
-          IMAGE: openwrt/rootfs:x86-64-${{ matrix.release }}
+          IMAGE: openwrt/rootfs:${{ matrix.image || 'x86-64' }}-${{ matrix.release }}
         run: |
           ls -l ./compat-packages
           docker pull --quiet "$IMAGE"

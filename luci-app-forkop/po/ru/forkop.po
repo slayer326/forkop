@@ -3103,3 +3103,108 @@ msgstr "Авто"
 
 msgid "The rule applies to selected devices only; the answer is calculated for them"
 msgstr "Правило действует только для выбранных устройств; ответ рассчитывается для них"
+
+msgid "Accept Cloudflare terms before generating a profile"
+msgstr "Примите условия Cloudflare перед генерацией профиля"
+
+msgid "AmneziaWG requires packages matching this firmware. A plain profile uses compatible one-sided junk packets; existing obfuscation fields are preserved."
+msgstr "Для AmneziaWG нужны пакеты, совместимые с прошивкой. К обычному профилю добавляются совместимые маскирующие пакеты; готовые параметры обфускации сохраняются."
+
+msgid "Cannot check WARP interface"
+msgstr "Не удалось проверить интерфейс WARP"
+
+msgid "Cannot start WARP operation"
+msgstr "Не удалось начать операцию WARP"
+
+msgid "Check handshake"
+msgstr "Проверить рукопожатие"
+
+msgid "Checking tunnel components…"
+msgstr "Проверка компонентов туннеля…"
+
+msgid "Cloudflare WARP"
+msgstr "Cloudflare WARP"
+
+msgid "Create and add to section"
+msgstr "Создать и добавить в секцию"
+
+msgid "Generate WARP profile"
+msgstr "Сгенерировать профиль WARP"
+
+msgid "I accept Cloudflare terms for profile registration"
+msgstr "Я принимаю условия Cloudflare для регистрации профиля"
+
+msgid "Import or generate WARP profile"
+msgstr "Импортировать или создать профиль WARP"
+
+msgid "Interface created. Reopen the section to select it."
+msgstr "Интерфейс создан. Откройте секцию заново, чтобы выбрать его."
+
+msgid "Interface created. Save the section, apply Forkop settings and verify the handshake."
+msgstr "Интерфейс создан. Сохраните секцию, примените настройки Forkop и проверьте рукопожатие."
+
+msgid "Last handshake: %s"
+msgstr "Последнее рукопожатие: %s"
+
+msgid "New interface name"
+msgstr "Имя нового интерфейса"
+
+msgid "No handshake observed yet. Save the section and send traffic through the tunnel."
+msgstr "Рукопожатия пока нет. Сохраните секцию и направьте трафик через туннель."
+
+msgid "Package manager"
+msgstr "Менеджер пакетов"
+
+msgid "Paste a WireGuard configuration or generate a new WARP profile. DNS and executable hooks from imported files are not applied."
+msgstr "Вставьте конфигурацию WireGuard или создайте профиль WARP. DNS из файла не применяется, профили с командами запуска отклоняются."
+
+msgid "Paste or generate a WARP profile first"
+msgstr "Сначала вставьте или создайте профиль WARP"
+
+msgid "Prepare tunnel components"
+msgstr "Подготовить компоненты туннеля"
+
+msgid "Profile generated. Create the interface to use it."
+msgstr "Профиль создан. Создайте интерфейс, чтобы использовать его."
+
+msgid "Register through the configured list-download section"
+msgstr "Регистрировать через секцию, выбранную для скачивания списков"
+
+msgid "Terms"
+msgstr "Условия"
+
+msgid "Tunnel components"
+msgstr "Компоненты туннеля"
+
+msgid "Tunnel components are ready"
+msgstr "Компоненты туннеля готовы"
+
+msgid "Tunnel type"
+msgstr "Тип туннеля"
+
+msgid "Use IPv6 addresses from the profile"
+msgstr "Использовать IPv6-адреса из профиля"
+
+msgid "WARP operation failed"
+msgstr "Операция WARP завершилась ошибкой"
+
+msgid "WARP operation is still running. Check the interface before retrying."
+msgstr "Операция WARP ещё выполняется. Проверьте интерфейс перед повторной попыткой."
+
+msgid "WARP profile"
+msgstr "Профиль WARP"
+
+msgid "WARP service is unavailable. Reload LuCI after updating the package."
+msgstr "Модуль WARP недоступен. Перезагрузите страницу LuCI после обновления пакета."
+
+msgid "WARP uses a separate OpenWrt interface. The current sing-box core is preserved. DNS and the default route are managed by your existing Forkop settings."
+msgstr "WARP использует отдельный интерфейс OpenWrt. Текущее ядро sing-box сохраняется. DNS и маршрут по умолчанию остаются под управлением существующих настроек Forkop."
+
+msgid "Working…"
+msgstr "Выполняется…"
+
+msgid "Profile file must not exceed 32 KiB"
+msgstr "Размер файла профиля не должен превышать 32 КиБ"
+
+msgid "Import profile file"
+msgstr "Импортировать файл профиля"

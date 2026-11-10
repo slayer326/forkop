@@ -7,6 +7,7 @@
 "require uci";
 "require view.forkop.local_devices as localDevices";
 "require view.forkop.main as main";
+"require view.forkop.warp as warp";
 
 const UCI_PACKAGE = main.FORKOP_UCI_PACKAGE;
 const RULE_SET_ITEM_SETTINGS_KEY = "rule_set_settings";
@@ -6647,6 +6648,50 @@ function createSectionContent(section) {
   };
   o.onListChange = refreshDashboardFilterChoiceWidgets;
   outboundNameSourceOptions.set("interfaces", o);
+
+  const warpInterfacesOption = o;
+  o = section.taboption(
+    "target",
+    form.DummyValue,
+    "_warp_wizard",
+    _("Cloudflare WARP"),
+  );
+  o.depends("action", "connection");
+  o.modalonly = true;
+  o.renderWidget = function (section_id) {
+    const interfaceOption =
+      this.section.children.find((child) => child.option === "interfaces") ||
+      warpInterfacesOption;
+    return E(
+      "button",
+      {
+        type: "button",
+        class: "btn cbi-button",
+        disabled: this.readonly || this.map.readonly,
+        click: () =>
+          warp.open(async (name) => {
+            await network.flushCache();
+            interfaceOption.devices = await network.getDevices();
+            refreshNetworkInterfaceOptionValues(interfaceOption);
+            // netifd can report the committed interface before its device appears.
+            if (!interfaceOption.interfaceChoiceMap[name]) {
+              interfaceOption.value(
+                name,
+                renderNetworkInterfaceListItem(null, name),
+              );
+              interfaceOption.interfaceChoiceMap[name] = true;
+            }
+            const widget = interfaceOption.getUIElement(section_id);
+            if (!widget)
+              throw new Error(
+                _("Interface created. Reopen the section to select it."),
+              );
+            addDynamicListItem(widget, name);
+          }),
+      },
+      _("Import or generate WARP profile"),
+    );
+  };
 
   o = section.taboption(
     "target",

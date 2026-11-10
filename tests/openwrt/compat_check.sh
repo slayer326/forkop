@@ -140,6 +140,10 @@ if [ "$PM" = opkg ]; then
         fail "the opkg variant switch check failed"
 fi
 
+note "Checking WARP interface isolation with real UCI"
+sh "$SOURCE_DIR/tests/openwrt/warp_interface.sh" "$SOURCE_DIR" ||
+    fail "the WARP interface isolation check failed"
+
 if [ "$failures" -ne 0 ]; then
     printf '%s compatibility check(s) failed on OpenWrt %s\n' "$failures" "$DISTRIB_RELEASE" >&2
     exit 1

@@ -529,7 +529,9 @@ function nft_insert_rule(table, chain, args) {
 // establish, and the tunnel can never come up while Forkop runs.
 function wireguard_endpoint_ips() {
     let result = [];
-    for (let line in split(command_output_quiet_from_args([ "wg", "show", "all", "endpoints" ]), "\n")) {
+    let output = command_output_quiet_from_args([ "wg", "show", "all", "endpoints" ]) + "\n" +
+        command_output_quiet_from_args([ "awg", "show", "all", "endpoints" ]);
+    for (let line in split(output, "\n")) {
         let fields = split(trim(as_string(line)), /[ \t]+/);
         if (length(fields) < 3)
             continue;

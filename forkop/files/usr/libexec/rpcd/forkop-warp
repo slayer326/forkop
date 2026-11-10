@@ -1,0 +1,11 @@
+#!/bin/sh
+# rpcd passes private request JSON on stdin, never in process arguments.
+case "$1" in
+    list)
+        printf '%s\n' '{"capabilities":{},"status":{"name":""},"start":{"action":"","kind":"","name":"","profile":"","ipv6":true,"via_proxy":true,"accept_terms":true},"job":{"id":""},"ack":{"id":""}}'
+        ;;
+    call)
+        exec ucode -L /usr/lib/forkop /usr/lib/forkop/warp/service.uc rpc "$2"
+        ;;
+    *) exit 1 ;;
+esac

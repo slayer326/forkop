@@ -972,6 +972,7 @@ function createEnvironment({
   version = "24.10",
   config = {},
   fs: fsOverrides = {},
+  warp: warpOverrides = { open() {} },
 } = {}) {
   const baseclass = createBaseclass();
   const uci = createStagedUciStore("forkop", config);
@@ -1071,7 +1072,8 @@ function createEnvironment({
       form,
       baseclass,
       fs: fsStub,
-      network: { getDevices: () => Promise.resolve([]) },
+        network: { getDevices: () => Promise.resolve([]), flushCache: () => Promise.resolve() },
+        warp: warpOverrides,
       ui,
       uci,
       localDevices: { createLocalDeviceDynamicListWidget: () => E("div") },

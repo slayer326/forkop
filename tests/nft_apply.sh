@@ -186,6 +186,11 @@ fi
 exit 0
 WG
 chmod 0755 "$WORK_DIR/bin/wg"
+cat >"$WORK_DIR/bin/awg" <<'AWG'
+#!/bin/sh
+[ -z "${AWG_ENDPOINTS_OUTPUT:-}" ] || printf '%s\n' "$AWG_ENDPOINTS_OUTPUT"
+AWG
+chmod 0755 "$WORK_DIR/bin/awg"
 
 export PATH="$WORK_DIR/bin:$PATH"
 export NFT_LOG
@@ -264,10 +269,12 @@ assert_contains "$NFT_LOG" $'nft\tinsert\trule\tinet\tForkopTable\tmangle\tudp\t
 # handshake routed into the tunnel it establishes would deadlock the tunnel.
 : > "$NFT_LOG"
 WG_ENDPOINTS_OUTPUT=$'AWarp\tpubkey1\t8.34.70.1:2408\nwg1\tpubkey2\t[2606:4700:d0::1]:2408\nwg2\tpubkey3\t(none)' \
+AWG_ENDPOINTS_OUTPUT=$'awg0\tpubkey4\t162.159.192.1:2408\nawg1\tpubkey5\t8.34.70.1:2408' \
   nft_ucode nft-create-runtime-base ForkopTable localv4 forkop_subnets forkop_ports forkop_ip_ports forkop_interfaces "br-lan" 0x00100000 0x00200000 198.18.0.0/15 1602 0
 assert_contains "$NFT_LOG" $'nft\tadd\trule\tinet\tForkopTable\tmangle\tip\tdaddr\t8.34.70.1\tcounter\treturn' "mangle returns the wireguard endpoint"
 assert_contains "$NFT_LOG" $'nft\tadd\trule\tinet\tForkopTable\tmangle_output\tip\tdaddr\t8.34.70.1\tcounter\treturn' "mangle_output returns the wireguard endpoint"
 assert_contains "$NFT_LOG" $'nft\tadd\trule\tinet\tForkopTable\tmangle_output\tip6\tdaddr\t2606:4700:d0::1\tcounter\treturn' "mangle_output returns the wireguard v6 endpoint"
+assert_contains "$NFT_LOG" $'nft\tadd\trule\tinet\tForkopTable\tmangle_output\tip\tdaddr\t162.159.192.1\tcounter\treturn' "mangle_output returns the AmneziaWG endpoint"
 assert_line_before "$NFT_LOG" $'mangle\tip\tdaddr\t8.34.70.1\tcounter\treturn' $'mangle\tjump\tpriority_rules' "endpoint return precedes the priority jump"
 assert_line_before "$NFT_LOG" $'mangle_output\tip\tdaddr\t8.34.70.1\tcounter\treturn' $'mangle_output\tjump\tpriority_output_rules' "endpoint return precedes the output priority jump"
 if grep -Fq 'nft	add	rule	inet	ForkopTable	mangle	ip	daddr	(none)' "$NFT_LOG"; then

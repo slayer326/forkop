@@ -40,6 +40,8 @@ for (const file of files) {
     try {
         ast = parse(content, {
             sourceType: 'module',
+            // LuCI wraps modules in a function; their final return is valid there.
+            allowReturnOutsideFunction: true,
             plugins: file.endsWith('.ts') ? ['typescript'] : [],
         });
     } catch (e) {

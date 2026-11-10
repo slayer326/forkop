@@ -57,6 +57,7 @@
         "/usr/libexec/forkop-ro show_sing_box_config masked": ["exec"]
       },
       "ubus": {
+        "forkop-warp": ["capabilities", "status"],
         "file": [
           "exec"
         ],
@@ -70,6 +71,9 @@
       }
     },
     "write": {
+      "ubus": {
+        "forkop-warp": ["start", "job", "ack"]
+      },
       "file": {
         "/usr/bin/forkop": ["exec"],
         "/etc/init.d/forkop": ["exec"],

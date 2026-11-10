@@ -93,6 +93,8 @@ function show_help() {
     print("    get_system_info         Get system information in JSON format\n");
     print("    get_ui_capabilities     Get lightweight UI capabilities in JSON format\n");
     print("    get_ui_state            Get lightweight UI service/action state in JSON format\n");
+    print("    warp_status             Get WARP component availability\n");
+    print("    warp_rpc METHOD         WARP operation; request JSON is read from stdin\n");
     print("    get_health_status       Get sanitized service and recovery health in JSON format\n");
     print("    route_trace             Trace safe observed router routing stages\n");
     print("    config_snapshot_create Create a manual configuration snapshot\n");
@@ -163,6 +165,8 @@ function command_spec(command) {
         get_system_info: [ "diagnostics/runtime.uc", "get-system-info", 0 ],
         get_ui_capabilities: [ "service/ui.uc", "get-ui-capabilities", 0 ],
         get_ui_state: [ "service/ui.uc", "get-ui-state", 0 ],
+        warp_status: [ "warp/service.uc", "capabilities", 0 ],
+        warp_rpc: [ "warp/service.uc", "rpc", 1 ],
         get_health_status: [ "diagnostics/health.uc", "get", 0 ],
         get_history: [ "diagnostics/health.uc", "history", 0 ],
         route_trace: [ "diagnostics/route_trace.uc", "trace", 4 ],

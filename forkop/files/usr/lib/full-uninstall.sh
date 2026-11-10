@@ -125,7 +125,7 @@ run() {
     state running
     # Only known product paths are removed. Never recursively delete a path
     # supplied by a UCI option (it might point at /etc or other system data).
-    for directory in /etc/forkop /etc/sing-box /tmp/sing-box /usr/lib/forkop \
+    for directory in /etc/forkop /etc/sing-box /tmp/sing-box /var/run/forkop-warp /usr/lib/forkop \
         /usr/share/forkop /www/luci-static/resources/view/forkop; do
         rm -rf "$ROOT$directory"
     done
@@ -134,7 +134,7 @@ run() {
         /etc/config/forkop.opkg-dist /etc/config/sing-box /etc/config/sing-box.apk-new \
         /etc/config/sing-box.apk-old /etc/config/sing-box-opkg /etc/config/sing-box.opkg-new \
         /etc/config/sing-box.opkg-old /etc/config/sing-box.opkg-dist \
-        /usr/bin/forkop /usr/libexec/forkop-ro /usr/bin/sing-box /usr/lib/libcronet.so \
+        /usr/bin/forkop /usr/libexec/forkop-ro /usr/libexec/rpcd/forkop-warp /usr/bin/sing-box /usr/lib/libcronet.so \
         /etc/init.d/forkop /etc/init.d/sing-box /etc/uci-defaults/50_luci-forkop \
         /usr/share/luci/menu.d/luci-app-forkop.json /usr/share/rpcd/acl.d/luci-app-forkop.json; do
         rm -f "$ROOT$file"
