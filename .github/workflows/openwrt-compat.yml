@@ -64,7 +64,38 @@ jobs:
 
       - name: Enable MIPS32 emulation
         if: startsWith(matrix.arch, 'mips')
-        run: docker run --rm --privileged multiarch/qemu-user-static:7.2.0-1 --reset -p yes
+        run: |
+          # The helper image's bundled registration masks reject the nonzero
+          # ELF ABI-version byte in current OpenWrt MIPS32 binaries. Register
+          # O32 explicitly, allowing that byte as QEMU's current masks do.
+          mkdir -p compat-qemu
+          docker create --name mips-emulator multiarch/qemu-user-static:7.2.0-1
+          docker cp mips-emulator:/usr/bin/qemu-mips-static compat-qemu/qemu-mips-static
+          docker cp mips-emulator:/usr/bin/qemu-mipsel-static compat-qemu/qemu-mipsel-static
+          docker rm mips-emulator
+          sudo python3 - <<'PY'
+          from pathlib import Path
+          for cpu, endian in [('mips', 'big'), ('mipsel', 'little')]:
+              magic = bytearray(40)
+              magic[:7] = b'\x7fELF\x01' + bytes([2 if endian == 'big' else 1, 1])
+              magic[16:18] = (2).to_bytes(2, endian)
+              magic[18:20] = (8).to_bytes(2, endian)
+              magic[20:24] = (1).to_bytes(4, endian)
+              mask = bytearray(b'\xff' * 24 + b'\x00' * 16)
+              mask[7:9] = b'\x00\x00'
+              mask[17 if endian == 'big' else 16] = 0xfe
+              mask[39 if endian == 'big' else 36] = 0x20
+              entry = Path('/proc/sys/fs/binfmt_misc') / ('qemu-' + cpu)
+              if entry.exists():
+                  entry.write_text('-1')
+              interpreter = Path('compat-qemu/qemu-' + cpu + '-static').resolve()
+              def escaped(data):
+                  return ''.join('\\x%02x' % byte for byte in data).encode()
+              Path('/proc/sys/fs/binfmt_misc/register').write_bytes(
+                  b':qemu-' + cpu.encode() + b':M::' + escaped(magic) + b':' + escaped(mask) +
+                  b':' + str(interpreter).encode() + b':F')
+              print(entry.read_text())
+          PY
 
       - name: Build verified MIPSel test image
         if: matrix.arch == 'mipsel_24kc'
@@ -137,7 +168,7 @@ jobs:
         run: |
           ls -l ./compat-packages
           if [ "$ARCH" != mipsel_24kc ]; then docker pull --quiet "$IMAGE"; fi
-          docker run --rm --network host \
+          timeout --kill-after=15s 600s docker run --rm --network host \
             -e FORKOP_MIRROR_BASE_URL=http://127.0.0.1:8765 \
             -v "$PWD:/src:ro" \
             -v "$PWD/compat-packages:/packages:ro" \

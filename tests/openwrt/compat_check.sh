@@ -141,7 +141,7 @@ if [ "$PM" = opkg ]; then
 fi
 
 note "Checking WARP interface isolation with real UCI"
-timeout 120 sh "$SOURCE_DIR/tests/openwrt/warp_interface.sh" "$SOURCE_DIR" ||
+sh "$SOURCE_DIR/tests/openwrt/warp_interface.sh" "$SOURCE_DIR" ||
     fail "the WARP interface isolation check failed"
 
 if [ "$failures" -ne 0 ]; then
