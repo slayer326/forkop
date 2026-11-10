@@ -576,6 +576,26 @@ export const styles = `
     overflow-wrap: anywhere;
 }
 
+button.fkp_dashboard-page__priority-members__name {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.fkp_dashboard-page__priority-members__row--controllable {
+    grid-template-columns: 20px minmax(0, 1fr) max-content max-content;
+}
+
+.fkp_dashboard-page__priority-members__actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
 .fkp_dashboard-page__urltest-details {
     box-sizing: border-box;
     width: min(760px, calc(100vw - 56px));

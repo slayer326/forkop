@@ -1,4 +1,5 @@
 import { getConfigSections } from './getConfigSections';
+import { latestProxyLatency } from './latestProxyLatency';
 import { ClashAPI, Forkop } from '../../types';
 import {
   canUseDirectClashApi,
@@ -46,6 +47,7 @@ type UrlTestCacheGroup = {
 
 type SingBoxRuntimeMetadata = {
   urltestGroups: Record<string, UrlTestCacheGroup>;
+  priorityManual?: Record<string, string>;
 };
 
 type PriorityCacheLevel = {
@@ -929,7 +931,7 @@ function buildUrlTestInfo({
             outboundMetadata,
             cachedProxyLinks.has(childCode),
           ),
-          latency: childEntry?.value?.history?.[0]?.delay || 0,
+          latency: latestProxyLatency(childEntry?.value),
           type: childEntry?.value?.type || '',
           selected: selectedCode === childCode,
           country: showDetectedCountries
@@ -967,6 +969,7 @@ function buildPriorityInfo({
   cachedProxyLinks,
   outboundMetadata,
   showDetectedCountries,
+  manualCode,
 }: {
   config: PriorityConfig;
   entry?: ClashProxyEntry;
@@ -976,6 +979,7 @@ function buildPriorityInfo({
   cachedProxyLinks: Map<string, string>;
   outboundMetadata?: Forkop.GetOutboundMetadata;
   showDetectedCountries: boolean;
+  manualCode?: string;
 }): Forkop.PriorityInfo {
   const selectedCode = entry?.value.now || '';
   const cacheLevels = Array.isArray(groupCache?.levels)
@@ -1039,7 +1043,7 @@ function buildPriorityInfo({
           outboundMetadata,
           cachedProxyLinks.has(childCode),
         ),
-        latency: childEntry?.value?.history?.[0]?.delay || 0,
+        latency: latestProxyLatency(childEntry?.value),
         type: childEntry?.value?.type || '',
         selected: selectedCode === childCode,
         country: showDetectedCountries
@@ -1075,6 +1079,7 @@ function buildPriorityInfo({
     displayName: groupCache?.displayName || config.displayName,
     selectedCode: selectedCode || undefined,
     selectedName: selectedName || undefined,
+    manualCode,
     healthUrl: groupCache?.health_url || config.healthUrl,
     activeCheckInterval:
       groupCache?.active_check_interval || config.activeCheckInterval,
@@ -1102,6 +1107,7 @@ function buildProxyGroupOutbounds(
   priorityGroups: Record<string, PriorityCacheGroup> = {},
   cachedProxyLinks: Map<string, string> = new Map(),
   shareLinks: Map<string, string> = new Map(),
+  priorityManual: Record<string, string> = {},
 ) {
   const sectionName = section['.name'];
   const proxyByCode = getProxyEntryByCode(proxies);
@@ -1177,7 +1183,7 @@ function buildProxyGroupOutbounds(
       {
         code,
         displayName,
-        latency: item?.value.history?.[0]?.delay || 0,
+        latency: latestProxyLatency(item?.value),
         type: priorityConfig ? 'Priority' : item?.value.type || 'URLTest',
         selected: selector?.value?.now === code,
         description: outboundMetadata?.descriptions?.[code],
@@ -1212,6 +1218,7 @@ function buildProxyGroupOutbounds(
               cachedProxyLinks,
               outboundMetadata,
               showDetectedCountries: priorityConfig.showDetectedCountries,
+              manualCode: priorityManual[code],
             })
           : undefined,
       },
@@ -1473,6 +1480,7 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
               priorityGroups,
               cachedProxyLinks,
               getShareLinks(dashboardCache),
+              runtimeMetadata.priorityManual || {},
             );
 
           return {
@@ -1515,7 +1523,7 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
               {
                 code: outbound?.code || sectionName,
                 displayName: section.interface || outbound?.value?.name || '',
-                latency: outbound?.value?.history?.[0]?.delay || 0,
+                latency: latestProxyLatency(outbound?.value),
                 type: outbound?.value?.type || '',
                 selected: true,
                 runtimeAvailable: Boolean(outbound),
@@ -1541,7 +1549,7 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
                   getJsonOutboundDisplayName(section) ||
                   outbound?.value?.name ||
                   '',
-                latency: outbound?.value?.history?.[0]?.delay || 0,
+                latency: latestProxyLatency(outbound?.value),
                 type: outbound?.value?.type || '',
                 selected: true,
               },

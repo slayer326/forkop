@@ -16,6 +16,26 @@ const SECTION_CACHE_DIR = getenv("FORKOP_SECTION_CACHE_DIR") || RUNTIME_STATE_DI
 const PRIORITY_PID_FILE = getenv("FORKOP_PRIORITY_PID_FILE") || RUNTIME_STATE_DIR + "/priority.pid";
 const PRIORITY_UC = getenv("FORKOP_PRIORITY_UC") || LIB_DIR + "/singbox/priority.uc";
 const DIAGNOSTICS_UC = getenv("FORKOP_DIAGNOSTICS_UC") || LIB_DIR + "/diagnostics/runtime.uc";
+const MANUAL_DIR = RUNTIME_STATE_DIR + "/priority-manual";
+const SELECTION_LOCK = RUNTIME_STATE_DIR + "/priority-selection.lock";
+
+function manual_path(group) {
+    let name = hexenc(as_string(group.tag));
+    return name != "" && length(name) <= 240 ? MANUAL_DIR + "/" + name + ".json" : "";
+}
+
+function member_level(group, tag) {
+    for (let i = 0; i < length(group.levels); i++)
+        if (index(group.levels[i].outbounds, tag) >= 0)
+            return i;
+    return -1;
+}
+
+function manual_choice(group) {
+    let record = object_or_empty(read_json_file(manual_path(group)));
+    let tag = as_string(record.tag);
+    return record.group == group.tag && member_level(group, tag) >= 0 ? tag : "";
+}
 
 function shell_quote(value) {
     return "'" + replace(as_string(value), /'/g, "'\\''") + "'";
@@ -324,17 +344,86 @@ function set_group_proxy(group, tag_name) {
     return result.status == 0;
 }
 
+function selection_lock(acquire) {
+    return command_success_from_args([ "ucode", "-L", LIB_DIR, LIB_DIR + "/service/state.uc",
+        acquire ? "acquire-runtime-dir-lock" : "release-runtime-dir-lock", SELECTION_LOCK,
+        as_string(fs.readlink("/proc/self")) ]);
+}
+
+function manual_select_locked(group_tag, tag, automatic) {
+    if (fs.stat(RUNTIME_STATE_DIR + "/stop.requested") != null) {
+        write_json({ success: false, error: "Forkop was stopped" });
+        return 1;
+    }
+    let group = null;
+    for (let item in priority_groups_from_cache())
+        if (item.tag == group_tag) group = item;
+    if (group == null || (!automatic && member_level(group, tag) < 0)) {
+        write_json({ success: false, error: "Unknown Priority group or member" });
+        return 1;
+    }
+    let path = manual_path(group);
+    if (path == "" || !ensure_dir(MANUAL_DIR)) return 1;
+    let previous = fs.readfile(path);
+    let stage = path + "." + as_string(fs.readlink("/proc/self")) + ".new";
+    let stamp = clock();
+    let revision = as_string(stamp[0]) + "." + as_string(stamp[1]) + "." + as_string(fs.readlink("/proc/self"));
+    if (!fs.writefile(stage, sprintf("%J", { group: group.tag, tag: automatic ? "" : tag, revision })) || !fs.rename(stage, path)) {
+        remove_file(stage);
+        return 1;
+    }
+    if (automatic) {
+        write_json({ success: true, mode: "auto" });
+        return 0;
+    }
+    // Publish the request before the API call so an in-flight automatic probe
+    // cannot overwrite a user's selection when it commits its result.
+    if (!set_group_proxy(group, tag)) {
+        if (manual_choice(group) == tag) {
+            if (previous == null) remove_file(path);
+            else if (fs.writefile(stage, previous)) fs.rename(stage, path);
+        }
+        remove_file(stage);
+        return 1;
+    }
+    write_json({ success: true, mode: "manual", proxy: tag });
+    return 0;
+}
+
+function manual_select(group_tag, tag, automatic) {
+    if (!selection_lock(true)) {
+        write_json({ success: false, error: "Priority selection is busy; retry" });
+        return 1;
+    }
+    let status = manual_select_locked(group_tag, tag, automatic);
+    selection_lock(false);
+    return status;
+}
+
 function switch_group(state, group, selected) {
     if (selected == null || selected.tag == "")
+        return false;
+
+    if (manual_choice(group) != "")
         return false;
 
     if (state.active == selected.tag) {
         state.levelIndex = selected.levelIndex;
         state.activeDelay = selected.delay;
+        state.failedChecks = 0;
         return true;
     }
 
-    if (!set_group_proxy(group, selected.tag)) {
+    // Only the short controller commit is serialized. Network health probes
+    // stay outside this lock so a user need not wait for a whole group scan.
+    if (!selection_lock(true)) return false;
+    if (manual_choice(group) != "") {
+        selection_lock(false);
+        return false;
+    }
+    let switched = set_group_proxy(group, selected.tag);
+    selection_lock(false);
+    if (!switched) {
         log_message("failed to switch " + group.tag + " to " + selected.tag, "warn");
         return false;
     }
@@ -342,6 +431,7 @@ function switch_group(state, group, selected) {
     state.active = selected.tag;
     state.levelIndex = selected.levelIndex;
     state.activeDelay = selected.delay;
+    state.failedChecks = 0;
     return true;
 }
 
@@ -350,6 +440,9 @@ function init_group_state(group) {
         active: "",
         levelIndex: -1,
         activeDelay: 0,
+        manualActive: "",
+        manualRevision: "",
+        failedChecks: 0,
         nextActiveCheck: now_seconds(),
         nextRecoveryCheck: now_seconds() + duration_to_seconds(group.recovery_check_interval, 15),
         nextFastestCheck: now_seconds() + duration_to_seconds(group.fastest_check_interval, 180)
@@ -358,6 +451,34 @@ function init_group_state(group) {
 
 function tick_group(state, group) {
     let now = now_seconds();
+    let manual = manual_choice(group);
+    let record = object_or_empty(read_json_file(manual_path(group)));
+    let revision = record.group == group.tag ? as_string(record.revision) : "";
+    if (state.manualRevision != revision) {
+        state.manualRevision = revision;
+        // Auto must resync the controller even if the user pinned and released
+        // a node between two worker ticks and manualActive was never observed.
+        if (manual == "") {
+            state.active = "";
+            state.levelIndex = -1;
+            state.nextActiveCheck = now;
+            state.failedChecks = 0;
+        }
+    }
+    if (manual != "") {
+        state.manualActive = manual;
+        state.active = manual;
+        state.levelIndex = member_level(group, manual);
+        state.failedChecks = 0;
+        return;
+    }
+    if (state.manualActive != "") {
+        state.manualActive = "";
+        state.active = "";
+        state.levelIndex = -1;
+        state.nextActiveCheck = now;
+        state.nextRecoveryCheck = now;
+    }
 
     if (state.active == "" && now >= state.nextActiveCheck) {
         let selected = choose_from_level_range(group, 0, length(group.levels) - 1, clash_probe);
@@ -370,8 +491,16 @@ function tick_group(state, group) {
         let active = clash_probe(state.active, group);
         if (active.alive) {
             state.activeDelay = active.delay;
+            state.failedChecks = 0;
         }
         else {
+            state.failedChecks++;
+            // A single lost/slow health request is not enough to abandon a
+            // working tunnel, especially while a mobile WAN is recovering.
+            if (state.failedChecks < 2) {
+                state.nextActiveCheck = now + duration_to_seconds(group.active_check_interval, 5);
+                return;
+            }
             let selected = choose_from_level_range(
                 group,
                 state.levelIndex,
@@ -380,6 +509,7 @@ function tick_group(state, group) {
                 state.active
             );
             if (switch_group(state, group, selected)) {
+                state.failedChecks = 0;
                 state.nextRecoveryCheck = now + duration_to_seconds(group.recovery_check_interval, 15);
                 state.nextFastestCheck = now + duration_to_seconds(group.fastest_check_interval, 180);
             }
@@ -425,6 +555,7 @@ function worker() {
 function stop_runtime() {
     process_identity.signal(PRIORITY_PID_FILE, "ucode", [ "ucode", "-L", LIB_DIR, PRIORITY_UC, "worker" ], true, "TERM");
     remove_file(PRIORITY_PID_FILE);
+    command_success_from_args([ "rm", "-rf", MANUAL_DIR ]);
     return 0;
 }
 
@@ -469,6 +600,14 @@ else if (mode == "stop-runtime")
     exit(stop_runtime());
 else if (mode == "worker")
     exit(worker());
+else if (mode == "manual-select")
+    exit(manual_select(as_string(ARGV[1]), as_string(ARGV[2]), ARGV[3] == "auto"));
+else if (mode == "tick-fixture") {
+    let group = normalize_group(read_json_file(ARGV[1]), "fixture");
+    let state = read_json_file(ARGV[2]) || init_group_state(group);
+    tick_group(state, group);
+    write_json(state);
+}
 else if (mode == "select-fixture")
     select_fixture(ARGV[1], ARGV[2], ARGV[3], ARGV[4], ARGV[5]);
 else if (mode == "select-faster-fixture")

@@ -298,6 +298,7 @@ export namespace Forkop {
     displayName: string;
     selectedCode?: string;
     selectedName?: string;
+    manualCode?: string;
     healthUrl?: string;
     activeCheckInterval?: string;
     checkTimeout?: string;

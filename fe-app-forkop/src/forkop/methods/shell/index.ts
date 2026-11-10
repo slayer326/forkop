@@ -239,9 +239,10 @@ export const ForkopShellMethods = {
       Forkop.AvailableMethods.GET_READONLY_CONFIG_SECTIONS,
     ),
   getDashboardRuntimeMetadata: async () =>
-    callBaseMethod<{ urltestGroups: Record<string, unknown> }>(
-      Forkop.AvailableMethods.GET_DASHBOARD_RUNTIME_METADATA,
-    ),
+    callBaseMethod<{
+      urltestGroups: Record<string, unknown>;
+      priorityManual?: Record<string, string>;
+    }>(Forkop.AvailableMethods.GET_DASHBOARD_RUNTIME_METADATA),
   getSubscriptionMetadata: async (section: string) =>
     callBaseMethod<Forkop.SubscriptionMetadata | Forkop.SubscriptionMetadata[]>(
       Forkop.AvailableMethods.GET_SUBSCRIPTION_METADATA,
@@ -282,11 +283,16 @@ export const ForkopShellMethods = {
       Forkop.AvailableMethods.CLASH_API,
       [Forkop.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag, '10000'],
     ),
-  setClashApiGroupProxy: async (group: string, proxy: string) =>
+  setClashApiGroupProxy: async (
+    group: string,
+    proxy: string,
+    mode?: 'priority-manual' | 'priority-auto',
+  ) =>
     callBaseMethod<unknown>(Forkop.AvailableMethods.CLASH_API, [
       Forkop.AvailableClashAPIMethods.SET_GROUP_PROXY,
       group,
       proxy,
+      ...(mode ? [mode] : []),
     ]),
   closeClashApiConnection: async (connectionId: string) =>
     callBaseMethod<unknown>(Forkop.AvailableMethods.CLASH_API, [

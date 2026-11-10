@@ -852,7 +852,14 @@ function get_dashboard_runtime_metadata() {
     let path = option(settings(), "config_path", "");
     let parsed = read_json_file(path);
     let groups = {};
+    let priority_manual = {};
     for (let outbound in (parsed != null && type(parsed.outbounds) == "array" ? parsed.outbounds : [])) {
+        if (outbound.type == "selector" && as_string(outbound.tag) != "") {
+            let manual = read_json_file(RUNTIME_STATE_DIR + "/priority-manual/" + hexenc(outbound.tag) + ".json");
+            if (manual != null && manual.group == outbound.tag &&
+                index(type(outbound.outbounds) == "array" ? outbound.outbounds : [], manual.tag) >= 0)
+                priority_manual[outbound.tag] = manual.tag;
+        }
         if (outbound.type != "urltest" || as_string(outbound.tag) == "")
             continue;
         groups[outbound.tag] = {
@@ -865,7 +872,7 @@ function get_dashboard_runtime_metadata() {
             interrupt_exist_connections: outbound.interrupt_exist_connections
         };
     }
-    write_json({ urltestGroups: groups });
+    write_json({ urltestGroups: groups, priorityManual: priority_manual });
     return 0;
 }
 
@@ -1988,6 +1995,13 @@ function clash_api_request(action, arg1, arg2, arg3, auth) {
     if (action == "set_group_proxy") {
         if (as_string(arg1) == "" || as_string(arg2) == "")
             return clash_json_error("group_tag and proxy_tag required");
+        if (arg3 == "priority-manual" || arg3 == "priority-auto") {
+            let result = command_capture(command_from_args([ "ucode", "-L", LIB_DIR,
+                LIB_DIR + "/singbox/priority.uc", "manual-select", arg1, arg2,
+                arg3 == "priority-auto" ? "auto" : "manual" ]));
+            if (result.output != "") print(result.output);
+            return result.status;
+        }
         let payload = status_output([ "clash-set-group-proxy-payload", arg2 ], null);
         let args = clash_curl();
         push(args, "-X", "PUT", "-w", "\n%{http_code}", base_url + "/proxies/" + clash_urlencode(arg1));

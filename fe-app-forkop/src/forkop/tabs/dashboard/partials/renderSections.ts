@@ -25,6 +25,7 @@ interface IRenderSectionsProps {
     sectionName: string,
     selector: string,
     tag: string,
+    mode?: 'priority-manual' | 'priority-auto',
   ) => void;
   onShowUrlTestInfo: (outbound: Forkop.Outbound) => void;
   onShowPriorityInfo: (outbound: Forkop.Outbound) => void;
@@ -359,6 +360,41 @@ function renderDefaultState({
 
     let previousLevel = -1;
     const content: HTMLElement[] = [];
+    const canControl = withTagSelect && outbound.runtimeAvailable !== false;
+    if (canControl) {
+      content.push(
+        E('div', { class: 'fkp_dashboard-page__priority-members__actions' }, [
+          E(
+            'button',
+            {
+              type: 'button',
+              class: 'btn',
+              disabled: Boolean(selectorSwitchingTag) || undefined,
+              title: _('Resume automatic priorities'),
+              click: (event: MouseEvent) => {
+                event.stopPropagation();
+                if (!selectorSwitchingTag)
+                  onChooseOutbound(
+                    section.sectionName,
+                    outbound.code,
+                    outbound.code,
+                    'priority-auto',
+                  );
+              },
+            },
+            _('Auto'),
+          ),
+          renderCardTool(
+            _('Test latency'),
+            latencyFetching
+              ? renderLoaderCircleIcon24()
+              : renderRotateCcwIcon24(),
+            () => onTestLatency(members.map((member) => member.code)),
+            latencyFetching,
+          ),
+        ]),
+      );
+    }
 
     members.forEach((member, index) => {
       if (member.levelIndex !== previousLevel) {
@@ -378,6 +414,9 @@ function renderDefaultState({
           {
             class: [
               'fkp_dashboard-page__priority-members__row',
+              canControl
+                ? 'fkp_dashboard-page__priority-members__row--controllable'
+                : '',
               member.selected
                 ? 'fkp_dashboard-page__priority-members__row--selected'
                 : '',
@@ -392,8 +431,28 @@ function renderDefaultState({
               String(index + 1),
             ),
             E(
-              'span',
-              { class: 'fkp_dashboard-page__priority-members__name' },
+              canControl ? 'button' : 'span',
+              {
+                class: 'fkp_dashboard-page__priority-members__name',
+                ...(canControl
+                  ? {
+                      type: 'button',
+                      disabled: Boolean(selectorSwitchingTag) || undefined,
+                      title: _('Pin this node until Auto or service restart'),
+                      'aria-pressed': member.selected ? 'true' : 'false',
+                      click: (event: MouseEvent) => {
+                        event.stopPropagation();
+                        if (!selectorSwitchingTag)
+                          onChooseOutbound(
+                            section.sectionName,
+                            outbound.code,
+                            member.code,
+                            'priority-manual',
+                          );
+                      },
+                    }
+                  : {}),
+              },
               renderFlagEmojis(member.displayName),
             ),
             E(
@@ -407,6 +466,18 @@ function renderDefaultState({
                 ? _('%d ms').replace('%d', String(member.latency))
                 : '—',
             ),
+            ...(canControl
+              ? [
+                  renderCardTool(
+                    _('Test this node latency'),
+                    latencyFetching && latencyTestingTag === member.code
+                      ? renderLoaderCircleIcon24()
+                      : renderRotateCcwIcon24(),
+                    () => onTestLatency([member.code]),
+                    latencyFetching,
+                  ),
+                ]
+              : []),
           ],
         ),
       );
@@ -421,7 +492,11 @@ function renderDefaultState({
         click: (event: Event) => event.stopPropagation(),
       },
       [
-        E('summary', {}, `${_('Nodes')}: ${members.length}`),
+        E(
+          'summary',
+          {},
+          `${_('Nodes')}: ${members.length} · ${outbound.priorityInfo?.manualCode ? _('Manual') : _('Auto')}`,
+        ),
         E(
           'div',
           { class: 'fkp_dashboard-page__priority-members__list' },
@@ -538,6 +613,21 @@ function renderDefaultState({
         'aria-busy': outboundSwitching ? 'true' : undefined,
         'aria-disabled':
           withTagSelect && !canChooseOutbound ? 'true' : undefined,
+        role: canChooseOutbound ? 'button' : undefined,
+        tabIndex: canChooseOutbound ? 0 : undefined,
+        'aria-label': canChooseOutbound
+          ? `${_('Select node')}: ${outbound.displayName}`
+          : undefined,
+        keydown: (event: KeyboardEvent) => {
+          if (
+            event.target === event.currentTarget &&
+            canChooseOutbound &&
+            (event.key === 'Enter' || event.key === ' ')
+          ) {
+            event.preventDefault();
+            onChooseOutbound(section.sectionName, section.code, outbound.code);
+          }
+        },
         click: () =>
           canChooseOutbound &&
           onChooseOutbound(section.sectionName, section.code, outbound.code),
@@ -602,26 +692,6 @@ function renderDefaultState({
               ]
             : []),
           ...renderNodeTools(),
-          ...(canChooseOutbound
-            ? [
-                E(
-                  'button',
-                  {
-                    type: 'button',
-                    class: 'btn',
-                    click: (event: MouseEvent) => {
-                      event.stopPropagation();
-                      onChooseOutbound(
-                        section.sectionName,
-                        section.code,
-                        outbound.code,
-                      );
-                    },
-                  },
-                  _('Select node'),
-                ),
-              ]
-            : []),
         ]),
         E('div', { class: 'fkp_dashboard-page__outbound-grid__item__footer' }, [
           E(

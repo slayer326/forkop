@@ -14,6 +14,7 @@ type HtmlAttributes<T extends HtmlTag = 'div'> = Partial<
     'data-view'?: string;
     click?: (event: MouseEvent) => void;
     onclick?: (event: MouseEvent) => void;
+    keydown?: (event: KeyboardEvent) => void;
   }
 >;
 

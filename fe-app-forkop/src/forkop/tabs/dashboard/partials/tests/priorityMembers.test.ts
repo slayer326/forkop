@@ -7,12 +7,150 @@ import { renderSections } from '../renderSections';
 vi.mock('../../../../../icons', () => ({
   renderLoaderCircleIcon24: () => '',
   renderInfoIcon24: () => '',
+  renderRotateCcwIcon24: () => '',
+  renderCopyIcon24: () => '',
 }));
 vi.mock('../../../../../helpers', () => ({ svgEl: () => '' }));
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Priority member disclosure', () => {
+  it('offers member selection, individual probes and Auto without a duplicate card button', () => {
+    type Node = {
+      tag: string;
+      attrs: Record<string, unknown>;
+      children: unknown[];
+    };
+    vi.stubGlobal(
+      'E',
+      (
+        tag: string,
+        attrs: Record<string, unknown> = {},
+        children: unknown = [],
+      ) => ({
+        tag,
+        attrs: attrs || {},
+        children: Array.isArray(children) ? children : [children],
+        addEventListener: () => {},
+      }),
+    );
+    const find = (node: unknown, predicate: (n: Node) => boolean): Node[] => {
+      if (!node || typeof node !== 'object') return [];
+      const n = node as Node;
+      return [
+        ...(predicate(n) ? [n] : []),
+        ...(n.children || []).flatMap((c) => find(c, predicate)),
+      ];
+    };
+    const text = (node: unknown): string =>
+      typeof node === 'string'
+        ? node
+        : node && typeof node === 'object'
+          ? ((node as Node).children || []).map(text).join('')
+          : '';
+    const choose = vi.fn(),
+      probe = vi.fn();
+    const render = (readonly: boolean) =>
+      renderSections({
+        loading: false,
+        failed: false,
+        readonly,
+        section: {
+          code: 'main-out',
+          sectionName: 'main',
+          displayName: 'Main',
+          withTagSelect: true,
+          outbounds: [
+            {
+              code: 'priority',
+              type: 'Priority',
+              displayName: 'Priority',
+              selected: true,
+              latency: 12,
+              priorityInfo: {
+                code: 'priority',
+                displayName: 'Priority',
+                outbounds: [
+                  {
+                    code: 'a',
+                    displayName: 'Node A',
+                    type: 'wireguard',
+                    latency: 12,
+                    selected: true,
+                    levelIndex: 0,
+                    levelName: 'Primary',
+                  },
+                  {
+                    code: 'b',
+                    displayName: 'Node B',
+                    type: 'vless',
+                    latency: 80,
+                    selected: false,
+                    levelIndex: 1,
+                    levelName: 'Fallback',
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        onChooseOutbound: choose,
+        onTestLatency: probe,
+        onShowUrlTestInfo: () => {},
+        onShowPriorityInfo: () => {},
+        onUpdateSubscription: () => {},
+        latencyFetching: false,
+        subscriptionUpdating: false,
+        isPriorityMembersExpanded: () => true,
+        onPriorityMembersToggle: () => {},
+      });
+    const tree = render(false);
+    const event = { stopPropagation: vi.fn(), preventDefault: vi.fn() };
+    const member = find(
+      tree,
+      (n) => n.tag === 'button' && text(n) === 'Node B',
+    )[0];
+    (member.attrs.click as (e: unknown) => void)(event);
+    expect(choose).toHaveBeenLastCalledWith(
+      'main',
+      'priority',
+      'b',
+      'priority-manual',
+    );
+    const automatic = find(
+      tree,
+      (n) => n.tag === 'button' && text(n) === 'Auto',
+    )[0];
+    (automatic.attrs.click as (e: unknown) => void)(event);
+    expect(choose).toHaveBeenLastCalledWith(
+      'main',
+      'priority',
+      'priority',
+      'priority-auto',
+    );
+    const individual = find(
+      tree,
+      (n) => n.attrs.title === 'Test this node latency',
+    );
+    expect(individual).toHaveLength(2);
+    (individual[1].attrs.click as (e: unknown) => void)(event);
+    expect(probe).toHaveBeenLastCalledWith(['b']);
+    expect(
+      find(tree, (n) => n.tag === 'button' && text(n) === 'Select node'),
+    ).toHaveLength(0);
+    const readonly = render(true);
+    expect(
+      find(
+        readonly,
+        (n) =>
+          n.tag === 'button' && ['Node A', 'Node B', 'Auto'].includes(text(n)),
+      ),
+    ).toHaveLength(0);
+    expect(
+      find(readonly, (n) => n.attrs.title === 'Test this node latency'),
+    ).toHaveLength(0);
+  });
+
   it('starts collapsed and retains toggles across dashboard card replacements', () => {
     const state = createPriorityMembersState();
     const priority: Forkop.Outbound = {

@@ -134,12 +134,14 @@ forkop.main.subscription_urls=https://example.test/?token=secret
 EOF
 sed -i "s|CONFIG_PATH|$WORK_DIR/sing-box.json|" "$WORK_DIR/state"
 cat >"$WORK_DIR/sing-box.json" <<'EOF'
-{"outbounds":[{"type":"urltest","tag":"group","outbounds":["node-a"],"url":"https://example.test/?token=secret","interval":"1m"},{"type":"vless","tag":"node-a","uuid":"do-not-expose"}]}
+{"outbounds":[{"type":"urltest","tag":"group","outbounds":["node-a"],"url":"https://example.test/?token=secret","interval":"1m"},{"type":"selector","tag":"priority","outbounds":["node-a"]},{"type":"vless","tag":"node-a","uuid":"do-not-expose"}]}
 EOF
+mkdir -p "$WORK_DIR/runtime/priority-manual"
+printf '{"group":"priority","tag":"node-a","private":"do-not-expose"}\n' >"$WORK_DIR/runtime/priority-manual/7072696f72697479.json"
 
 FORKOP_CONFIG="$WORK_DIR/forkop" FORKOP_UCI_STATE_FILE="$WORK_DIR/state" \
   ucode -L "$FORKOP_LIB" "$DIAGNOSTICS" get-readonly-config-sections >"$WORK_DIR/sections.json"
-FORKOP_CONFIG="$WORK_DIR/forkop" FORKOP_UCI_STATE_FILE="$WORK_DIR/state" \
+FORKOP_RUNTIME_STATE_DIR="$WORK_DIR/runtime" FORKOP_CONFIG="$WORK_DIR/forkop" FORKOP_UCI_STATE_FILE="$WORK_DIR/state" \
   ucode -L "$FORKOP_LIB" "$DIAGNOSTICS" get-dashboard-runtime-metadata >"$WORK_DIR/runtime.json"
 node - "$WORK_DIR/sections.json" "$WORK_DIR/runtime.json" <<'NODE'
 const fs = require('node:fs');
@@ -152,6 +154,7 @@ if (!sections.some(section => section['.name'] === 'main' && section.action === 
 if (runtime.urltestGroups.group.outbounds[0] !== 'node-a') {
   throw Error('read-only dashboard lost runtime group metadata');
 }
+if (runtime.priorityManual.priority !== 'node-a') throw Error('manual mode was not exposed safely');
 if (/secret|do-not-expose/.test(output)) throw Error('read-only metadata leaked raw secrets');
 NODE
 

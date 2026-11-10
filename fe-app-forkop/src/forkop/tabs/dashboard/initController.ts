@@ -983,6 +983,7 @@ async function handleChooseOutbound(
   sectionName: string,
   selector: string,
   tag: string,
+  mode?: 'priority-manual' | 'priority-auto',
 ) {
   const sectionsWidget = store.get().sectionsWidget;
   const section = sectionsWidget.data.find(
@@ -992,9 +993,10 @@ async function handleChooseOutbound(
   if (
     !section?.withTagSelect ||
     sectionsWidget.selectorSwitchingSections[sectionName] ||
-    section.outbounds.some(
-      (outbound) => outbound.code === tag && outbound.selected,
-    )
+    (!mode &&
+      section.outbounds.some(
+        (outbound) => outbound.code === tag && outbound.selected,
+      ))
   ) {
     return;
   }
@@ -1005,9 +1007,17 @@ async function handleChooseOutbound(
     const response = await ForkopShellMethods.setClashApiGroupProxy(
       selector,
       tag,
+      mode,
     );
     if (!response.success) {
       showToast(_('Failed to switch the node'), 'error');
+    } else if (mode) {
+      showToast(
+        mode === 'priority-auto'
+          ? _('Automatic priorities resumed')
+          : _('Node pinned until Auto or service restart'),
+        'success',
+      );
     }
     await fetchDashboardSections({ force: true });
   } catch (error) {
@@ -1974,18 +1984,16 @@ async function renderSectionsWidget() {
         );
       },
       onTestLatency: (tag) => {
+        if (Array.isArray(tag)) {
+          if (tag.length === 1)
+            nodeLatencyTestTags.set(section.sectionName, tag[0]);
+          return handleTestLatency(
+            'proxy_list',
+            section.sectionName,
+            JSON.stringify(tag),
+          ).finally(() => nodeLatencyTestTags.delete(section.sectionName));
+        }
         if (section.withTagSelect) {
-          if (Array.isArray(tag)) {
-            if (tag.length === 1) {
-              nodeLatencyTestTags.set(section.sectionName, tag[0]);
-            }
-            return handleTestLatency(
-              'proxy_list',
-              section.sectionName,
-              JSON.stringify(tag),
-            ).finally(() => nodeLatencyTestTags.delete(section.sectionName));
-          }
-
           return handleTestLatency('group', section.sectionName, tag);
         }
 
@@ -1996,8 +2004,8 @@ async function renderSectionsWidget() {
           section.latencyTestTimeout,
         );
       },
-      onChooseOutbound: (sectionName, selector, tag) => {
-        void handleChooseOutbound(sectionName, selector, tag);
+      onChooseOutbound: (sectionName, selector, tag, mode) => {
+        void handleChooseOutbound(sectionName, selector, tag, mode);
       },
       onShowUrlTestInfo: (outbound) => {
         handleShowUrlTestInfo(outbound);

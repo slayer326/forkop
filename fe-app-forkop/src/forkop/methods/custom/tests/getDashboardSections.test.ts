@@ -512,6 +512,13 @@ describe('getDashboardSections', () => {
   });
 
   it('hydrates Priority dashboard details from config, cache and Clash API', async () => {
+    mocks.getDashboardRuntimeMetadata.mockResolvedValue({
+      success: true,
+      data: {
+        urltestGroups: {},
+        priorityManual: { 'main-priority-pg_main-out': 'main-2-out' },
+      },
+    });
     mocks.getConfigSections.mockResolvedValue([
       proxySection({ urltests: [], urltest_settings: undefined }),
       priorityGroup('pg_main'),
@@ -602,6 +609,7 @@ describe('getDashboardSections', () => {
     expect(priority?.priorityInfo).toMatchObject({
       selectedCode: 'main-2-out',
       selectedName: 'Second cached',
+      manualCode: 'main-2-out',
       healthUrl: 'https://priority.example/204',
       activeCheckInterval: '5s',
       checkTimeout: '2s',
