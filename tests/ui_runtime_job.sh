@@ -256,6 +256,29 @@ latency_job_id="$(printf '%s' "$latency_start" | sed -n 's/.*"job_id"[[:space:]]
 [ -n "$latency_job_id" ] || fail "latency-test-async should return a job id"
 latency_async_state="$FORKOP_UI_LATENCY_ACTION_DIR/$latency_job_id.json"
 [ -f "$latency_async_state" ] || fail "latency-test-async should create a state file"
+
+# Exercise the real worker's command contract, including the single-proxy
+# path where a local progress filename must never become the test URL.
+latency_setup_finished() { grep -Eq '"running":[[:space:]]*false' "$latency_async_state"; }
+wait_until 30 latency_setup_finished || fail "setup latency worker did not finish"
+cat >"$WORK_DIR/latency-command" <<'SH'
+#!/bin/sh
+printf '%s\n' "$@" >"$FORKOP_TEST_LATENCY_ARGS"
+SH
+chmod +x "$WORK_DIR/latency-command"
+for latency_kind in proxy group proxy_list; do
+  worker_state="$FORKOP_UI_LATENCY_ACTION_DIR/worker-$latency_kind.json"
+  printf '{"running":true}\n' >"$worker_state"
+  FORKOP_TEST_LATENCY_ARGS="$WORK_DIR/latency.args" FORKOP_BIN="$WORK_DIR/latency-command" \
+    FORKOP_LIB="$FORKOP_FILES/usr/lib" ui_ucode latency-worker "$worker_state" "$latency_kind" node-a 5000
+  node - "$WORK_DIR/latency.args" "$latency_kind" "$worker_state" <<'NODE'
+const fs = require('fs');
+const args = fs.readFileSync(process.argv[2], 'utf8').split('\n');
+const kind = process.argv[3];
+if (args[0] !== 'clash_api' || args[2] !== 'node-a' || args[3] !== '5000') throw Error('bad latency worker command');
+if (args[4] !== (kind === 'proxy_list' ? process.argv[4] : '')) throw Error('local job path became a test URL');
+NODE
+done
 JOB_STATE="$latency_async_state" node - <<'NODE'
 const fs = require("fs");
 const value = JSON.parse(fs.readFileSync(process.env.JOB_STATE, "utf8"));

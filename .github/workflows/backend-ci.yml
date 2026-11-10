@@ -53,7 +53,7 @@ jobs:
             # The hosted runner's Azure mirror can stall indefinitely. Use the
             # primary Ubuntu archive and fail promptly if it is unavailable.
             if [ -f /etc/apt/apt-mirrors.txt ]; then
-              printf '%s\n' 'http://archive.ubuntu.com/ubuntu/' |
+              printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' |
                 sudo tee /etc/apt/apt-mirrors.txt >/dev/null
             fi
             sudo timeout 180s apt-get -o Acquire::Retries=1 \

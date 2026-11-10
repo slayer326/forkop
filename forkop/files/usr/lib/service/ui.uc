@@ -1596,7 +1596,10 @@ function latency_worker(path, latency_type, tag, timeout) {
     }
 
     let method = latency_clash_method(latency_type).method;
-    let status = command_status(command_from_args([ BIN_PATH, "clash_api", method, tag, timeout, path ]) + " >/dev/null 2>&1");
+    // Only a batch accepts a progress-state path. A single proxy interprets
+    // the fifth argument as its test URL; passing a local path breaks probes.
+    let status = command_status(command_from_args([ BIN_PATH, "clash_api", method, tag, timeout,
+        latency_type == "proxy_list" ? path : "" ]) + " >/dev/null 2>&1");
     module_success(STATE_UC, [ "release-runtime-dir-lock", LATENCY_TEST_LOCK_DIR, owner_pid ]);
     if (status == 0)
         write_finished_action_state(path, true, "Latency test completed", status);
