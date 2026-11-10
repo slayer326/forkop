@@ -3085,3 +3085,21 @@ msgstr "Информация о подписке"
 
 msgid "Select node"
 msgstr "Выбрать узел"
+
+msgid "Resume automatic priorities"
+msgstr "Вернуться к автоматическим приоритетам"
+
+msgid "Pin this node until Auto or service restart"
+msgstr "Закрепить узел до выбора «Авто» или перезапуска службы"
+
+msgid "Automatic priorities resumed"
+msgstr "Автоматические приоритеты включены"
+
+msgid "Node pinned until Auto or service restart"
+msgstr "Узел закреплён до выбора «Авто» или перезапуска службы"
+
+msgid "Auto"
+msgstr "Авто"
+
+msgid "The rule applies to selected devices only; the answer is calculated for them"
+msgstr "Правило действует только для выбранных устройств; ответ рассчитывается для них"

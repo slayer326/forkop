@@ -105,6 +105,10 @@ describe('Priority member disclosure', () => {
         onPriorityMembersToggle: () => {},
       });
     const tree = render(false);
+    const activeCard = find(tree, (n) =>
+      String(n.attrs.class || '').includes('outbound-grid__item--active'),
+    )[0];
+    expect(activeCard.attrs['aria-disabled']).toBeUndefined();
     const event = { stopPropagation: vi.fn(), preventDefault: vi.fn() };
     const member = find(
       tree,

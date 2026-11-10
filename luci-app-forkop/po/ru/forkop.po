@@ -3100,3 +3100,6 @@ msgstr "Узел закреплён до выбора «Авто» или пер
 
 msgid "Auto"
 msgstr "Авто"
+
+msgid "The rule applies to selected devices only; the answer is calculated for them"
+msgstr "Правило действует только для выбранных устройств; ответ рассчитывается для них"

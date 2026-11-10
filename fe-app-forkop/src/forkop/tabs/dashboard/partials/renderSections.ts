@@ -611,8 +611,6 @@ function renderDefaultState({
       {
         class: className,
         'aria-busy': outboundSwitching ? 'true' : undefined,
-        'aria-disabled':
-          withTagSelect && !canChooseOutbound ? 'true' : undefined,
         role: canChooseOutbound ? 'button' : undefined,
         tabIndex: canChooseOutbound ? 0 : undefined,
         'aria-label': canChooseOutbound
