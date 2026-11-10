@@ -10,6 +10,7 @@ const LIB = getenv("FORKOP_LIB") || "/usr/lib/forkop";
 const DIR = getenv("FORKOP_WARP_RUNTIME_DIR") || "/var/run/forkop-warp";
 const NETWORK = getenv("FORKOP_WARP_NETWORK_FILE") || "/etc/config/network";
 const PROTO = getenv("FORKOP_WARP_PROTO_DIR") || "/lib/netifd/proto";
+const UCI_SAVE = getenv("FORKOP_WARP_UCI_SAVEDIR") || "/tmp/.uci";
 const MODULE = LIB + "/warp/service.uc";
 function str(value) { return value == null ? "" : "" + value; }
 function quote(value) { return "'" + replace(str(value), /'/g, "'\\''") + "'"; }
@@ -50,15 +51,15 @@ function check_kind(kind) {
 }
 function dependencies(kind) {
     check_kind(kind);
-    if (capabilities()[kind]) return { success: true };
+    if (capabilities()[kind] && ok([ "modprobe", kind ])) return { success: true };
     let pm = capabilities().package_manager, name = kind == "wireguard" ? "wireguard-tools" : "amneziawg-tools";
     if (pm == "") fail("APK or OPKG is required");
     let refresh = capture([ pm, "update" ]);
     if (refresh.status != 0) fail("Cannot refresh configured package repositories; network configuration was preserved");
-    let probe = pm == "apk" ? [ pm, "add", "--simulate", name ] : [ pm, "--noaction", "install", name ];
+    let probe = pm == "apk" ? [ pm, "add", "--simulate", name, "kmod-" + kind ] : [ pm, "--noaction", "install", name, "kmod-" + kind ];
     if (!ok(probe)) fail("No compatible tunnel package set is available for this firmware; check the configured mirror and kernel ABI");
-    let install = pm == "apk" ? [ pm, "add", name ] : [ pm, "install", name ];
-    if (!ok(install) || !capabilities()[kind]) fail("Tunnel components could not be prepared; network configuration was preserved");
+    let install = pm == "apk" ? [ pm, "add", name, "kmod-" + kind ] : [ pm, "install", name, "kmod-" + kind ];
+    if (!ok(install) || !capabilities()[kind] || !ok([ "modprobe", kind ])) fail("Tunnel components could not be prepared; network configuration was preserved");
     return { success: true };
 }
 function generate(request, work) {
@@ -77,6 +78,7 @@ function generate(request, work) {
         key: trim(public.output), install_id: "", fcm_token: "", tos: timestamp,
         model: "PC", serial_number: serial, os_version: "", key_type: "curve25519", tunnel_type: "wireguard", locale: "en-US"
     }));
+    private_write(work + "/response", "");
     let args = [ "curl", "--silent", "--proto", "=https", "--connect-timeout", "8", "--max-time", "25",
         "--max-filesize", "65536", "--output", work + "/response", "--write-out", "%{http_code}",
         "--header", "Content-Type: application/json; charset=UTF-8", "--header", "CF-Client-Version: a-6.35-4471",
@@ -97,7 +99,7 @@ function generate(request, work) {
     return { success: true, profile: text };
 }
 function uci_base(work) { return [ "uci", "-q", "-c", work, "-t", work + "/delta" ]; }
-function network_uci(args) { return capture([ "uci", "-q", "-c", fs.dirname(NETWORK), ...args ]); }
+function network_uci(args) { return capture([ "uci", "-q", "-c", fs.dirname(NETWORK), "-t", UCI_SAVE, ...args ]); }
 function uci_line(path, value) { return "set network." + path + "=" + quote(value) + "\n"; }
 function resolve_endpoint(host, ipv6) {
     if (ip.valid_ip(host)) {
@@ -149,16 +151,20 @@ function import_profile(request, work) {
     let name = str(request.name);
     if (match(name, /^fkw[a-z0-9_]{1,10}$/) == null) fail("Use a new interface name starting with fkw, at most 13 characters");
     let parsed = profile.parse(request.profile, kind);
+    if (!capabilities()[kind]) fail("Prepare compatible tunnel components first");
+    if (!ok([ "modprobe", kind ])) fail("The tunnel kernel module cannot be loaded; check the firmware ABI");
     check_local_routes(parsed.addresses);
     parsed.endpoint.host = resolve_endpoint(parsed.endpoint.host, request.ipv6 === true);
-    if (!capabilities()[kind]) fail("Prepare compatible tunnel components first");
     if (kind == "amneziawg") {
         if (length(parsed.amnezia) == 0) parsed.amnezia = { jc: "3", jmin: "40", jmax: "70", s1: "0", s2: "0", h1: "1", h2: "2", h3: "3", h4: "4" };
         let script = str(fs.readfile(PROTO + "/amneziawg.sh"));
         for (let field, value in parsed.amnezia)
             if (index(script, field) < 0) fail("The installed AmneziaWG protocol does not support all profile fields");
     }
-    if (trim(network_uci([ "changes", "network" ]).output) != "") fail("Apply or discard pending OpenWrt network changes first");
+    let changes = network_uci([ "changes", "network" ]);
+    if (changes.status != 0) fail("Cannot inspect pending network changes");
+    if (trim(changes.output) != "") fail("Apply or discard pending OpenWrt network changes first");
+    let pending_before = fs.readfile(UCI_SAVE + "/network");
     if (network_uci([ "get", "network." + name ]).status == 0 || network_uci([ "get", "network." + name + "_peer" ]).status == 0 ||
         ok([ "ip", "link", "show", "dev", name ]))
         fail("The interface name is already in use; existing interfaces are never overwritten");
@@ -194,7 +200,10 @@ function import_profile(request, work) {
         if (capture([ ...uci_base(work), "batch" ], work + "/batch").status != 0) fail("Cannot stage the tunnel configuration");
         candidate = fs.readfile(work + "/network");
         if (candidate == null || candidate == before) fail("The staged tunnel configuration is incomplete");
-        if (fs.readfile(NETWORK) != before || trim(network_uci([ "changes", "network" ]).output) != "")
+        // UCI itself takes a shared lock when loading its configuration. Never
+        // invoke it on NETWORK while our exclusive lock is held: compare its
+        // staged delta directly instead, as well as the committed file.
+        if (fs.readfile(NETWORK) != before || fs.readfile(UCI_SAVE + "/network") != pending_before)
             fail("Network configuration changed during preparation; retry");
         if (fs.stat("/tmp/forkop-full-uninstall.lock") != null) fail("Forkop removal is in progress");
         private_write(temporary, candidate);

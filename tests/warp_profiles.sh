@@ -9,6 +9,7 @@ mkdir -p "$WORK/bin" "$WORK/proto" "$WORK/config"
 export FORKOP_WARP_NETWORK_FILE="$WORK/config/network"
 export FORKOP_WARP_RUNTIME_DIR="$WORK/run"
 export FORKOP_WARP_PROTO_DIR="$WORK/proto"
+export FORKOP_WARP_UCI_SAVEDIR="$WORK/uci-save"
 export FORKOP_UCI_STATE_FILE="$WORK/forkop.state"
 export PATH="$WORK/bin:$PATH"
 cat >"$FORKOP_UCI_STATE_FILE" <<'STATE'
@@ -28,7 +29,7 @@ config interface 'lan'
 NET
 cat >"$WORK/bin/uci" <<'PY'
 #!/usr/bin/env python3
-import os, sys, shlex, pathlib
+import os, sys, shlex, pathlib, fcntl
 args = sys.argv[1:]
 directory = pathlib.Path(os.environ['FORKOP_WARP_NETWORK_FILE']).parent
 while args and args[0].startswith('-'):
@@ -37,6 +38,12 @@ while args and args[0].startswith('-'):
         value = args.pop(0)
         if flag == '-c': directory = pathlib.Path(value)
 path = directory/'network'
+if path.exists():
+    held = path.open('r')
+    try: fcntl.flock(held, fcntl.LOCK_SH | fcntl.LOCK_NB)
+    except BlockingIOError:
+        (pathlib.Path(os.environ['WARP_TEST_ROOT'])/'blocked_uci_read').touch()
+        sys.exit(99)
 sections = {}
 current = None
 for line in path.read_text().splitlines() if path.exists() else []:
@@ -72,6 +79,9 @@ elif verb == 'batch':
             for item in value if isinstance(value,list) else [value]:
                 text += f" {'list' if isinstance(value,list) else 'option'} {field} '{item}'\n"
     path.write_text(text)
+    if (pathlib.Path(os.environ['WARP_TEST_ROOT'])/'stage_race').exists():
+        delta=pathlib.Path(os.environ['FORKOP_WARP_UCI_SAVEDIR']); delta.mkdir(exist_ok=True)
+        (delta/'network').write_text("network.wan.proto='pppoe'\n")
 else: sys.exit(1)
 PY
 cat >"$WORK/bin/wg" <<'SH'
@@ -107,6 +117,10 @@ SH
 cat >"$WORK/bin/dig" <<'SH'
 #!/bin/sh
 if [ -e "$WARP_TEST_ROOT/fakeip" ]; then printf '198.18.0.1\n'; else printf '162.159.192.1\n'; fi
+SH
+cat >"$WORK/bin/modprobe" <<'SH'
+#!/bin/sh
+[ ! -e "$WARP_TEST_ROOT/module_fail" ]
 SH
 cat >"$WORK/bin/curl" <<'SH'
 #!/bin/sh
@@ -171,6 +185,16 @@ fs.unlink(root + "/ifup_fail");
 fs.writefile(root + "/pending", "1");
 rejects(function() { service.import_profile({ name:"fkwpending", profile:text }, root); }, "pending changes overwritten");
 fs.unlink(root + "/pending");
+fs.writefile(root + "/module_fail", "1");
+rejects(function() { service.import_profile({ name:"fkwabi", profile:text }, root); }, "unloadable kernel module accepted");
+assert(fs.readfile(getenv("FORKOP_WARP_NETWORK_FILE")) == original, "kernel ABI failure changed network");
+fs.unlink(root + "/module_fail");
+fs.mkdir(root + "/race", 0700);
+fs.writefile(root + "/stage_race", "1");
+rejects(function() { service.import_profile({ name:"fkwrace", profile:text }, root + "/race"); }, "concurrent staged changes were ignored");
+assert(fs.readfile(getenv("FORKOP_WARP_NETWORK_FILE")) == original, "staging race changed network");
+fs.unlink(root + "/stage_race");
+fs.unlink(getenv("FORKOP_WARP_UCI_SAVEDIR") + "/network");
 fs.writefile(root + "/overlap", "1");
 rejects(function() { service.import_profile({ name:"fkwoverlap", profile:text }, root); }, "local address overlap accepted");
 fs.unlink(root + "/overlap");
@@ -188,11 +212,13 @@ rejects(function() { service.generate({ accept_terms:true }, root + "/generate")
 fs.unlink(root + "/http_code");
 assert(fs.readfile(getenv("FORKOP_WARP_NETWORK_FILE")) == original, "registration changed network");
 let commands = fs.readfile(root + "/commands");
+assert(fs.stat(root + "/blocked_uci_read") == null, "UCI was invoked while its config file was locked exclusively");
 assert(index(commands, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE=") < 0, "private key in process arguments");
 assert(index(commands, "network restart") < 0 && index(commands, "ifup wan") < 0, "network/WAN restarted");
 print("WARP validation, import, rollback, registration and privacy checks passed\n");
 UC
 ucode -S -L "$FORKOP_LIB" "$WORK/test.uc"
+test "$(stat -c %a "$WORK/generate/response")" = 600
 # Verify the real async RPC contract and private transient storage.
 printf '%s\n' '{"action":"generate","kind":"wireguard","accept_terms":true}' |
   ucode -L "$FORKOP_LIB" "$FORKOP_LIB/warp/service.uc" rpc start >"$WORK/job.json"

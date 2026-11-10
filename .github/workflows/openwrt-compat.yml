@@ -49,6 +49,10 @@ jobs:
             target: malta/be
             arch: mips_24kc
             image: malta-be
+          - release: '25.12.6'
+            target: malta/le
+            arch: mipsel_24kc
+            image: forkop-mipsel-test
     steps:
       - uses: actions/checkout@v5.0.0
 
@@ -59,8 +63,34 @@ jobs:
           platforms: all
 
       - name: Enable MIPS32 emulation
-        if: matrix.arch == 'mips_24kc'
+        if: startsWith(matrix.arch, 'mips')
         run: docker run --rm --privileged multiarch/qemu-user-static:7.2.0-1 --reset -p yes
+
+      - name: Build verified MIPSel test image
+        if: matrix.arch == 'mipsel_24kc'
+        run: |
+          mkdir -p compat-mipsel-image
+          curl --fail --location --connect-timeout 20 --max-time 180 --retry 2 \
+            https://downloads.openwrt.org/releases/25.12.6/targets/malta/le/openwrt-25.12.6-malta-le-default-rootfs.tar.gz \
+            --output compat-mipsel-image/rootfs.tar.gz
+          printf '%s  %s\n' 9a62f76e09293e473a8bbeb574c5d2e66f88f1c5db1009b90c016f298ce00e63 \
+            compat-mipsel-image/rootfs.tar.gz | sha256sum --check
+          python3 - <<'PY'
+          import tarfile
+          from pathlib import Path
+          root = Path('compat-mipsel-image')
+          with tarfile.open(root / 'rootfs.tar.gz') as source, tarfile.open(root / 'container-rootfs.tar.gz', 'w:gz') as target:
+              for member in source:
+                  if member.name.lstrip('./') == 'etc/resolv.conf':
+                      continue
+                  target.addfile(member, source.extractfile(member) if member.isfile() else None)
+              # Docker mounts the resolver file; replace OpenWrt's /tmp symlink.
+              member = tarfile.TarInfo('etc/resolv.conf')
+              member.mode = 0o644
+              target.addfile(member)
+          (root / 'Dockerfile').write_text('FROM scratch\nADD container-rootfs.tar.gz /\nENV PATH=/usr/sbin:/usr/bin:/sbin:/bin\nCMD ["/bin/sh"]\n')
+          PY
+          docker build --quiet --tag openwrt/rootfs:forkop-mipsel-test-25.12.6 compat-mipsel-image
 
       - name: Download the built packages
         if: inputs.artifact != ''
@@ -103,9 +133,10 @@ jobs:
       - name: Check the packages on OpenWrt ${{ matrix.release }}
         env:
           IMAGE: openwrt/rootfs:${{ matrix.image || 'x86-64' }}-${{ matrix.release }}
+          ARCH: ${{ matrix.arch }}
         run: |
           ls -l ./compat-packages
-          docker pull --quiet "$IMAGE"
+          if [ "$ARCH" != mipsel_24kc ]; then docker pull --quiet "$IMAGE"; fi
           docker run --rm --network host \
             -e FORKOP_MIRROR_BASE_URL=http://127.0.0.1:8765 \
             -v "$PWD:/src:ro" \

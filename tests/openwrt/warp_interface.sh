@@ -9,6 +9,7 @@ export FORKOP_LIB=/usr/lib/forkop
 export FORKOP_WARP_NETWORK_FILE="$WORK/config/network"
 export FORKOP_WARP_RUNTIME_DIR="$WORK/run"
 export FORKOP_WARP_PROTO_DIR="$WORK/proto"
+export FORKOP_WARP_UCI_SAVEDIR="$WORK/uci-save"
 export WARP_TEST_ROOT="$WORK"
 mkdir -p "$WORK/config" "$WORK/bin" "$WORK/proto" "$WORK/apply" "$WORK/rollback"
 cat >"$FORKOP_WARP_NETWORK_FILE" <<'NET'
@@ -24,6 +25,7 @@ exit 0
 SH
 cp "$WORK/bin/wg" "$WORK/bin/ubus"
 cp "$WORK/bin/wg" "$WORK/bin/ifdown"
+cp "$WORK/bin/wg" "$WORK/bin/modprobe"
 cat >"$WORK/bin/ip" <<'SH'
 #!/bin/sh
 if [ "$1" = -4 ]; then printf '192.168.10.0/24 dev br-lan scope link\n'; else exit 1; fi
