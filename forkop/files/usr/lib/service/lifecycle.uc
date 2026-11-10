@@ -2738,6 +2738,23 @@ function validate_manual_restart_candidate(expected_fingerprint) {
     return true;
 }
 
+function prepare_manual_restart_lists(prepare_env) {
+    let prepared = module_capture_with_env(UPDATES_UC, [ "prepare-list-cache" ], prepare_env);
+    if (prepared.status == 0)
+        return true;
+
+    // A blocked list host must not make Restart unusable when a complete,
+    // checksum-verified generation for the current sources already exists.
+    // Restore also materializes missing runtime files after a reboot; the
+    // completeness check rejects caches missing any configured source.
+    if (module_success(UPDATES_UC, [ "restore-list-cache" ]) &&
+        module_success(UPDATES_UC, [ "list-cache-complete" ])) {
+        log_message("Fresh lists are unavailable; manual restart will use the complete validated list cache", "warn");
+        return true;
+    }
+    return false;
+}
+
 // LuCI's explicit restart prepares every remote data family while the old
 // runtime is still serving traffic. Cache writers publish atomically and do
 // not touch the live process; only one ordinary guarded restart follows after
@@ -2780,8 +2797,7 @@ function manual_restart() {
         return 1;
 
     if (module_success(STATE_UC, [ "has-list-update-sources" ])) {
-        prepared = module_capture_with_env(UPDATES_UC, [ "prepare-list-cache" ], prepare_env);
-        if (prepared.status != 0) {
+        if (!prepare_manual_restart_lists(prepare_env)) {
             release_manual_restart_lock();
             log_message("Manual restart aborted: lists could not be prepared; the running runtime was preserved", "error");
             return 1;

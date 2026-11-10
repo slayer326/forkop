@@ -35,7 +35,7 @@ for required in \
   '"acquire-runtime-dir-lock"' \
   'return 75;' \
   '"subscription-prepare-only"' \
-  '"prepare-list-cache"' \
+  'prepare_manual_restart_lists(prepare_env)' \
   '"service-proxy-address", "lists"' \
   '"refresh-for-restart", ruleset_proxy_address' \
   'let status = restart(true, preflight_fingerprint);'; do
@@ -52,7 +52,7 @@ runtime_apply_line="$(grep -nF '[ SERVICE_INIT, "reload", "list-content" ]' <<<"
   fail "list preparation can reach the live runtime apply"
 
 subscription_line="$(grep -nF '"subscription-prepare-only"' <<<"$manual_body" | head -n1 | cut -d: -f1)"
-list_line="$(grep -nF '"prepare-list-cache"' <<<"$manual_body" | head -n1 | cut -d: -f1)"
+list_line="$(grep -nF 'prepare_manual_restart_lists(prepare_env)' <<<"$manual_body" | head -n1 | cut -d: -f1)"
 ruleset_line="$(grep -nF '"refresh-for-restart", ruleset_proxy_address' <<<"$manual_body" | head -n1 | cut -d: -f1)"
 restart_line="$(grep -nF 'let status = restart(true, preflight_fingerprint);' <<<"$manual_body" | head -n1 | cut -d: -f1)"
 [ "$subscription_line" -lt "$list_line" ] &&
