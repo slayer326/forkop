@@ -55,10 +55,10 @@ run_import() {
         /usr/libexec/rpcd/forkop-warp call start >"$WORK/start.json"
     job_id="$(ucode -e 'print(json(require("fs").readfile(ARGV[0])).job_id || "");' "$WORK/start.json")"
     [ -n "$job_id" ] || { cat "$WORK/start.json"; return 1; }
-    for _attempt in $(seq 1 200); do
+    for _attempt in $(seq 1 30); do
         printf '{"id":"%s"}' "$job_id" | /usr/libexec/rpcd/forkop-warp call job >"$WORK/result.json"
         if ! grep -q '"pending": true' "$WORK/result.json"; then break; fi
-        sleep 0.1
+        sleep 1
     done
     printf '{"id":"%s"}' "$job_id" | /usr/libexec/rpcd/forkop-warp call ack >/dev/null
 }

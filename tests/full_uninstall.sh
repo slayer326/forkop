@@ -26,3 +26,16 @@ grep -Fxq 'keep my subscriptions' "$FAKE_ROOT/etc/config/forkop"
 test ! -d "$FAKE_ROOT/tmp/forkop-full-uninstall.lock"
 test ! -d "$FAKE_ROOT/var/run/forkop/component-action.lock"
 printf 'full uninstall preflight checks passed\n'
+
+# Unknown operations must not start a destructive worker. Use an inert helper.
+mkdir -p "$WORK_DIR/lib"
+printf '#!/bin/sh\nprintf "%%s" "$1" > "$FORKOP_UNINSTALL_TEST_MARKER"\n' > "$WORK_DIR/lib/full-uninstall.sh"
+export FORKOP_UNINSTALL_TEST_MARKER="$WORK_DIR/wrapper-called"
+if FORKOP_LIB="$WORK_DIR/lib" ucode "$ROOT_DIR/forkop/files/usr/lib/components/uninstall.uc" __forkop_compat_probe__ >"$WORK_DIR/probe.log"; then
+  echo 'FAIL: an unknown uninstall operation was accepted' >&2
+  exit 1
+fi
+test ! -e "$FORKOP_UNINSTALL_TEST_MARKER"
+FORKOP_LIB="$WORK_DIR/lib" ucode "$ROOT_DIR/forkop/files/usr/lib/components/uninstall.uc" start
+grep -Fxq start "$FORKOP_UNINSTALL_TEST_MARKER"
+printf 'full uninstall explicit-action guard passed\n'
