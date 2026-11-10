@@ -9,7 +9,16 @@ mkdir -p "$WORK/bin" "$WORK/proto" "$WORK/config"
 export FORKOP_WARP_NETWORK_FILE="$WORK/config/network"
 export FORKOP_WARP_RUNTIME_DIR="$WORK/run"
 export FORKOP_WARP_PROTO_DIR="$WORK/proto"
+export FORKOP_UCI_STATE_FILE="$WORK/forkop.state"
 export PATH="$WORK/bin:$PATH"
+cat >"$FORKOP_UCI_STATE_FILE" <<'STATE'
+forkop.settings=settings
+forkop.settings.download_lists_via_proxy=1
+forkop.settings.download_lists_via_proxy_section=relay
+forkop.relay=section
+forkop.relay.enabled=1
+forkop.relay.action=connection
+STATE
 cat >"$FORKOP_WARP_NETWORK_FILE" <<'NET'
 config interface 'wan'
  option proto 'dhcp'
@@ -103,9 +112,17 @@ cat >"$WORK/bin/curl" <<'SH'
 #!/bin/sh
 printf '%s\n' "$*" >>"$WARP_TEST_ROOT/commands"
 output=''
+proxy=''
+no_proxy='unset'
 while [ "$#" -gt 0 ]; do
-  if [ "$1" = --output ]; then output="$2"; shift 2; else shift; fi
+  case "$1" in
+    --output) output="$2"; shift 2;;
+    --proxy) proxy="$2"; shift 2;;
+    --noproxy) no_proxy="$2"; shift 2;;
+    *) shift;;
+  esac
 done
+[ -z "$proxy" ] || [ -z "$no_proxy" ] || exit 1
 printf '%s\n' '{"config":{"interface":{"addresses":{"v4":"172.16.0.2","v6":"2606:4700:110:1234::2"}},"peers":[{"public_key":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM=","endpoint":{"v4":"162.159.192.1:0","ports":[2408]}}]}}' >"$output"
 if [ -e "$WARP_TEST_ROOT/http_code" ]; then cat "$WARP_TEST_ROOT/http_code"; else printf 200; fi
 SH
@@ -164,6 +181,8 @@ fs.mkdir(root + "/generate", 0700);
 rejects(function() { service.generate({}, root + "/generate"); }, "terms not required");
 let generated = service.generate({ accept_terms:true }, root + "/generate");
 assert(profiles.parse(generated.profile,"wireguard").endpoint.host == "162.159.192.1", "generated endpoint invalid");
+let proxied = service.generate({ accept_terms:true, via_proxy:true }, root + "/generate");
+assert(proxied.success, "explicit section proxy was bypassed or rejected");
 fs.writefile(root + "/http_code", "403");
 rejects(function() { service.generate({ accept_terms:true }, root + "/generate"); }, "Cloudflare refusal accepted");
 fs.unlink(root + "/http_code");

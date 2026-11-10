@@ -973,6 +973,7 @@ function createEnvironment({
   config = {},
   fs: fsOverrides = {},
   warp: warpOverrides = { open() {} },
+  network: networkOverrides = {},
 } = {}) {
   const baseclass = createBaseclass();
   const uci = createStagedUciStore("forkop", config);
@@ -1072,7 +1073,7 @@ function createEnvironment({
       form,
       baseclass,
       fs: fsStub,
-        network: { getDevices: () => Promise.resolve([]), flushCache: () => Promise.resolve() },
+        network: { getDevices: () => Promise.resolve([]), flushCache: () => Promise.resolve(), ...networkOverrides },
         warp: warpOverrides,
       ui,
       uci,

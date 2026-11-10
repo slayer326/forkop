@@ -24,6 +24,10 @@ const wizard = new Function('baseclass', 'rpc', 'ui', 'E', '_', 'setTimeout', so
 const button = label => nodes.find(n => n.tag==='button' && n.children===label);
 (async () => {
   wizard.open(name => { created=name; });
+  const inputFile=nodes.find(n=>n.tag==='input' && n.attrs.type==='file');
+  inputFile.files=[{size:20,text:async()=>'IMPORTED_FILE_FIXTURE'}];
+  await inputFile.attrs.change.call(inputFile);
+  assert.equal(nodes.find(n=>n.tag==='textarea').value,'IMPORTED_FILE_FIXTURE');
   await button('Generate WARP profile').attrs.click();
   assert.equal(calls.some(c => c[0]==='start'), false, 'registration requires explicit terms acceptance');
   const checks=nodes.filter(n=>n.tag==='input' && n.attrs.type==='checkbox');
@@ -38,9 +42,9 @@ const button = label => nodes.find(n => n.tag==='button' && n.children===label);
   assert.equal(calls.filter(c=>c[0]==='ack').length,2,'private job results are acknowledged');
   await button('Close').attrs.click();
   assert.equal(nodes.find(n=>n.tag==='textarea').value,'','closing clears the profile');
-  for (const version of ['24.10', '25.12']) {
+  for (const version of ['24.10', '25.12']) for (const discoveryFailure of [false,true]) {
     let attach;
-    const env=createEnvironment({ version, config:{ main:{'.name':'main','.type':'section',action:'connection',enabled:'1'} }, warp:{ open(callback) { attach=callback; } } });
+    const env=createEnvironment({ version, config:{ main:{'.name':'main','.type':'section',action:'connection',enabled:'1'} }, warp:{ open(callback) { attach=callback; } }, network:{flushCache:async()=>{if(discoveryFailure) throw new Error('temporary RPC failure');}} });
     const rule=await env.openRule('main');
     const widget=rule.option('interfaces').getUIElement('main');
     widget.node=env.document.createElement('div');

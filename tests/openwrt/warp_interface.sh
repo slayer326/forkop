@@ -7,6 +7,7 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT INT TERM
 export FORKOP_LIB=/usr/lib/forkop
 export FORKOP_WARP_NETWORK_FILE="$WORK/config/network"
+export FORKOP_WARP_RUNTIME_DIR="$WORK/run"
 export FORKOP_WARP_PROTO_DIR="$WORK/proto"
 export WARP_TEST_ROOT="$WORK"
 mkdir -p "$WORK/config" "$WORK/bin" "$WORK/proto" "$WORK/apply" "$WORK/rollback"
@@ -34,22 +35,40 @@ SH
 chmod +x "$WORK/bin/"*
 printf '# wireguard\n' >"$WORK/proto/wireguard.sh"
 export PATH="$WORK/bin:$PATH"
-cat >"$WORK/test.uc" <<'UC'
-let fs = require("fs"), service = require("warp.service");
-let root = getenv("WARP_TEST_ROOT"), path = getenv("FORKOP_WARP_NETWORK_FILE");
-let original = fs.readfile(path);
-let profile = "[Interface]\nPrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE=\nAddress = 172.16.0.2/32\nDNS = 1.1.1.1\n[Peer]\nPublicKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAI=\nEndpoint = 162.159.192.1:2408\nAllowedIPs = 0.0.0.0/0\n";
-let result = service.import_profile({ name:"fkwtest", profile }, root + "/apply");
-if (!result.success) die("WARP import failed");
-let network = fs.readfile(path);
-if (index(network, "192.168.10.1") < 0 || index(network, "route_allowed_ips '0'") < 0 || index(network, "1.1.1.1") >= 0)
-    die("Network isolation failed");
-fs.writefile(path, original);
-fs.writefile(root + "/fail", "1");
-let refused = false;
-try { service.import_profile({ name:"fkwfail", profile }, root + "/rollback"); } catch (e) { refused = true; }
-if (!refused || fs.readfile(path) != original) die("WARP rollback failed");
-print("WARP import and rollback with real OpenWrt UCI passed\n");
-UC
-ucode -L "$FORKOP_LIB" "$WORK/test.uc"
+test -x /usr/libexec/rpcd/forkop-warp
+test -r "$FORKOP_LIB/warp/service.uc"
+cp "$FORKOP_WARP_NETWORK_FILE" "$WORK/original"
+cat >"$WORK/profile" <<'PROFILE'
+[Interface]
+PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE=
+Address = 172.16.0.2/32
+DNS = 1.1.1.1
+[Peer]
+PublicKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAI=
+Endpoint = 162.159.192.1:2408
+AllowedIPs = 0.0.0.0/0
+PROFILE
+run_import() {
+    ucode -e 'let fs=require("fs"); print(sprintf("%J", {action:"import", name:ARGV[0], kind:"wireguard", profile:fs.readfile(ARGV[1])}));' "$1" "$WORK/profile" |
+        /usr/libexec/rpcd/forkop-warp call start >"$WORK/start.json"
+    job_id="$(ucode -e 'print(json(require("fs").readfile(ARGV[0])).job_id || "");' "$WORK/start.json")"
+    [ -n "$job_id" ] || { cat "$WORK/start.json"; return 1; }
+    for _attempt in $(seq 1 200); do
+        printf '{"id":"%s"}' "$job_id" | /usr/libexec/rpcd/forkop-warp call job >"$WORK/result.json"
+        if ! grep -q '"pending": true' "$WORK/result.json"; then break; fi
+        sleep 0.1
+    done
+    printf '{"id":"%s"}' "$job_id" | /usr/libexec/rpcd/forkop-warp call ack >/dev/null
+}
+run_import fkwtest
+ucode -e 'let r=json(require("fs").readfile(ARGV[0])); if(!r.success) { warn(r.message,"\n");exit(1); }' "$WORK/result.json"
+test "$(uci -q -c "$WORK/config" get network.fkwtest_peer.route_allowed_ips)" = 0
+test "$(uci -q -c "$WORK/config" get network.fkwtest.peerdns)" = 0
+test "$(uci -q -c "$WORK/config" get network.lan.ipaddr)" = 192.168.10.1
+cp "$WORK/original" "$FORKOP_WARP_NETWORK_FILE"
+touch "$WORK/fail"
+run_import fkwfail
+ucode -e 'let r=json(require("fs").readfile(ARGV[0])); if(r.success) exit(1);' "$WORK/result.json"
+cmp "$WORK/original" "$FORKOP_WARP_NETWORK_FILE"
 test "$(uci -q -c "$WORK/config" get network.wan.proto)" = dhcp
+printf 'WARP import and rollback with real OpenWrt UCI and RPC entrypoint passed\n'

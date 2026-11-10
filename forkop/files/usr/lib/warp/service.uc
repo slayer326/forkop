@@ -86,7 +86,7 @@ function generate(request, work) {
         let address = trim(proxy.output);
         if (proxy.status != 0 || match(address, /^127\.0\.0\.1:[0-9]+$/) == null)
             fail("The list-download section proxy is unavailable; configure it and start Forkop first");
-        push(args, "--proxy", "http://" + address);
+        push(args, "--proxy", "http://" + address, "--noproxy", "");
     }
     else push(args, "--noproxy", "*");
     push(args, "https://api.devices.cloudflare.com/v0a4471/reg");

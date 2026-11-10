@@ -58,6 +58,10 @@ jobs:
         with:
           platforms: all
 
+      - name: Enable MIPS32 emulation
+        if: matrix.arch == 'mips_24kc'
+        run: docker run --rm --privileged multiarch/qemu-user-static:7.2.0-1 --reset -p yes
+
       - name: Download the built packages
         if: inputs.artifact != ''
         uses: actions/download-artifact@v4

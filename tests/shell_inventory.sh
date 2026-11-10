@@ -49,6 +49,7 @@ expected_shell_scripts="$(
     'forkop/files/etc/init.d/forkop-torrserver-direct' \
     'forkop/files/usr/lib/full-uninstall.sh' \
     'forkop/files/usr/libexec/forkop-ro' \
+    'forkop/files/usr/libexec/rpcd/forkop-warp' \
     'forkop/files/usr/share/forkop/mirror-migration.sh' |
     LC_ALL=C sort
 )"

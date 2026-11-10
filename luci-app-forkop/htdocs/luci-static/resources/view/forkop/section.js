@@ -6670,8 +6670,12 @@ function createSectionContent(section) {
         disabled: this.readonly || this.map.readonly,
         click: () =>
           warp.open(async (name) => {
-            await network.flushCache();
-            interfaceOption.devices = await network.getDevices();
+            try {
+              await network.flushCache();
+              interfaceOption.devices = await network.getDevices();
+            } catch (_error) {
+              // A transient discovery failure must not discard the new interface.
+            }
             refreshNetworkInterfaceOptionValues(interfaceOption);
             // netifd can report the committed interface before its device appears.
             if (!interfaceOption.interfaceChoiceMap[name]) {
