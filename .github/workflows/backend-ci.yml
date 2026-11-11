@@ -50,10 +50,13 @@ jobs:
           command -v pkg-config >/dev/null || missing+=(pkg-config)
           pkg-config --exists json-c 2>/dev/null || missing+=(libjson-c-dev)
           if ((${#missing[@]})); then
-            # The hosted runner's Azure mirror can stall indefinitely. Use the
-            # primary Ubuntu archive and fail promptly if it is unavailable.
+            # Let APT retry across mirrors when a runner cannot resolve an
+            # archive hostname. Ubuntu package signature checks still apply.
             if [ -f /etc/apt/apt-mirrors.txt ]; then
-              printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' |
+              printf '%s\tpriority:%s\n' \
+                'https://mirrors.mit.edu/ubuntu/' 1 \
+                'https://ubuntu.mirror.garr.it/ubuntu/' 2 \
+                'https://archive.ubuntu.com/ubuntu/' 3 |
                 sudo tee /etc/apt/apt-mirrors.txt >/dev/null
             fi
             sudo timeout 180s apt-get -o Acquire::Retries=1 \
