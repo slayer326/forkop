@@ -40,11 +40,19 @@ SH
 cat >"$WORK_DIR/bin/curl" <<'SH'
 #!/bin/sh
 [ "${DOWNLOAD_FAIL:-0}" = 0 ] || exit 1
+output=
+payload=cached.example
 while [ "$#" -gt 0 ]; do
-  if [ "$1" = -o ]; then printf 'cached.example\n' >"$2"; exit 0; fi
+  case "$1" in
+    -o) output="$2"; shift ;;
+    https://lists.test/telegram-v4.txt) payload='149.154.160.0/20' ;;
+    https://lists.test/telegram-v6.txt) payload='2001:b28:f23d::/48' ;;
+    https://lists.test/subnets.txt) payload='198.51.100.0/24' ;;
+    https://lists.test/ranges.json) payload='{"version":3,"rules":[{"ip_cidr":["203.0.113.0/24"]}]}' ;;
+  esac
   shift
 done
-exit 1
+[ -n "$output" ] && printf '%s\n' "$payload" >"$output"
 SH
 cat >"$WORK_DIR/bin/nft" <<'SH'
 #!/bin/sh
@@ -68,10 +76,12 @@ run() {
     FORKOP_RUNTIME_LIST_GENERATION_DIR="$case_dir/generation" \
     FORKOP_PERSISTENT_LIST_CACHE_AVAILABLE_BYTES="$cache_space" \
     FORKOP_SERVICE_INIT="$WORK_DIR/bin/init-forkop" \
+    SUBNETS_TELERAM=https://lists.test/telegram-v4.txt \
+    SUBNETS_TELERAM6=https://lists.test/telegram-v6.txt \
     ucode -L "$FORKOP_LIB" "$@"
 }
 
-for scenario in online ram flash missing corrupt changed incomplete; do
+for scenario in online ram flash missing corrupt changed incomplete multiple; do
   case_dir="$WORK_DIR/$scenario"
   mkdir -p "$case_dir/run" "$case_dir/rulesets"
   cat >"$case_dir/uci.state" <<'UCI'
@@ -82,6 +92,13 @@ forkop.alpha.enabled=1
 forkop.alpha.action=connection
 forkop.alpha.remote_domain_lists=https://lists.test/domains.txt
 UCI
+  if [ "$scenario" = multiple ]; then
+    cat >>"$case_dir/uci.state" <<'UCI'
+forkop.alpha.community_lists=telegram
+forkop.alpha.remote_subnet_lists=https://lists.test/subnets.txt
+forkop.alpha.rule_set_with_subnets=https://lists.test/ranges.json
+UCI
+  fi
   cache_space=33554432
   [ "$scenario" != ram ] || cache_space=0
   download_fail=0
@@ -116,7 +133,7 @@ UCI
   status=0
   run "$WORK_DIR/restart.uc" >"$case_dir/restart.log" || status=$?
   case "$scenario" in
-    online|ram|flash)
+    online|ram|flash|multiple)
       [ "$status" = 0 ] || fail "$scenario: usable generation rejected"
       grep -Fq cached.example "$case_dir/rulesets/alpha-remote-domains-ruleset.json" || fail "$scenario: restored list missing"
       if [ "$scenario" = online ]; then
@@ -127,6 +144,15 @@ UCI
       ;;
     *) [ "$status" != 0 ] || fail "$scenario: unusable cache accepted" ;;
   esac
+  if [ "$scenario" = multiple ]; then
+    # A fresh nft candidate must receive each kind of cached address list
+    # while the download stub is disabled and the live nft stub rejects writes.
+    FORKOP_NFT_BATCH_FILE="$case_dir/candidate.nft" \
+      run "$FORKOP_LIB/components/updates.uc" apply-list-cache || fail "offline replay failed"
+    for prefix in '149.154.160.0/20' '2001:b28:f23d::/48' '198.51.100.0/24' '203.0.113.0/24'; do
+      grep -Fq "$prefix" "$case_dir/candidate.nft" || fail "offline candidate lost $prefix"
+    done
+  fi
   [ ! -s "$case_dir/nft.log" ] || fail "$scenario: preflight changed live policy"
   [ ! -s "$case_dir/reload.log" ] || fail "$scenario: preflight reloaded runtime"
   [ ! -e "$case_dir/run/list.pid" ] || fail "$scenario: worker PID leaked"

@@ -2356,10 +2356,10 @@ function reload(reason, cold_restart) {
             nft_candidate_finish(false);
             return abort_reload(status, runtime_changed);
         }
-        // A local policy change must reconstruct downloaded subnet data from
-        // the already active generation.  It is deliberately synchronous and
-        // offline: list_update is reserved for a changed source signature.
-        if ((plan.needs_list_update == 1 && plan.changed_list == 0) || reason == "list-content") {
+        // A rebuild creates empty nft sets, including after a manual restart
+        // forces the rebuild with unchanged configuration signatures. Replay
+        // the active list generation before publishing the candidate.
+        if (nft_list_update_sources == 1 || reason == "list-content") {
             status = module_status(UPDATES_UC, [ "apply-list-cache" ]);
             if (status != 0) {
                 nft_candidate_finish(false);
@@ -2722,6 +2722,8 @@ function validate_manual_restart_candidate(expected_fingerprint) {
     if (!nft_candidate_begin())
         return false;
     status = nft_rebuild_runtime();
+    if (status == 0 && module_success(STATE_UC, [ "has-nft-list-update-sources" ]))
+        status = module_status(UPDATES_UC, [ "apply-list-cache" ]);
     if (status == 0)
         status = nft_populate_runtime_sets();
     let nft_valid = status == 0 && nft_candidate_validate();

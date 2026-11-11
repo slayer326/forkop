@@ -59,6 +59,47 @@ printf '%s\n' "$plan_output" | awk -F '\t' '$1 == "needs_list_update" && $2 == "
 grep -Fq 'needs.nft_rebuild && context.has_nft_list_update_sources' "$RELOAD_UC" ||
   fail "an nft rebuild must refill downloaded subnet sets"
 
+# A manual restart can force an nft rebuild after the planner has compared
+# identical signatures. Run the candidate stage with that actual plan.
+{
+  cat <<'UCODE'
+const UPDATES_UC = "updates";
+let events = [];
+function log_message() {}
+function nft_candidate_begin() { push(events, "begin"); return true; }
+function nft_rebuild_runtime() { push(events, "rebuild"); return 0; }
+function nft_populate_runtime_sets() { push(events, "inline"); return 0; }
+function nft_candidate_validate() { push(events, "validate"); return true; }
+function nft_candidate_finish() { push(events, "discard"); }
+function abort_reload(status) { return status; }
+function discard_singbox_config_stage() {}
+function module_status(module, args) {
+    if (module != UPDATES_UC || args[0] != "apply-list-cache") die("unexpected cache action");
+    push(events, "cached-subnets");
+    return int(ARGV[2]);
+}
+function prepare_candidate(nft_list_update_sources, changed_list) {
+    let plan = { needs_nft_rebuild: 1, changed_list, needs_list_update: changed_list };
+    let reason = "", needs_singbox_transition = true, status = 0;
+    let staged_singbox_config = "", runtime_changed = false;
+UCODE
+  source_between "$LIFECYCLE_UC" '^    if \(plan\.needs_nft_rebuild == 1 && !\(plan\.changed_list' '^    if \(!needs_singbox_transition\)'
+  cat <<'UCODE'
+    return 0;
+}
+let result = prepare_candidate(int(ARGV[0]), int(ARGV[1]));
+print(join(",", events), " status=", result, "\n");
+UCODE
+} >"$WORK_DIR/restart-candidate.uc"
+[ "$(ucode "$WORK_DIR/restart-candidate.uc" 1 0 0)" = 'begin,rebuild,cached-subnets,inline,validate status=0' ] ||
+  fail "manual restart lost cached subnet entries when list sources were unchanged"
+[ "$(ucode "$WORK_DIR/restart-candidate.uc" 1 0 7)" = 'begin,rebuild,cached-subnets,discard status=7' ] ||
+  fail "manual restart prepared an incomplete candidate after cache replay failed"
+[ "$(ucode "$WORK_DIR/restart-candidate.uc" 0 0 0)" = 'begin,rebuild,inline,validate status=0' ] ||
+  fail "an nft rebuild without downloaded subnets required a list cache"
+[ "$(ucode "$WORK_DIR/restart-candidate.uc" 1 1 0)" = ' status=0' ] ||
+  fail "a changed source no longer defers the rebuild to the list worker"
+
 signature_body="$(source_function "$STATE_UC" append_list_update_signature_body)" || exit 1
 for local_key in '.action"' '.ports"' '.source_ip_cidr"' '.excluded_source_ip_cidr"' '.interfaces"'; do
   source_refute_text "local condition $local_key leaked into the list source signature" \
