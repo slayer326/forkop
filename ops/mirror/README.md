@@ -40,8 +40,9 @@ fork is `https://mirror.infotechtg.ru`: its readiness index is mandatory, so a
 missing index never starts a feed migration. Forkop releases still come from
 `https://fold8.ru/forkop`, not from the upstream author's release repository.
 
-The own-mirror synchronization configuration includes OpenWrt **24.10.0,
-24.10.1, 24.10.5 and 25.12.5** for Filogic and Rockchip. These are planned
+The home mirror synchronization configuration includes OpenWrt **24.10.0,
+24.10.1, 24.10.5, 25.12.2, 25.12.5 and 25.12.6** for Filogic and Rockchip,
+**25.12.5** for MT7621, and **25.12.6** for x86-64. These are configured
 combinations, not a promise that all files have already finished downloading;
 consult the live platform index before installation. The exact release and
 kernel ABI in an existing feed URL are preserved. Third-party firmware feeds
@@ -54,6 +55,11 @@ and kernel ABI trees, while package feeds are downloaded once per unique
 architecture. A merged code change does not enable a platform on the public
 mirror; the mirror operator must update the production configuration and finish
 a full successful synchronization first.
+
+The home synchronizer reads `FORKOP_MIRROR_RATE_MBIT` from its service
+environment. Set it to `200` for a 200 Mbit/s download ceiling (25,000,000
+bytes/s). If unset, `FORKOP_MIRROR_RATE_MIB` still sets the limit in MiB/s,
+with a default of 1. The service's disk and CPU limits apply independently.
 
 `sync-forkop-release.py` reads the latest stable release from
 `https://fold8.ru/forkop/updates/latest.json`, constrains package URLs to that

@@ -31,19 +31,29 @@ from prune_stale_snapshots import INCOMPLETE_MAX_AGE, cleanup_lists
 
 DATA = ROOT / 'data'
 PUBLIC = DATA / 'public'
-RATE = 1024 * 1024  # Aggregate incoming payload, one worker: 1 MiB/s.
+RATE_MBIT = os.environ.get('FORKOP_MIRROR_RATE_MBIT')
+if RATE_MBIT is not None:
+    RATE = int(RATE_MBIT) * 125_000  # Decimal Mbit/s to bytes/s.
+    if not 0 < RATE <= 50 * 1024**2:
+        raise ValueError('FORKOP_MIRROR_RATE_MBIT must be between 1 and 419')
+else:
+    RATE_MIB = int(os.environ.get('FORKOP_MIRROR_RATE_MIB', '1'))
+    if RATE_MIB < 1 or RATE_MIB > 50:
+        raise ValueError('FORKOP_MIRROR_RATE_MIB must be between 1 and 50')
+    RATE = RATE_MIB * 1024**2
 MAX_DATA = 100 * 1024**3
 MIN_FREE = 10 * 1024**3
 MAX_FILE = 512 * 1024**2
-PLATFORMS = [('mediatek/filogic', 'aarch64_cortex-a53'),
+PLATFORMS = [('x86/64', 'x86_64'),
+             ('mediatek/filogic', 'aarch64_cortex-a53'),
              ('rockchip/armv8', 'aarch64_generic'),
              ('ramips/mt7621', 'mipsel_24kc')]
-# Start with the user's existing firmware, then the latest stable APK firmware.
 # Additional releases are deliberately not advertised until their feeds are complete.
-RELEASES = ['24.10.5', '24.10.0', '24.10.1', '25.12.5']
-# The test router needs only 25.12.5. Do not mirror three unused IPK releases
-# for ramips: the platform index must list only feeds actually synchronized.
-PLATFORM_RELEASES = {('ramips/mt7621', 'mipsel_24kc'): {'25.12.5'}}
+RELEASES = ['25.12.6', '24.10.5', '24.10.0', '24.10.1', '25.12.5', '25.12.2']
+PLATFORM_RELEASES = {
+    ('x86/64', 'x86_64'): {'25.12.6'},
+    ('ramips/mt7621', 'mipsel_24kc'): {'25.12.5'},
+}
 HOSTS = {'downloads.openwrt.org', 'github.com', 'api.github.com', 'raw.githubusercontent.com',
          'codeload.github.com', 'release-assets.githubusercontent.com',
          'objects.githubusercontent.com', 'github-releases.githubusercontent.com'}
@@ -617,9 +627,12 @@ class Mirror:
         tag = safe_name(release['tag_name'])
         if release.get('draft') or release.get('prerelease'):
             raise ValueError('Stable sing-box release required')
-        pattern = r'^sing-box-extended_.*_openwrt_(aarch64_cortex-a53|aarch64_generic|mipsel_24kc)\.(apk|ipk)$'
-        assets = [a for a in release['assets'] if re.fullmatch(pattern, a['name'])]
-        if len(assets) != 6:
+        expected_assets = {
+            f'sing-box-extended_{tag.removeprefix("v")}_openwrt_{arch}.{fmt}'
+            for _, arch in PLATFORMS for fmt in ('apk', 'ipk')
+        }
+        assets = [a for a in release['assets'] if a['name'] in expected_assets]
+        if {a['name'] for a in assets} != expected_assets:
             raise ValueError('Expected APK/IPK sing-box assets for all mirrored architectures')
         snapshot = DATA / 'snapshots' / 'sing-box' / tag
         snapshot.mkdir(parents=True, exist_ok=True)
