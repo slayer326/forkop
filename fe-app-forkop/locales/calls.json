@@ -1681,6 +1681,13 @@
     ]
   },
   {
+    "call": "Create the interface first, or enter the name of an existing Forkop WARP interface.",
+    "key": "Create the interface first, or enter the name of an existing Forkop WARP interface.",
+    "places": [
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/warp.js:243"
+    ]
+  },
+  {
     "call": "Current section cannot be used as its own transit section",
     "key": "Current section cannot be used as its own transit section",
     "places": [
@@ -7482,6 +7489,13 @@
     "key": "URLTest settings saved",
     "places": [
       "src/forkop/tabs/dashboard/serviceReload.ts:24"
+    ]
+  },
+  {
+    "call": "Use 1 to 10 Latin letters, digits or underscores. The fkw prefix is added automatically.",
+    "key": "Use 1 to 10 Latin letters, digits or underscores. The fkw prefix is added automatically.",
+    "places": [
+      "../luci-app-forkop/htdocs/luci-static/resources/view/forkop/warp.js:82"
     ]
   },
   {

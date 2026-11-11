@@ -3149,6 +3149,12 @@ msgstr "Последнее рукопожатие: %s"
 msgid "New interface name"
 msgstr "Имя нового интерфейса"
 
+msgid "Use 1 to 10 Latin letters, digits or underscores. The fkw prefix is added automatically."
+msgstr "Введите от 1 до 10 латинских букв, цифр или знаков подчёркивания. Префикс fkw добавится автоматически."
+
+msgid "Create the interface first, or enter the name of an existing Forkop WARP interface."
+msgstr "Сначала создайте интерфейс или введите имя уже созданного интерфейса Forkop WARP."
+
 msgid "No handshake observed yet. Save the section and send traffic through the tunnel."
 msgstr "Рукопожатия пока нет. Сохраните секцию и направьте трафик через туннель."
 
