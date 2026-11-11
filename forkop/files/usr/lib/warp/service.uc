@@ -228,7 +228,8 @@ function import_profile(request, work) {
 }
 function status(name) {
     if (match(str(name), /^fkw[a-z0-9_]{1,10}$/) == null) fail("Invalid managed interface name");
-    if (trim(network_uci([ "get", "network." + name + ".forkop_warp" ]).output) != "1") fail("This interface is not managed by Forkop WARP");
+    if (trim(network_uci([ "get", "network." + name + ".forkop_warp" ]).output) != "1")
+        return { success: false, code: "interface_not_managed", message: "This interface is not managed by Forkop WARP" };
     let kind = trim(network_uci([ "get", "network." + name + ".proto" ]).output);
     check_kind(kind);
     let output = capture([ kind == "wireguard" ? "wg" : "awg", "show", name, "latest-handshakes" ]);

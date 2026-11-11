@@ -2619,6 +2619,12 @@ msgstr ""
 msgid "New interface name"
 msgstr ""
 
+msgid "Use 1 to 10 Latin letters, digits or underscores. The fkw prefix is added automatically."
+msgstr ""
+
+msgid "Create the interface first, or enter the name of an existing Forkop WARP interface."
+msgstr ""
+
 #: src/forkop/services/core.service.ts:35
 msgid "New version %s is available for %s"
 msgstr ""

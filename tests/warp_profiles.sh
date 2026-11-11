@@ -176,6 +176,8 @@ assert(index(network, "list addresses '2606:") < 0, "IPv6 enabled without opt in
 assert(index(network, "1.1.1.1") < 0, "imported DNS applied");
 rejects(function() { service.import_profile({ name:"fkwtest", profile:text }, root); }, "existing interface overwritten");
 assert(service.status("fkwtest").last_handshake == 1700000000, "handshake status");
+let missing = service.status("fkwmissing");
+assert(!missing.success && missing.code == "interface_not_managed", "missing interface status");
 fs.writefile(getenv("FORKOP_WARP_NETWORK_FILE"), original);
 fs.mkdir(root + "/rollback", 0700);
 fs.writefile(root + "/ifup_fail", "1");

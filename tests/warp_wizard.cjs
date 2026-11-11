@@ -10,12 +10,17 @@ function E(tag, attrs, children) {
   nodes.push(node);
   return node;
 }
-let action = '', created = '';
+let action = '', created = '', requestedName = '';
 const rpc = { declare(spec) { return async (...args) => {
   calls.push([spec.method, ...args]);
   if (spec.method === 'capabilities') return { success:true, wireguard:true, amneziawg:false, package_manager:'apk' };
-  if (spec.method === 'start') { action=args[0]; return { success:true, job_id:'1-2-3' }; }
-  if (spec.method === 'job') return action === 'generate' ? { success:true, profile:'PRIVATE_PROFILE_FIXTURE' } : { success:true, interface:'fkwtest' };
+  if (spec.method === 'start') {
+    [action, , requestedName] = args;
+    return { success:true, job_id:'1-2-3' };
+  }
+  if (spec.method === 'job') return action === 'generate' ? { success:true, profile:'PRIVATE_PROFILE_FIXTURE' } : { success:true, interface:requestedName };
+  if (spec.method === 'status')
+    return args[0] === created ? { success:true, handshake_observed:false } : { success:false, code:'interface_not_managed' };
   return { success:true };
 }; } };
 const wizard = new Function('baseclass', 'rpc', 'ui', 'E', '_', 'setTimeout', source)(
@@ -31,15 +36,33 @@ const button = label => nodes.find(n => n.tag==='button' && n.children===label);
   await button('Generate WARP profile').attrs.click();
   assert.equal(calls.some(c => c[0]==='start'), false, 'registration requires explicit terms acceptance');
   const checks=nodes.filter(n=>n.tag==='input' && n.attrs.type==='checkbox');
+  const interfaceName=nodes.find(n=>n.tag==='input' && n.attrs.type==='text');
+  const status=nodes.find(n=>n.attrs.role==='status');
+  interfaceName.value='WARPs';
   checks[2].checked=true;
   await button('Generate WARP profile').attrs.click();
   assert.equal(nodes.find(n=>n.tag==='textarea').value, 'PRIVATE_PROFILE_FIXTURE');
+  await button('Check handshake').attrs.click();
+  assert.equal(status.textContent,'Create the interface first, or enter the name of an existing Forkop WARP interface.');
+  assert.equal(calls.find(c=>c[0]==='status')[1],'fkwwarps');
+  for (const invalidName of ['fkw', 'warp-1', '12345678901']) {
+    interfaceName.value=invalidName;
+    await button('Create and add to section').attrs.click();
+    assert.match(status.textContent,/prefix is added automatically/);
+  }
+  assert.equal(calls.some(c=>c[0]==='start' && c[1]==='import'),false,'invalid names do not reach RPC');
+  interfaceName.value='WARPs';
   await button('Create and add to section').attrs.click();
-  assert.equal(created,'fkwtest');
+  assert.equal(created,'fkwwarps');
+  assert.equal(interfaceName.value,created,'the field shows the actual interface name');
   const imported=calls.find(c=>c[0]==='start' && c[1]==='import');
+  assert.equal(imported[3],'fkwwarps');
   assert.equal(imported[4], 'PRIVATE_PROFILE_FIXTURE');
   assert.equal(imported[5], false, 'IPv6 is opt in');
   assert.equal(calls.filter(c=>c[0]==='ack').length,2,'private job results are acknowledged');
+  await button('Check handshake').attrs.click();
+  assert.match(status.textContent,/No handshake observed yet/);
+  assert.equal(calls.filter(c=>c[0]==='status').at(-1)[1],created,'the prefix is not added twice');
   await button('Close').attrs.click();
   assert.equal(nodes.find(n=>n.tag==='textarea').value,'','closing clears the profile');
   for (const version of ['24.10', '25.12']) for (const discoveryFailure of [false,true]) {

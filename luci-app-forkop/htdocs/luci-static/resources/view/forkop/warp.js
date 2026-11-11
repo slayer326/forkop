@@ -77,7 +77,17 @@ return baseclass.extend({
       maxlength: 13,
       value: `fkw${Date.now().toString(36).slice(-6)}`,
       class: "cbi-input-text",
+      "aria-describedby": "forkop-warp-name-help",
     });
+    const nameHelp = _(
+      "Use 1 to 10 Latin letters, digits or underscores. The fkw prefix is added automatically.",
+    );
+    function interfaceName() {
+      const suffix = name.value.trim().replace(/^fkw/i, "");
+      if (!/^[a-zA-Z0-9_]{1,10}$/.test(suffix)) throw new Error(nameHelp);
+      name.value = "fkw" + suffix.toLowerCase();
+      return name.value;
+    }
     const kind = E("select", { class: "cbi-input-select" }, [
       E("option", { value: "wireguard" }, "WireGuard"),
       E("option", { value: "amneziawg" }, "AmneziaWG"),
@@ -192,7 +202,7 @@ return baseclass.extend({
         await callStart(
           action,
           kind.value,
-          name.value.trim(),
+          action === "import" ? interfaceName() : "",
           action === "import" ? profile.value : "",
           ipv6.input.checked,
           viaProxy.input.checked,
@@ -227,7 +237,13 @@ return baseclass.extend({
       );
     });
     const check = button(_("Check handshake"), async () => {
-      const result = await callStatus(name.value.trim());
+      const result = await callStatus(interfaceName());
+      if (result.code === "interface_not_managed")
+        throw new Error(
+          _(
+            "Create the interface first, or enter the name of an existing Forkop WARP interface.",
+          ),
+        );
       if (!result.success)
         throw new Error(result.message || _("Cannot check WARP interface"));
       show(
@@ -264,6 +280,7 @@ return baseclass.extend({
         " ",
         name,
       ]),
+      E("p", { id: "forkop-warp-name-help" }, nameHelp),
       E(
         "p",
         {},
