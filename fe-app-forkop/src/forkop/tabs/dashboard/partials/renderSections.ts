@@ -43,6 +43,8 @@ interface IRenderSectionsProps {
   viewOptions?: OutboundViewOptions;
   onViewOptionsChange?: (options: OutboundViewOptions) => void;
   onCopyLinks?: (links: string[]) => void;
+  collapsed?: boolean;
+  onSectionToggle?: (collapsed: boolean) => void;
 }
 
 const DEFAULT_VIEW_OPTIONS: OutboundViewOptions = {
@@ -336,7 +338,42 @@ function renderDefaultState({
   viewOptions = DEFAULT_VIEW_OPTIONS,
   onViewOptionsChange,
   onCopyLinks,
+  collapsed = false,
+  onSectionToggle,
 }: IRenderSectionsProps) {
+  const bodyId = `dashboard-nodes-body-${section.sectionName}`;
+  const title = E(
+    'div',
+    {
+      class: 'fkp_dashboard-page__outbound-section__title-section__title',
+    },
+    onSectionToggle
+      ? E(
+          'button',
+          {
+            id: `dashboard-nodes-toggle-${section.sectionName}`,
+            class: 'fkp_dashboard-page__outbound-section__disclosure',
+            type: 'button',
+            'aria-expanded': String(!collapsed),
+            'aria-controls': bodyId,
+            click: () => onSectionToggle(!collapsed),
+          },
+          section.displayName,
+        )
+      : section.displayName,
+  );
+
+  if (collapsed && onSectionToggle) {
+    return E('div', { class: 'fkp_dashboard-page__outbound-section' }, [
+      E(
+        'div',
+        { class: 'fkp_dashboard-page__outbound-section__title-section' },
+        title,
+      ),
+      E('div', { id: bodyId, hidden: true }),
+    ]);
+  }
+
   const withTagSelect = section.withTagSelect && !readonly;
   // Sorting and hiding only change this viewer's grid; a section with a
   // single server has nothing to arrange.
@@ -724,13 +761,7 @@ function renderDefaultState({
   return E('div', { class: 'fkp_dashboard-page__outbound-section' }, [
     // Title with test latency
     E('div', { class: 'fkp_dashboard-page__outbound-section__title-section' }, [
-      E(
-        'div',
-        {
-          class: 'fkp_dashboard-page__outbound-section__title-section__title',
-        },
-        section.displayName,
-      ),
+      title,
       E(
         'div',
         {
@@ -846,7 +877,7 @@ function renderDefaultState({
           ]),
         ]
       : []),
-    E('div', { class: 'fkp_dashboard-page__outbound-grid' }, [
+    E('div', { id: bodyId, class: 'fkp_dashboard-page__outbound-grid' }, [
       ...(metadataNodes.length
         ? [
             E(

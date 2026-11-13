@@ -169,6 +169,41 @@ export const styles = `
     overflow-wrap: anywhere;
 }
 
+.fkp_dashboard-page__outbound-section__disclosure {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 32px;
+    max-width: 100%;
+    padding: 4px 6px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+}
+
+.fkp_dashboard-page__outbound-section__disclosure:hover {
+    background: var(--background-color-low, rgba(128, 128, 128, 0.15));
+}
+
+.fkp_dashboard-page__outbound-section__disclosure::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    flex: 0 0 6px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+}
+
+.fkp_dashboard-page__outbound-section__disclosure[aria-expanded="false"]::before {
+    transform: rotate(-45deg);
+}
+
 .fkp_dashboard-page__outbound-section__title-section__actions {
     display: flex;
     align-items: center;
