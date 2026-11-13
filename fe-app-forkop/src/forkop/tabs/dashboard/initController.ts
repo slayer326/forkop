@@ -247,6 +247,7 @@ const handledSubscriptionJobs = new Set<string>();
 const handledLatencyJobs = new Set<string>();
 // Cards are replaced on each refresh; keep disclosure state outside their DOM.
 const priorityMembersState = createPriorityMembersState();
+const collapsedNodeSections = new Map<string, boolean>();
 // The node whose own card started the running latency test, per section.
 const nodeLatencyTestTags = new Map<string, string>();
 
@@ -255,6 +256,20 @@ function browserStorage() {
     return window.localStorage;
   } catch (_error) {
     return undefined;
+  }
+}
+
+function isNodeSectionCollapsed(sectionName: string) {
+  const current = collapsedNodeSections.get(sectionName);
+  if (current !== undefined) return current;
+  try {
+    return (
+      browserStorage()?.getItem(
+        `forkop.dashboard.nodesCollapsed.${sectionName}`,
+      ) === '1'
+    );
+  } catch {
+    return false;
   }
 }
 
@@ -1961,6 +1976,21 @@ async function renderSectionsWidget() {
         sectionsWidget.selectorSwitchingSections[section.sectionName],
       readonly: isReadonlyMode(),
       latencyTestingTag: nodeLatencyTestTags.get(section.sectionName),
+      collapsed: isNodeSectionCollapsed(section.sectionName),
+      onSectionToggle: (collapsed) => {
+        collapsedNodeSections.set(section.sectionName, collapsed);
+        const key = `forkop.dashboard.nodesCollapsed.${section.sectionName}`;
+        try {
+          if (collapsed) browserStorage()?.setItem(key, '1');
+          else browserStorage()?.removeItem(key);
+        } catch {
+          // Keep the in-memory choice if browser storage is unavailable.
+        }
+        void renderSectionsWidget();
+        document
+          .getElementById(`dashboard-nodes-toggle-${section.sectionName}`)
+          ?.focus({ preventScroll: true });
+      },
       viewOptions: getOutboundView(section.sectionName),
       onViewOptionsChange: (options) => {
         const storage = browserStorage();

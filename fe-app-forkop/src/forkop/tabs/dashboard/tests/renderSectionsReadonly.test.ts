@@ -47,7 +47,13 @@ function text(node: unknown): string {
 import { renderSections } from '../partials/renderSections';
 import type { Forkop } from '../../../types';
 
-function render(readonly: boolean) {
+function render(
+  readonly: boolean,
+  disclosure?: {
+    collapsed: boolean;
+    onSectionToggle: (collapsed: boolean) => void;
+  },
+) {
   const handlers = {
     onTestLatency: vi.fn(),
     onChooseOutbound: vi.fn(),
@@ -88,6 +94,7 @@ function render(readonly: boolean) {
     isPriorityMembersExpanded: () => false,
     onPriorityMembersToggle: vi.fn(),
     readonly,
+    ...disclosure,
   });
   return { node, handlers };
 }
@@ -133,5 +140,48 @@ describe('dashboard sections in a read-only session', () => {
       'main-out',
       'b',
     );
+  });
+});
+
+describe('node section disclosure', () => {
+  it('renders only the heading for a collapsed section and can reopen it', () => {
+    const onSectionToggle = vi.fn();
+    const { node } = render(false, { collapsed: true, onSectionToggle });
+    const buttons = find(node, (n) => n.tag === 'button');
+
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0].attrs['aria-expanded']).toBe('false');
+    expect(text(buttons[0])).toBe('Main');
+    expect(
+      find(node, (n) => n.attrs.id === buttons[0].attrs['aria-controls'])[0]
+        .attrs.hidden,
+    ).toBe(true);
+    expect(
+      find(node, (n) =>
+        String(n.attrs.class || '')
+          .split(' ')
+          .includes('fkp_dashboard-page__outbound-grid__item'),
+      ),
+    ).toHaveLength(0);
+    (buttons[0].attrs.click as () => void)();
+    expect(onSectionToggle).toHaveBeenCalledWith(false);
+  });
+
+  it('can collapse an expanded read-only section without exposing runtime actions', () => {
+    const onSectionToggle = vi.fn();
+    const { node } = render(true, { collapsed: false, onSectionToggle });
+    const buttons = find(node, (n) => n.tag === 'button');
+
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0].attrs['aria-expanded']).toBe('true');
+    expect(
+      find(node, (n) =>
+        String(n.attrs.class || '')
+          .split(' ')
+          .includes('fkp_dashboard-page__outbound-grid__item'),
+      ),
+    ).toHaveLength(2);
+    (buttons[0].attrs.click as () => void)();
+    expect(onSectionToggle).toHaveBeenCalledWith(true);
   });
 });
