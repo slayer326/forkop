@@ -1027,49 +1027,62 @@ function buildPriorityInfo({
       ? left.id.localeCompare(right.id)
       : left.order - right.order,
   );
-  const outbounds = levels.flatMap((level, levelIndex) => {
-    const members = uniqueCodes(level.outbounds || []).map((childCode) => {
-      const childEntry = proxyByCode.get(childCode);
-      const link =
-        manualLinkByCode.get(childCode) ||
-        cachedProxyLinks.get(childCode) ||
-        '';
-      return {
-        code: childCode,
-        displayName: getOutboundDisplayName(
-          childCode,
-          childEntry,
-          link,
-          outboundMetadata,
-          cachedProxyLinks.has(childCode),
-        ),
-        latency: latestProxyLatency(childEntry?.value),
-        type: childEntry?.value?.type || '',
-        selected: selectedCode === childCode,
-        country: showDetectedCountries
-          ? outboundMetadata?.countries?.[childCode]
-          : undefined,
-        levelIndex,
-        levelName: level.displayName,
-        levelId: level.id,
-      };
-    });
+  function buildMember(code: string): Forkop.PriorityMember {
+    const childEntry = proxyByCode.get(code);
+    const link = manualLinkByCode.get(code) || cachedProxyLinks.get(code) || '';
+    return {
+      code,
+      displayName: getOutboundDisplayName(
+        code,
+        childEntry,
+        link,
+        outboundMetadata,
+        cachedProxyLinks.has(code),
+      ),
+      latency: latestProxyLatency(childEntry?.value),
+      type: childEntry?.value?.type || '',
+      selected: selectedCode === code,
+      country: showDetectedCountries
+        ? outboundMetadata?.countries?.[code]
+        : undefined,
+    };
+  }
 
-    if (!config.pickFastest) {
-      return members;
-    }
+  // Clash supplies the active membership. The cache can add level assignments
+  // for known nodes, but may be missing or lag behind a subscription refresh.
+  const liveMembers = entry?.value.all;
+  const liveCodes = liveMembers ? new Set(liveMembers) : undefined;
+  const outbounds: Forkop.PriorityMember[] = levels.flatMap(
+    (level, levelIndex) => {
+      const members = uniqueCodes(level.outbounds || [])
+        .filter((code) => !liveCodes || liveCodes.has(code))
+        .map((code) => ({
+          ...buildMember(code),
+          levelIndex,
+          levelName: level.displayName,
+          levelId: level.id,
+        }));
 
-    return members
-      .map((outbound, index) => ({ outbound, index }))
-      .sort((left, right) => {
-        const latencyDiff =
-          getLatencySortValue(left.outbound) -
-          getLatencySortValue(right.outbound);
+      if (!config.pickFastest) {
+        return members;
+      }
 
-        return latencyDiff !== 0 ? latencyDiff : left.index - right.index;
-      })
-      .map((item) => item.outbound);
-  });
+      return members
+        .map((outbound, index) => ({ outbound, index }))
+        .sort((left, right) => {
+          const latencyDiff =
+            getLatencySortValue(left.outbound) -
+            getLatencySortValue(right.outbound);
+
+          return latencyDiff !== 0 ? latencyDiff : left.index - right.index;
+        })
+        .map((item) => item.outbound);
+    },
+  );
+  const groupedCodes = new Set(outbounds.map((member) => member.code));
+  for (const code of uniqueCodes(liveMembers ?? groupCache?.outbounds ?? [])) {
+    if (!groupedCodes.has(code)) outbounds.push(buildMember(code));
+  }
   const selectedName =
     outbounds.find((outbound) => outbound.code === selectedCode)?.displayName ||
     selectedCode;

@@ -643,6 +643,69 @@ describe('getDashboardSections', () => {
     ]);
   });
 
+  it.each(['missing', 'stale'] as const)(
+    'shows live Priority members when the section cache is %s',
+    async (cacheState) => {
+      const groupCode = 'main-priority-pg_main-out';
+      mocks.getConfigSections.mockResolvedValue([
+        proxySection({ urltests: [], urltest_settings: undefined }),
+        priorityGroup('pg_main'),
+        priorityLevel('pl_de', { name: 'Germany' }),
+      ]);
+      mocks.getClashApiProxies.mockResolvedValue({
+        success: true,
+        data: {
+          proxies: {
+            ...clashProxies,
+            'main-out': proxy('Selector', {
+              now: groupCode,
+              all: [groupCode, 'main-1-out', 'main-2-out'],
+            }),
+            [groupCode]: proxy('Selector', {
+              now: 'main-2-out',
+              all: ['main-1-out', 'main-2-out'],
+            }),
+          },
+        },
+      });
+      if (cacheState === 'stale') {
+        mocks.fsRead.mockResolvedValue(
+          JSON.stringify({
+            priorityGroups: {
+              [groupCode]: {
+                levels: [
+                  { id: 'pl_de', outbounds: ['main-1-out', 'old-node-out'] },
+                ],
+              },
+            },
+          }),
+        );
+      }
+
+      const result = await getDashboardSections();
+      const [section] = result.data;
+      expect(result.success).toBe(true);
+      expect(section.outbounds.map((item) => item.code)).toEqual([groupCode]);
+      expect(section.latencyTestCodes).toEqual(['main-1-out', 'main-2-out']);
+      const info = section.outbounds[0].priorityInfo;
+      expect(info?.selectedName).toBe('Filtered 2');
+      expect(
+        info?.outbounds.map(({ code, selected, levelName }) => ({
+          code,
+          selected,
+          levelName,
+        })),
+      ).toEqual([
+        {
+          code: 'main-1-out',
+          selected: false,
+          levelName: cacheState === 'stale' ? 'Germany' : undefined,
+        },
+        { code: 'main-2-out', selected: true, levelName: undefined },
+      ]);
+    },
+  );
+
   it('keeps an empty Priority group visible when sing-box skipped the selector', async () => {
     mocks.getConfigSections.mockResolvedValue([
       proxySection({
