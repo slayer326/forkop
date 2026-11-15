@@ -1598,7 +1598,7 @@ function renderPrioritySelectedValue(info: Forkop.PriorityInfo) {
 }
 
 function renderPriorityMemberName(member: Forkop.PriorityMember) {
-  const levelName = member.levelName || _('Level');
+  if (member.levelIndex === undefined) return renderDetailsMemberName(member);
 
   return [
     E(
@@ -1609,7 +1609,7 @@ function renderPriorityMemberName(member: Forkop.PriorityMember) {
     E(
       'span',
       { class: 'fkp_dashboard-page__urltest-details__priority-level' },
-      levelName,
+      member.levelName || _('Level'),
     ),
     E(
       'span',

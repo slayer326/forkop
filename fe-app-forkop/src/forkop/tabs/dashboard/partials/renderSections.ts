@@ -434,7 +434,10 @@ function renderDefaultState({
     }
 
     members.forEach((member, index) => {
-      if (member.levelIndex !== previousLevel) {
+      if (
+        member.levelIndex !== undefined &&
+        member.levelIndex !== previousLevel
+      ) {
         previousLevel = member.levelIndex;
         content.push(
           E(
