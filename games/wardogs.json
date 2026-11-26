@@ -2,6 +2,10 @@
   "version": 3,
   "rules": [
     {
+      "domain_suffix": [
+        "live.wardogs.bulkhead.pragmaengine.com",
+        "wardogs.com"
+      ],
       "ip_cidr": [
         "52.50.63.173/32",
         "52.209.230.193/32",
